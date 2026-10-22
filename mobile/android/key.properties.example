@@ -1,0 +1,14 @@
+# Tarak Android release signing (Play Store upload key).
+#
+# 1) Create the upload keystore ONCE (you choose both passwords; keep the file and passwords in a password manager + offline backup):
+#      cd mobile\android
+#      mkdir keystore
+#      keytool -genkeypair -v -keystore keystore\tarak-upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias tarak-upload
+# 2) Copy this file to  mobile/android/key.properties  and fill in the two passwords.
+#
+# key.properties and *.jks are git-ignored (mobile/.gitignore). NEVER commit them and never use the debug key for the store.
+# storeFile is relative to android/app, so ../keystore/... = mobile/android/keystore/tarak-upload-keystore.jks
+storePassword=
+keyPassword=
+keyAlias=tarak-upload
+storeFile=../keystore/tarak-upload-keystore.jks

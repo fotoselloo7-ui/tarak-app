@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Tarak - App Store dagitimi icin export ayari (SABLON). Sertifika, private key veya sifre ICERMEZ.
+  build-ipa-on-mac.sh bu dosyayi kopyalayip __TEAM_ID__ ve __METHOD__ degerlerini doldurur; elle de doldurabilirsiniz.
+  Imzalama: Xcode "Automatically manage signing" (projedeki mevcut CODE_SIGN_STYLE = Automatic) + sizin Apple Distribution
+  kimliginiz Mac'inizin Anahtar Zinciri'nde / Apple Developer hesabinizda; ayrica bir imza bilgisi paketlenmez.
+  Bundle ID: app.tarak.mobile (degistirilmez).
+-->
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>__METHOD__</string>
+    <key>teamID</key>
+    <string>__TEAM_ID__</string>
+    <key>signingStyle</key>
+    <string>automatic</string>
+    <key>destination</key>
+    <string>export</string>
+    <key>uploadSymbols</key>
+    <true/>
+    <key>stripSwiftSymbols</key>
+    <true/>
+    <!-- Surum / build numarasi pubspec.yaml'dan gelir; Xcode yuklemede kendi kendine artirmasin. -->
+    <key>manageAppVersionAndBuildNumber</key>
+    <false/>
+</dict>
+</plist>

@@ -1,0 +1,26 @@
+{
+  "source_bundle": "release.zip",
+  "mobile_version": "1.1.0+2",
+  "bundle_id": "app.tarak.mobile",
+  "mobile_source_files": 570,
+  "backend_php_lint_files": 255,
+  "backend_php_lint_errors": [],
+  "identity_files_updated": [
+    "mobile/IOS_RELEASE_GUIDE.md",
+    "mobile/README.md",
+    "mobile/test/app_icon_test.dart",
+    "mobile/test/env_config_test.dart",
+    "mobile/android/app/build.gradle.kts",
+    "mobile/android/app/src/main/kotlin/app/tarak/mobile/MainActivity.kt",
+    "mobile/lib/core/app_icon/app_icon_service.dart",
+    "mobile/lib/core/config/env_config.dart",
+    "mobile/ios/Runner.xcodeproj/project.pbxproj",
+    "mobile/ios/Runner/AppDelegate.swift"
+  ],
+  "web_is_compiled_only": true,
+  "firebase_files_present": false,
+  "aab_ipa_present": false,
+  "sql_contains_test_data_and_demo_hashes": true,
+  "mysql_import_not_run": true,
+  "flutter_build_not_run": true
+}

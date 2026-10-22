@@ -1,0 +1,36 @@
+# secrets
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.production.example
+**/key.properties
+**/*.jks
+**/*.keystore
+**/*.p12
+**/*.p8
+**/*.pfx
+**/GoogleService-Info.plist
+**/google-services.json
+**/*service-account*.json
+**/firebase-service-account.json
+# dev, builds, caches
+**/.dart_tool/
+**/build/
+**/.gradle/
+**/Pods/
+**/.symlinks/
+**/Flutter/ephemeral/
+**/Generated.xcconfig
+**/flutter_export_environment.sh
+**/node_modules/
+**/vendor/
+**/.idea/
+**/.vscode/
+**/.DS_Store
+**/storage/logs/*.log
+**/storage/framework/cache/**
+**/storage/framework/sessions/**
+**/storage/framework/views/**
+**/*.aab
+**/*.ipa
+**/*.apk
