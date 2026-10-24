@@ -36,7 +36,7 @@ export default function NearbyProviders({onNavigate}) {
         const pinned = list.filter(a => coords(a));
         setAddresses(pinned);
         const selected = pinned.find(a => a.is_default) || pinned[0];
-        if (selected) setOrigin({...coords(selected), title: selected.title || "Kayıtlı adres"});
+        if (selected) setOrigin({...coords(selected), addressId: String(selected.id), title: selected.title || "Kayıtlı adres"});
       })
       .catch(() => { if (live) setMessage("Adresler yüklenemedi. Profilinizden kontrol edin."); });
     return () => { live = false; };
@@ -140,7 +140,7 @@ export default function NearbyProviders({onNavigate}) {
         }),
         jsx.jsxs("div",{className:"flex items-center gap-2 flex-wrap mt-2",children:[
           addresses.length > 0 && jsx.jsxs("select",{
-            "aria-label":"Mesafe için adres", value:source === "device" ? "device" : (origin?.addressId || "saved"),
+            "aria-label":"Mesafe için adres", value:source === "device" ? "device" : (origin?.addressId || String(addresses[0]?.id || "")),
             onChange:event=>{
               const a=addresses.find(v=>String(v.id)===event.target.value);
               if(a){setSource("saved");setOrigin({...coords(a),addressId:String(a.id),title:a.title || "Kayıtlı adres"});}
