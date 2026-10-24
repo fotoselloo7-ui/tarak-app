@@ -93,6 +93,76 @@ class RegistrationVerificationController extends Controller
         ]);
     }
 
+
+    /** Optional phone confirmation. SMS must be enabled in Admin Integration Center. */
+    public function startSms(Request $request, \App\Services\Sms\SmsManager $sms): JsonResponse
+    {
+        $input = $request->validate(['phone' => ['required', 'string', 'max:25']]);
+        $phone = \App\Models\User::normalizePhone($input['phone']);
+        if ($phone === null) return response()->json(['success' => false, 'message' => 'Geçerli cep telefonu girin.'], 422);
+        if (\App\Models\User::where('phone', $phone)->exists()) {
+            return response()->json(['success' => false, 'message' => 'Bu telefon numarası zaten kayıtlı.'], 422);
+        }
+        $cooldown = 'registration:sms-cooldown:' . hash('sha256', $phone);
+        if (Cache::has($cooldown)) return response()->json(['success' => false, 'message' => 'Yeni SMS kodu için 60 saniye bekleyin.'], 429);
+        $id = (string) Str::uuid();
+        $code = (string) random_int(100000, 999999);
+        $key = 'registration:sms-challenge:' . $id;
+        Cache::put($key, [
+            'phone' => $phone, 'digest' => hash_hmac('sha256', $id . ':' . $code, (string) config('app.key')),
+            'attempts' => 0, 'expires_at' => time() + 600,
+        ], now()->addMinutes(10));
+        Cache::put($cooldown, true, now()->addSeconds(60));
+        try {
+            $sent = $sms->sendTemplate('otp', $phone, ['code' => $code]);
+            if (empty($sent['sent'])) throw new \RuntimeException('SMS unavailable');
+        } catch (\Throwable $e) {
+            Cache::forget($key);
+            Cache::forget($cooldown);
+            return response()->json(['success' => false, 'message' => 'SMS gönderilemedi. Yönetim panelinde SMS ve OTP olayını etkinleştirin.'], 503);
+        }
+        return response()->json(['success' => true, 'message' => 'SMS kodu gönderildi.', 'data' => ['challenge_id' => $id, 'expires_in' => 600]]);
+    }
+
+    public function confirmSms(Request $request): JsonResponse
+    {
+        $input = $request->validate([
+            'phone' => ['required', 'string', 'max:25'], 'challenge_id' => ['required', 'uuid'], 'code' => ['required', 'digits:6'],
+        ]);
+        $phone = \App\Models\User::normalizePhone($input['phone']);
+        $id = $input['challenge_id'];
+        $key = 'registration:sms-challenge:' . $id;
+        $record = Cache::get($key);
+        if (!$phone || !$record || !hash_equals($record['phone'], $phone)) {
+            return response()->json(['success' => false, 'message' => 'SMS doğrulamasının süresi dolmuş.'], 422);
+        }
+        if ($record['attempts'] >= 5) {
+            Cache::forget($key);
+            return response()->json(['success' => false, 'message' => 'Deneme hakkınız doldu.'], 429);
+        }
+        $record['attempts']++;
+        if (!hash_equals($record['digest'], hash_hmac('sha256', $id . ':' . $input['code'], (string) config('app.key')))) {
+            Cache::put($key, $record, max(1, (int)$record['expires_at'] - time()));
+            return response()->json(['success' => false, 'message' => 'SMS kodu geçersiz.'], 422);
+        }
+        Cache::forget($key);
+        $proof = Str::random(64);
+        Cache::put('registration:sms-proof:' . hash('sha256', $proof), $phone, now()->addMinutes(15));
+        return response()->json(['success' => true, 'message' => 'Telefon doğrulandı.', 'data' => ['sms_proof' => $proof]]);
+    }
+
+    public static function claimSmsProof(string $proof, string $phone): bool
+    {
+        if ($proof === '') return false;
+        $key = 'registration:sms-proof:' . hash('sha256', $proof);
+        return Cache::lock('registration:sms-proof-lock:' . hash('sha256', $proof), 10)->block(3, static function () use ($key, $phone): bool {
+            $saved = Cache::get($key);
+            if (!$saved || !hash_equals($saved, $phone)) return false;
+            Cache::forget($key);
+            return true;
+        });
+    }
+
     public static function claimProof(string $proof, string $email): bool
     {
         if ($proof === '') return false;
