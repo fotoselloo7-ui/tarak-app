@@ -143,13 +143,28 @@ jobs:
       - name: Flutter analyze
         run: flutter analyze
 
+      - name: Configure optional OAuth and native Maps identifiers
+        env:
+          GOOGLE_OAUTH_WEB_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_WEB_CLIENT_ID }}
+          TARAK_GOOGLE_IOS_CLIENT_ID: ${{ secrets.TARAK_GOOGLE_IOS_CLIENT_ID }}
+          TARAK_GOOGLE_IOS_REVERSED_CLIENT_ID: ${{ secrets.TARAK_GOOGLE_IOS_REVERSED_CLIENT_ID }}
+          TARAK_MAPS_IOS_API_KEY: ${{ secrets.TARAK_MAPS_IOS_API_KEY }}
+        run: |
+          set -euo pipefail
+          printf 'TARAK_GOOGLE_IOS_CLIENT_ID = %s\n' "$TARAK_GOOGLE_IOS_CLIENT_ID" >> ios/Flutter/Release.xcconfig
+          printf 'TARAK_GOOGLE_IOS_REVERSED_CLIENT_ID = %s\n' "$TARAK_GOOGLE_IOS_REVERSED_CLIENT_ID" >> ios/Flutter/Release.xcconfig
+          printf 'TARAK_MAPS_IOS_API_KEY = %s\n' "$TARAK_MAPS_IOS_API_KEY" >> ios/Flutter/Release.xcconfig
+          if [ -n "$TARAK_MAPS_IOS_API_KEY" ]; then echo 'TARAK_MAPS_ENABLED=true' >> "$GITHUB_ENV"; else echo 'TARAK_MAPS_ENABLED=false' >> "$GITHUB_ENV"; fi
+          echo "GOOGLE_OAUTH_WEB_CLIENT_ID=$GOOGLE_OAUTH_WEB_CLIENT_ID" >> "$GITHUB_ENV"
       - name: Prepare Flutter iOS build
         run: |
           flutter build ios --release --no-codesign \
             --build-name 1.1.0 --build-number "${{ inputs.build_number || '3' }}" \
             --dart-define=API_BASE_URL=https://tarak.app/api \
             --dart-define=REVERB_HOST=tarak.app \
-            --dart-define=REVERB_APP_KEY=hhyfpgfv2dgv95yd78kz
+            --dart-define=REVERB_APP_KEY=hhyfpgfv2dgv95yd78kz \
+            --dart-define=GOOGLE_OAUTH_WEB_CLIENT_ID="$GOOGLE_OAUTH_WEB_CLIENT_ID" \
+            --dart-define=TARAK_MAPS_ENABLED="$TARAK_MAPS_ENABLED"
 
       - name: Create signed archive
         run: |
