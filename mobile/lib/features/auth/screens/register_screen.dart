@@ -36,6 +36,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _passwordConfirmController = TextEditingController();
   final _businessNameController = TextEditingController();
   final _otpCtrl = TextEditingController();
+  final _smsOtpCtrl = TextEditingController();
+  String? _smsChallengeId;
+  String? _smsProof;
+  String? _verifiedPhone;
   String? _challengeId;
   String? _verificationProof;
   String? _verifiedEmail;
@@ -78,6 +82,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     _passwordConfirmController.dispose();
     _businessNameController.dispose();
     _otpCtrl.dispose();
+    _smsOtpCtrl.dispose();
     super.dispose();
   }
 
@@ -170,6 +175,42 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     }
   }
 
+
+  Future<void> _sendSmsCode() async {
+    if (_phoneController.text.trim().isEmpty) return;
+    setState(() { _busyAction = true; _statusMessage = null; _smsProof = null; });
+    try {
+      final response = await ref.read(apiClientProvider).post('/auth/registration/sms/start',
+        data: {'phone': _phoneController.text.trim()});
+      final body = (response.data as Map<String,dynamic>)['data'] as Map<String,dynamic>;
+      if (!mounted) return;
+      setState(() { _smsChallengeId = body['challenge_id'].toString(); _statusMessage = 'SMS doğrulama kodu gönderildi.'; });
+    } catch (e) {
+      if (mounted) setState(() => _statusMessage = 'SMS gönderilemedi. E-posta doğrulamasıyla devam edebilirsiniz. $e');
+    } finally {
+      if (mounted) setState(() => _busyAction = false);
+    }
+  }
+
+  Future<void> _confirmSmsCode() async {
+    if (_smsChallengeId == null) return;
+    setState(() => _busyAction = true);
+    try {
+      final phone = _phoneController.text.trim();
+      final response = await ref.read(apiClientProvider).post('/auth/registration/sms/confirm', data: {
+        'phone': phone, 'challenge_id': _smsChallengeId, 'code': _smsOtpCtrl.text.trim(),
+      });
+      final body = (response.data as Map<String,dynamic>)['data'] as Map<String,dynamic>;
+      if (!mounted) return;
+      setState(() { _smsProof = body['sms_proof'].toString(); _verifiedPhone = phone;
+        _statusMessage = 'Telefon numarası doğrulandı.'; });
+    } catch (e) {
+      if (mounted) setState(() => _statusMessage = 'SMS kodu geçersiz: $e');
+    } finally {
+      if (mounted) setState(() => _busyAction = false);
+    }
+  }
+
   Future<void> _chooseAddress() async {
     final chosen = await Navigator.of(context).push<Map<String,dynamic>>(
       MaterialPageRoute(builder: (_) => RegistrationLocationScreen(initial: _address)),
@@ -201,6 +242,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           password: _passwordController.text,
           passwordConfirmation: _passwordConfirmController.text,
           registrationProof: _verificationProof,
+          smsProof: _verifiedPhone == _phoneController.text.trim() ? _smsProof : null,
           address: _address,
           termsAccepted: _termsAccepted,
           privacyAcknowledged: _privacyAcknowledged,
@@ -424,6 +466,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   TextFormField(controller: _otpCtrl, keyboardType: TextInputType.number, maxLength: 6,
                     decoration: const InputDecoration(labelText: '6 Haneli Kod', border: OutlineInputBorder())),
                   OutlinedButton(onPressed: _busyAction ? null : _confirmCode, child: const Text('Kodu Doğrula')),
+                  const SizedBox(height: 12),
+                ],
+                if (_phoneController.text.trim().isNotEmpty) ...[
+                  OutlinedButton.icon(onPressed: _busyAction ? null : _sendSmsCode,
+                    icon: const Icon(Icons.sms_outlined),
+                    label: const Text('Telefonu SMS ile Doğrula (isteğe bağlı)')),
+                  if (_smsChallengeId != null && _smsProof == null) ...[
+                    const SizedBox(height: 8),
+                    TextFormField(controller: _smsOtpCtrl, keyboardType: TextInputType.number,
+                      maxLength: 6, decoration: const InputDecoration(labelText: 'SMS Kodu', border: OutlineInputBorder())),
+                    OutlinedButton(onPressed: _busyAction ? null : _confirmSmsCode, child: const Text('SMS Kodunu Doğrula')),
+                  ],
                   const SizedBox(height: 12),
                 ],
                 // Password
