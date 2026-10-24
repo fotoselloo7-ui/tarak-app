@@ -23,7 +23,10 @@ export default function NearbyProviders({onNavigate}) {
     const lat = Number(a?.latitude), lng = Number(a?.longitude);
     return Number.isFinite(lat) && Number.isFinite(lng) &&
       Math.abs(lat) <= 90 && Math.abs(lng) <= 180 &&
-      a?.latitude != null && a?.longitude != null ? {lat, lng} : null;
+      !(lat === 0 && lng === 0) &&
+      a?.latitude != null && a?.longitude != null &&
+      String(a.latitude).trim() !== "" && String(a.longitude).trim() !== ""
+      ? {lat, lng} : null;
   };
 
   React.useEffect(() => {
@@ -86,7 +89,8 @@ export default function NearbyProviders({onNavigate}) {
   };
 
   const card = p => jsx.jsxs("article", {
-    className: "min-w-[245px] max-w-[270px] snap-start bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition-shadow",
+    className: "snap-start bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition-shadow",
+    style: {minWidth: "245px", maxWidth: "270px", scrollSnapAlign: "start"},
     children: [
       jsx.jsxs("div", {className: "flex items-center gap-3", children: [
         jsx.jsx("img", {
