@@ -26,6 +26,7 @@ class RegisterRequest extends BaseFormRequest
     public function rules(): array
     {
         return [
+            'sms_proof' => ['nullable', 'string', 'size:64'],
             'registration_proof' => ['nullable', 'string', 'size:64'],
             'terms_accepted' => ['nullable', 'boolean'],
             'privacy_acknowledged' => ['nullable', 'boolean'],

@@ -35,6 +35,16 @@ class AuthController extends Controller
             }
         }
 
+        $phoneVerified = false;
+        if (!empty($validated['sms_proof']) && !empty($validated['phone'])) {
+            $phoneVerified = RegistrationVerificationController::claimSmsProof(
+                $validated['sms_proof'], $validated['phone']
+            );
+            if (!$phoneVerified) {
+                return response()->json(['success' => false, 'message' => 'SMS kodu geçersiz veya süresi doldu.'], 422);
+            }
+        }
+
         // Extra guard: ADMIN cannot be registered publicly
         if ($validated['role'] === User::ROLE_ADMIN) {
             return response()->json([
@@ -43,7 +53,7 @@ class AuthController extends Controller
             ], 403);
         }
 
-        $user = DB::transaction(function () use ($validated, $proof) {
+        $user = DB::transaction(function () use ($validated, $proof, $phoneVerified) {
             $user = User::create([
                 'role' => $validated['role'],
                 'first_name' => $validated['first_name'],
@@ -55,6 +65,7 @@ class AuthController extends Controller
                 'gender' => $validated['gender'] ?? 'unspecified',
                 'status' => 'active',
                 'email_verified_at' => $proof !== '' ? now() : null,
+                'phone_verified_at' => $phoneVerified ? now() : null,
                 'terms_accepted_at' => !empty($validated['terms_accepted']) ? now() : null,
                 'privacy_acknowledged_at' => !empty($validated['privacy_acknowledged']) ? now() : null,
                 'marketing_consent_at' => !empty($validated['marketing_consent']) ? now() : null,
