@@ -8,6 +8,8 @@
         android:label="@string/app_name"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- Google Maps key is configured by Gradle; empty until enabled in Cloud Console. -->
+        <meta-data android:name="com.google.android.geo.API_KEY" android:value="${TARAK_MAPS_API_KEY}"/>
         <!-- MainActivity has no launcher entry of its own: every selectable app icon is an <activity-alias> below
              (exactly one enabled at a time; see lib/core/app_icon and tools/generate_app_icons.py). -->
         <activity

@@ -24,6 +24,13 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+    <!-- Configure these in private xcconfig/Xcode Build Settings, not Git. -->
+    <key>TarakMapsApiKey</key>
+    <string>$(TARAK_MAPS_IOS_API_KEY)</string>
+    <key>GIDClientID</key>
+    <string>$(TARAK_GOOGLE_IOS_CLIENT_ID)</string>
+    <key>CFBundleURLTypes</key>
+    <array><dict><key>CFBundleURLSchemes</key><array><string>$(TARAK_GOOGLE_IOS_REVERSED_CLIENT_ID)</string></array></dict></array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
