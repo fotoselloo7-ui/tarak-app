@@ -103,7 +103,7 @@ class _NearbyProvidersSectionState extends ConsumerState<NearbyProvidersSection>
                 ? const Padding(padding: EdgeInsets.symmetric(vertical: 18),
                     child: Text('Bu mesafede konumu kayıtlı uzman bulunamadı.',
                       style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)))
-                : SizedBox(height: 167, child: ListView.separated(
+                : SizedBox(height: 188, child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: items.length,
                     separatorBuilder: (_, _) => const SizedBox(width: 12),
