@@ -135,7 +135,7 @@ function PremiumBroadcastCenter({api}){
       h('td',{style:{padding:'11px 9px',fontWeight:750,color:row.status==='COMPLETED'?'#078153':'#7e5d21'}},states[row.status]||row.status),
       h('td',{style:{padding:'11px 9px',color:C.ink}},`${row.notifications_created||0} / ${row.estimated_recipients||0}`),
       h('td',{style:{padding:'11px 9px'}},actions(row))
-    )):h('tr',null,h('td',{colSpan:5,style:{padding:24,color:C.muted,textAlign:'center'}},'Henüz kayıtlı toplu bildirim yok.')))),
+    )):h('tr',null,h('td',{colSpan:5,style:{padding:24,color:C.muted,textAlign:'center'}},'Henüz kayıtlı toplu bildirim yok.'))))),
    h('div',{style:{marginTop:13,display:'flex',justifyContent:'space-between',alignItems:'center'}},h('span',{style:styles.small},`Toplam: ${meta.total||0} kayıt`),h('div',{style:{display:'flex',alignItems:'center',gap:10}},h('button',{style:styles.secondary,disabled:page<=1,onClick:()=>setPage(n=>Math.max(1,n-1))},'←'),h('span',{style:styles.small},`${page} / ${meta.last_page||1}`),h('button',{style:styles.secondary,disabled:page>=(meta.last_page||1),onClick:()=>setPage(n=>n+1)},'→')))
  );
  return h('section',{style:{marginBottom:25,fontFamily:'Poppins,system-ui,sans-serif'}},head,
