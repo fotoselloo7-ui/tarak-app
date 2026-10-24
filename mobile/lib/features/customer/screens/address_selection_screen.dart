@@ -453,6 +453,15 @@ class _AddressSelectionScreenState
                                 })),
                               );
                               if (choice != null && mounted) {
+                                if ((choice['province'] ?? '').toString().trim().toLowerCase() !=
+                                        (_selectedProvince?.name ?? '').trim().toLowerCase() ||
+                                    (choice['district'] ?? '').toString().trim().toLowerCase() !=
+                                        (_selectedDistrict?.name ?? '').trim().toLowerCase()) {
+                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                                    content: Text('Haritadaki il/ilçe ile seçilen adres uyuşmuyor. Önce adres listesinden il ve ilçeyi düzeltin.'),
+                                  ));
+                                  return;
+                                }
                                 setState(() {
                                   _pinLatitude = (choice['latitude'] as num?)?.toDouble();
                                   _pinLongitude = (choice['longitude'] as num?)?.toDouble();
