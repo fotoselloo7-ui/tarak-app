@@ -86,31 +86,100 @@ class AdminIntegrationController extends Controller
             'settings.required' => 'Ayarlar zorunludur.',
         ]);
 
+        // The admin UI sends all values as strings, but validate the SMTP
+        // configuration on the server before writing any encrypted credentials.
+        // An invalid port/scheme is a validation error, never an SMTP 500.
+        if ($group === 'smtp') {
+            $smtp = $validated['settings'];
+            if (isset($smtp['port']) && $smtp['port'] !== ''
+                && (!ctype_digit((string) $smtp['port']) || (int) $smtp['port'] < 1 || (int) $smtp['port'] > 65535)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'SMTP portu 1–65535 arasında bir sayı olmalıdır (STARTTLS: 587, SSL: 465).',
+                ], 422);
+            }
+            if (isset($smtp['encryption']) && $smtp['encryption'] !== '') {
+                $encryption = strtolower(trim((string) $smtp['encryption']));
+                if (!in_array($encryption, ['tls', 'starttls', 'ssl', 'smtps'], true)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'SMTP şifrelemesi tls veya ssl olmalıdır (587=tls, 465=ssl).',
+                    ], 422);
+                }
+                $validated['settings']['encryption'] = $encryption;
+            }
+        }
+
         $allowed = array_keys(IntegrationSettings::SCHEMA[$group]);
         $changed = [];
         $skippedSecrets = [];
 
-        foreach ($validated['settings'] as $key => $value) {
-            if (!in_array($key, $allowed, true)) {
-                continue;
+        try {
+            // All settings and their audit log must succeed together. A failure
+            // must not leave half-updated SMTP credentials in production.
+            DB::transaction(function () use ($validated, $group, $allowed, $request, &$changed, &$skippedSecrets): void {
+                foreach ($validated['settings'] as $key => $value) {
+                    if (!in_array($key, $allowed, true)) {
+                        continue;
+                    }
+
+                    $isSecret = (bool) IntegrationSettings::SCHEMA[$group][$key]['secret'];
+                    $applied = $this->settings->set($group, $key, $value, $request->user()->id);
+                    if ($applied) {
+                        $changed[] = $key;
+                    } elseif ($isSecret) {
+                        $skippedSecrets[] = $key;
+                    }
+                }
+
+                $this->audit($request, 'INTEGRATION_SETTINGS_UPDATED', [
+                    'group' => $group,
+                    'changed_keys' => $changed,
+                    'preserved_secret_keys' => $skippedSecrets,
+                ]);
+            });
+        } catch (\Throwable $e) {
+            // Deliberately do NOT log $e->getMessage(), SQL bindings, request
+            // payload or stacktrace: any could expose the SMTP password.
+            $errorId = strtoupper(bin2hex(random_bytes(4)));
+            $dbNumber = $e instanceof \Illuminate\Database\QueryException
+                ? (int) ($e->errorInfo[1] ?? 0)
+                : null;
+            $reason = match (true) {
+                $dbNumber === 1146 => 'Entegrasyon veritabanı tablosu bulunamadı. Sunucuda php artisan migrate --force çalıştırın.',
+                $dbNumber === 1054 => 'Entegrasyon tablosunda eksik sütun var. Veritabanı migrasyonlarını kontrol edin.',
+                $dbNumber === 1452 => 'Yönetici hesabı için veritabanı ilişki hatası oluştu.',
+                $e instanceof \Illuminate\Encryption\MissingAppKeyException => 'Laravel APP_KEY yapılandırılmamış. Mevcut şifreleme anahtarını kontrol edin; yeni bir anahtar oluşturmayın.',
+                $e instanceof \Illuminate\Contracts\Encryption\DecryptException => 'Kaydedilmiş entegrasyon verileri mevcut APP_KEY ile çözülemiyor. Önce eski APP_KEY değerini geri yükleyin.',
+                default => 'Entegrasyon ayarları veritabanına kaydedilemedi. Sunucu hata kodunu kontrol edin.',
+            };
+            try {
+                logger()->error('integration_settings_save_failed', [
+                    'error_id' => $errorId,
+                    'group' => $group,
+                    'exception_class' => get_class($e),
+                    'database_errno' => $dbNumber,
+                    'source_line' => $e->getLine(),
+                    // Never record the submitted settings or their values.
+                ]);
+            } catch (\Throwable) {
+                // Logging failure must not expose secrets to the response.
             }
 
-            $isSecret = (bool) IntegrationSettings::SCHEMA[$group][$key]['secret'];
-            $applied = $this->settings->set($group, $key, $value, $request->user()->id);
-
-            if ($applied) {
-                $changed[] = $key;
-            } elseif ($isSecret) {
-                $skippedSecrets[] = $key;
-            }
+            return response()->json([
+                'success' => false,
+                'message' => $reason . ' (Hata kodu: ' . $errorId . ')',
+            ], 500);
         }
 
-        // Audit the change WITHOUT the values themselves — only field names.
-        $this->audit($request, 'INTEGRATION_SETTINGS_UPDATED', [
-            'group' => $group,
-            'changed_keys' => $changed,
-            'preserved_secret_keys' => $skippedSecrets,
-        ]);
+        // Cache invalidation after commit also prevents stale reads after an
+        // earlier failed or retried transaction.
+        try {
+            $this->settings->flush();
+        } catch (\Throwable) {
+            // A cache outage after commit must not turn a successful save into
+            // a false HTTP 500; the next request will re-read persisted values.
+        }
 
         return response()->json([
             'success' => true,
