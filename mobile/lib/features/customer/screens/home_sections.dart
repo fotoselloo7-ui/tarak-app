@@ -417,6 +417,14 @@ class HomeProviderCard extends StatelessWidget {
                           style: const TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 11, color: AppTheme.textSecondary))),
                     ]),
                   ],
+                  if (provider['distance_km'] is num) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      (provider['distance_km'] as num).toDouble().toStringAsFixed(1) + ' km uzaklıkta',
+                      style: const TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 11,
+                        fontWeight: FontWeight.w700, color: AppTheme.primary),
+                    ),
+                  ],
                   if (serviceCount > 0) ...[
                     const SizedBox(height: 4),
                     Text('$serviceCount hizmet',
