@@ -21,6 +21,20 @@ class AuthController extends Controller
     {
         $validated = $request->validated();
 
+        // Feature rollout guard: turn REGISTRATION_VERIFICATION_REQUIRED=true on
+        // only after the prebuilt web SPA has been updated to request OTPs.
+        // Regardless of rollout, provided OTP proofs are always checked.
+        $proof = (string) ($validated['registration_proof'] ?? '');
+        $mustVerify = (bool) config('services.registration.require_verification', false);
+        if ($mustVerify || $proof !== '') {
+            if (empty($validated['email']) || !RegistrationVerificationController::claimProof($proof, $validated['email'])) {
+                return response()->json(['success' => false, 'message' => 'E-posta doğrulaması gereklidir. Önce doğrulama kodunu onaylayın.'], 422);
+            }
+            if (empty($validated['terms_accepted']) || empty($validated['privacy_acknowledged'])) {
+                return response()->json(['success' => false, 'message' => 'Kullanım koşulları onayı ve aydınlatma metni bilgilendirmesi zorunludur.'], 422);
+            }
+        }
+
         // Extra guard: ADMIN cannot be registered publicly
         if ($validated['role'] === User::ROLE_ADMIN) {
             return response()->json([
@@ -29,7 +43,7 @@ class AuthController extends Controller
             ], 403);
         }
 
-        $user = DB::transaction(function () use ($validated) {
+        $user = DB::transaction(function () use ($validated, $proof) {
             $user = User::create([
                 'role' => $validated['role'],
                 'first_name' => $validated['first_name'],
@@ -40,12 +54,15 @@ class AuthController extends Controller
                 'password' => Hash::make($validated['password']),
                 'gender' => $validated['gender'] ?? 'unspecified',
                 'status' => 'active',
+                'email_verified_at' => $proof !== '' ? now() : null,
             ]);
 
             if ($user->role === User::ROLE_CUSTOMER) {
-                $user->customerProfile()->create([
-                    'profile_completed' => false,
-                ]);
+                $customer = $user->customerProfile()->create(['profile_completed' => false]);
+                if (!empty($validated['address'])) {
+                    $addr = $validated['address'];
+                    $customer->addresses()->create(array_merge(['title' => 'Ev', 'is_default' => true], $addr));
+                }
             } elseif ($user->role === User::ROLE_PROVIDER) {
                 $user->providerProfile()->create([
                     'provider_type' => $validated['provider_type'] ?? 'barber',
@@ -55,6 +72,16 @@ class AuthController extends Controller
                     'is_online' => false,
                     'accepts_new_clients' => true,
                     'service_radius_km' => 10,
+                    'city' => $validated['address']['province'] ?? null,
+                    'district' => $validated['address']['district'] ?? null,
+                    'address_detail' => isset($validated['address']) ? implode(', ', array_filter([
+                        $validated['address']['neighborhood'] ?? null,
+                        $validated['address']['street'] ?? null,
+                        $validated['address']['building_no'] ?? null,
+                        $validated['address']['directions'] ?? null,
+                    ])) : null,
+                    'latitude' => $validated['address']['latitude'] ?? null,
+                    'longitude' => $validated['address']['longitude'] ?? null,
                     'experience_years' => 1,
                 ]);
 

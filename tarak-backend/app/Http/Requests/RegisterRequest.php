@@ -26,6 +26,20 @@ class RegisterRequest extends BaseFormRequest
     public function rules(): array
     {
         return [
+            'registration_proof' => ['nullable', 'string', 'size:64'],
+            'terms_accepted' => ['nullable', 'boolean'],
+            'privacy_acknowledged' => ['nullable', 'boolean'],
+            'marketing_consent' => ['nullable', 'boolean'],
+            'address' => ['nullable', 'array'],
+            'address.province' => ['required_with:address', 'string', 'max:100'],
+            'address.district' => ['required_with:address', 'string', 'max:100'],
+            'address.neighborhood' => ['nullable', 'string', 'max:150'],
+            'address.street' => ['nullable', 'string', 'max:200'],
+            'address.building_no' => ['nullable', 'string', 'max:30'],
+            'address.apartment_no' => ['nullable', 'string', 'max:30'],
+            'address.directions' => ['nullable', 'string', 'max:500'],
+            'address.latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'address.longitude' => ['nullable', 'numeric', 'between:-180,180'],
             'first_name' => ['required', 'string', 'max:50'],
             'last_name' => ['required', 'string', 'max:50'],
             'email' => ['nullable', 'required_without:phone', 'email:rfc', 'max:100', 'unique:users,email'],

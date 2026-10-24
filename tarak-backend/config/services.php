@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'registration' => ['require_verification' => env('REGISTRATION_VERIFICATION_REQUIRED', false)],
 
     /*
     |--------------------------------------------------------------------------
