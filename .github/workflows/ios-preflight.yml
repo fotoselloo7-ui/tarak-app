@@ -1,0 +1,71 @@
+name: Tarak iOS Preflight
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: "iOS build number (must be higher than a previously uploaded build)"
+        required: true
+        default: "3"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tarak-ios-preflight
+  cancel-in-progress: false
+
+jobs:
+  ios-preflight:
+    runs-on: macos-26
+    timeout-minutes: 75
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - name: Checkout Tarak.app
+        uses: actions/checkout@v4
+
+      - name: Xcode and runner environment
+        run: |
+          sw_vers
+          xcodebuild -version
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.4"
+          channel: stable
+          cache: true
+
+      - name: Enable Swift Package Manager
+        run: flutter config --enable-swift-package-manager
+
+      - name: Fetch Flutter dependencies
+        run: flutter pub get
+
+      - name: Verify Tarak Firebase and bundle configuration
+        run: |
+          test -f ios/Runner/GoogleService-Info.plist
+          grep -q "FlutterGeneratedPluginSwiftPackage" ios/Runner.xcodeproj/project.pbxproj
+          grep -q "PRODUCT_BUNDLE_IDENTIFIER = app.tarak.mobile;" ios/Runner.xcodeproj/project.pbxproj
+          grep -q "<string>app.tarak.mobile</string>" ios/Runner/GoogleService-Info.plist
+          echo "Tarak iOS source configuration OK"
+
+      - name: Build unsigned iOS app for verification
+        run: |
+          flutter build ios --release --no-codesign \
+            --build-name 1.1.0 \
+            --build-number "${{ inputs.build_number }}" \
+            --dart-define=API_BASE_URL=https://tarak.app/api \
+            --dart-define=REVERB_HOST=tarak.app \
+            --dart-define=REVERB_APP_KEY=hhyfpgfv2dgv95yd78kz
+
+      - name: Upload unsigned app (NOT an App Store IPA)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tarak-ios-unsigned-${{ inputs.build_number }}
+          path: mobile/build/ios/iphoneos/Runner.app
+          if-no-files-found: error
+          retention-days: 7
