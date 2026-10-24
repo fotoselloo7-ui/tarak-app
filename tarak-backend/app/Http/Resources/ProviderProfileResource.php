@@ -26,8 +26,8 @@ class ProviderProfileResource extends JsonResource
             'district' => $this->district,
             'address_detail' => $this->address_detail,
             // Exact pin is returned only to its owner for secure map edits.
-            'latitude' => (int) ($request->user()?->id ?? 0) === (int) $this->user_id ? (float) $this->latitude : null,
-            'longitude' => (int) ($request->user()?->id ?? 0) === (int) $this->user_id ? (float) $this->longitude : null,
+            'latitude' => (int) ($request->user()?->id ?? 0) === (int) $this->user_id && $this->latitude !== null ? (float) $this->latitude : null,
+            'longitude' => (int) ($request->user()?->id ?? 0) === (int) $this->user_id && $this->longitude !== null ? (float) $this->longitude : null,
             'bio' => $this->bio,
             'title' => $this->title,
             // Canonical avatar lives on users.avatar_url (shared with customer).
