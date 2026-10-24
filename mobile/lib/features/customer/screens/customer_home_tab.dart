@@ -17,6 +17,7 @@ import '../providers/home_content_providers.dart';
 import 'request_tracking_screen.dart';
 import 'service_selection_screen.dart';
 import 'home_sections.dart';
+import 'nearby_providers_section.dart';
 import 'home_promoted_sections.dart';
 import '../../../core/widgets/verified_tick.dart';
 
@@ -288,6 +289,9 @@ class CustomerHomeTab extends ConsumerWidget {
                       ),
                     ),
 
+                    const SizedBox(height: 24),
+
+                    const NearbyProvidersSection(),
                     const SizedBox(height: 24),
 
                     // Hizmet kategorileri — canonical /api/service-categories data
