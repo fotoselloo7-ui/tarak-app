@@ -8,6 +8,11 @@ on:
         required: true
         default: "3"
         type: string
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/ios-preflight.yml"
 
 permissions:
   contents: read
@@ -57,7 +62,7 @@ jobs:
         run: |
           flutter build ios --release --no-codesign \
             --build-name 1.1.0 \
-            --build-number "${{ inputs.build_number }}" \
+            --build-number "${{ inputs.build_number || '3' }}" \
             --dart-define=API_BASE_URL=https://tarak.app/api \
             --dart-define=REVERB_HOST=tarak.app \
             --dart-define=REVERB_APP_KEY=hhyfpgfv2dgv95yd78kz
@@ -65,7 +70,7 @@ jobs:
       - name: Upload unsigned app (NOT an App Store IPA)
         uses: actions/upload-artifact@v4
         with:
-          name: tarak-ios-unsigned-${{ inputs.build_number }}
+          name: tarak-ios-unsigned-${{ inputs.build_number || '3' }}
           path: mobile/build/ios/iphoneos/Runner.app
           if-no-files-found: error
           retention-days: 7
