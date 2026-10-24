@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "977885914941",
+    "project_id": "tarak-app-af491",
+    "storage_bucket": "tarak-app-af491.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:977885914941:android:870b4c9944703c308e8754",
+        "android_client_info": {
+          "package_name": "app.tarak.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCAKCXBbpKIThSDr-NNfag2Iulp_2PD1QE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
