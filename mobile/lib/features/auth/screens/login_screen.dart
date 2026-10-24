@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../shared/widgets/custom_button.dart';
@@ -211,6 +212,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                   const SizedBox(height: 24),
 
+                  OutlinedButton.icon(
+                    onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const RegisterScreen(initialSocialProvider: 'google'))),
+                    icon: const Icon(Icons.account_circle_outlined),
+                    label: const Text('Google ile bilgileri getir'),
+                  ),
+                  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) ...[
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => const RegisterScreen(initialSocialProvider: 'apple'))),
+                      icon: const Icon(Icons.apple),
+                      label: const Text('Apple ile bilgileri getir'),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
                   // Register divider and options
                   Row(
                     children: [

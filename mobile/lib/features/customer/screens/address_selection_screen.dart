@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../providers/instant_request_provider.dart';
 import '../services/geo_service.dart';
 import 'payment_method_screen.dart';
+import '../../auth/screens/registration_location_screen.dart';
 
 /// Step 2 — Address selection screen.
 /// Supports selecting from saved addresses, or adding/specifying real Turkey
@@ -40,6 +41,8 @@ class _AddressSelectionScreenState
 
   bool _saveToProfile = true;
   bool _isSavingAddress = false;
+  double? _pinLatitude;
+  double? _pinLongitude;
   final _formKey = GlobalKey<FormState>();
 
   bool get _addOnly => widget.onAddressSaved != null;
@@ -124,6 +127,8 @@ class _AddressSelectionScreenState
             ? null
             : _directionsCtrl.text.trim(),
         isDefault: false,
+        latitude: _pinLatitude,
+        longitude: _pinLongitude,
       );
 
       ref.invalidate(customerAddressesProvider);
@@ -435,6 +440,33 @@ class _AddressSelectionScreenState
                             ),
                           const SizedBox(height: 12),
 
+                          OutlinedButton.icon(
+                            onPressed: () async {
+                              final choice = await Navigator.of(context).push<Map<String,dynamic>>(
+                                MaterialPageRoute(builder: (_) => RegistrationLocationScreen(initial: {
+                                  'province': _selectedProvince?.name ?? '',
+                                  'district': _selectedDistrict?.name ?? '',
+                                  'neighborhood': _selectedNeighborhood?.name ?? '',
+                                  'street': _streetCtrl.text, 'building_no': _buildingCtrl.text,
+                                  'apartment_no': _apartmentCtrl.text, 'directions': _directionsCtrl.text,
+                                  'latitude': _pinLatitude, 'longitude': _pinLongitude,
+                                })),
+                              );
+                              if (choice != null && mounted) {
+                                setState(() {
+                                  _pinLatitude = (choice['latitude'] as num?)?.toDouble();
+                                  _pinLongitude = (choice['longitude'] as num?)?.toDouble();
+                                  _streetCtrl.text = (choice['street'] ?? '').toString();
+                                  _buildingCtrl.text = (choice['building_no'] ?? '').toString();
+                                  _apartmentCtrl.text = (choice['apartment_no'] ?? '').toString();
+                                  _directionsCtrl.text = (choice['directions'] ?? '').toString();
+                                });
+                              }
+                            },
+                            icon: const Icon(Icons.pin_drop_outlined),
+                            label: Text(_pinLatitude == null ? 'Adresi Haritada Bul / Pin Seç' : 'Konum seçildi · Pini Güncelle'),
+                          ),
+                          const SizedBox(height: 12),
                           // Title (e.g. Ev, İş)
                           TextFormField(
                             controller: _titleCtrl,
