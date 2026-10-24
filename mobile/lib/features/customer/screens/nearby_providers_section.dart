@@ -60,7 +60,7 @@ class _NearbyProvidersSectionState extends ConsumerState<NearbyProvidersSection>
           const SizedBox(width: 8),
           const Expanded(child: Text('Arama mesafesi',
             style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13))),
-          Text(_radiusKm.toString() + ' km',
+          Text(_draftKm.round().toString() + ' km',
             style: const TextStyle(fontWeight: FontWeight.w800, color: AppTheme.primary)),
         ]),
         Slider(
