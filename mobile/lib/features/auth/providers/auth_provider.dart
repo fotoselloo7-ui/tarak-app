@@ -232,6 +232,11 @@ class AuthNotifier extends Notifier<AuthState> {
     required String password,
     required String passwordConfirmation,
     String? businessName,
+    String? registrationProof,
+    Map<String,dynamic>? address,
+    bool termsAccepted = false,
+    bool privacyAcknowledged = false,
+    bool marketingConsent = false,
   }) async {
     // Client-side guard: ADMIN cannot be registered
     final cleanRole = role.toUpperCase().trim();
@@ -252,6 +257,11 @@ class AuthNotifier extends Notifier<AuthState> {
         'role': cleanRole,
         'password': password,
         'password_confirmation': passwordConfirmation,
+        if (registrationProof != null) 'registration_proof': registrationProof,
+        if (address != null) 'address': address,
+        'terms_accepted': termsAccepted,
+        'privacy_acknowledged': privacyAcknowledged,
+        'marketing_consent': marketingConsent,
       };
 
       if (email != null && email.trim().isNotEmpty) {
