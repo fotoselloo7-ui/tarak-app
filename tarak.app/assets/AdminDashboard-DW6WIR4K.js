@@ -1,6 +1,6 @@
 import{r,j as e}from"./react-vendor-Dj04zrcb.js";
 /* Premium Broadcast Center: lazy-load and contain UI errors inside notification settings. */
-const TarakBroadcastCenter=r.lazy(()=>import("./PremiumBroadcastCenter.js").then(m=>({default:m.PremiumBroadcastCenter})));
+const TarakBroadcastCenter=r.lazy(()=>import("./PremiumBroadcastCenter.js?v=20261024b").then(m=>({default:m.PremiumBroadcastCenter})));
 const tarakBroadcastApi={adminBroadcasts:{
  list:(q={})=>{const p=new URLSearchParams;Object.entries(q).forEach(([k,v])=>v!==undefined&&v!==null&&v!==""&&p.set(k,String(v)));return z.get("/admin/broadcasts"+(p.size?"?"+p.toString():""))},
  estimate:q=>z.post("/admin/broadcasts/estimate",q),
