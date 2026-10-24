@@ -48,6 +48,15 @@ class SendPushNotification implements ShouldQueue
             return;
         }
 
+        // A customer may revoke marketing consent between campaign creation and
+        // queue delivery. Re-check at actual push-send time as well.
+        if (in_array($notification->type, [
+            UserNotification::TYPE_PROVIDER_CAMPAIGN,
+            UserNotification::TYPE_ADMIN_CAMPAIGN,
+        ], true) && !UserPushPreference::isCampaignEnabledForUser($notification->user_id)) {
+            return;
+        }
+
         // Fetch recipient's active mobile devices
         $devices = PushDevice::where('user_id', $notification->user_id)
             ->active()

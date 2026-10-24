@@ -51,6 +51,8 @@ class UserNotification extends Model
 
     /** A provider's paid discount campaign ("bildirim reklamı"). */
     public const TYPE_PROVIDER_CAMPAIGN = 'PROVIDER_CAMPAIGN';
+    public const TYPE_ADMIN_ANNOUNCEMENT = 'ADMIN_ANNOUNCEMENT';
+    public const TYPE_ADMIN_CAMPAIGN = 'ADMIN_CAMPAIGN';
 
     // Canonical Resource Types
     public const RESOURCE_INSTANT_REQUEST = 'INSTANT_REQUEST';

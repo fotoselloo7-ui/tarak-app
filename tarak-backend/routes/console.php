@@ -35,3 +35,26 @@ Schedule::command('featured:expire')->hourly()->withoutOverlapping();
 */
 Schedule::command('finance:notify-gift-depleted')->hourly()->withoutOverlapping();
 
+
+/*
+| Recover queued/scheduled admin announcements if a web request or queue
+| worker died after saving the broadcast. Idempotent per user on delivery.
+*/
+Artisan::command('broadcasts:requeue-due', function () {
+    $rows = \App\Models\AdminBroadcast::query()
+        ->whereIn('status', [\App\Models\AdminBroadcast::QUEUED, \App\Models\AdminBroadcast::SENDING])
+        ->where(function ($q) {
+            $q->whereNull('scheduled_at')->orWhere('scheduled_at', '<=', now());
+        })
+        ->where(function ($q) {
+            $q->whereNull('last_enqueued_at')->orWhere('last_enqueued_at', '<=', now()->subMinutes(10));
+        })
+        ->orderBy('id')->limit(20)->get();
+    foreach ($rows as $broadcast) {
+        $broadcast->update(['last_enqueued_at' => now()]);
+        \App\Jobs\ProcessAdminBroadcast::dispatch($broadcast->id)->onQueue('push');
+    }
+    $this->info('Requeued broadcasts: ' . $rows->count());
+})->purpose('Resume stalled or scheduled admin broadcast batches');
+
+Schedule::command('broadcasts:requeue-due')->everyMinute()->withoutOverlapping();

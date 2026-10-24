@@ -193,6 +193,17 @@ Route::middleware(['auth:sanctum', 'role:ADMIN'])->prefix('admin')->group(functi
     Route::post('/featured/promotions', [App\Http\Controllers\Api\AdminFeaturedController::class, 'grant'])->middleware('throttle:30,1');
     Route::post('/featured/promotions/{id}/cancel', [App\Http\Controllers\Api\AdminFeaturedController::class, 'cancel'])->whereNumber('id');
 
+    // Premium Broadcast Center: ADMIN only, distinct from providers' paid notification ads.
+    Route::get('/broadcasts', [App\Http\Controllers\Api\AdminBroadcastController::class, 'index']);
+    Route::post('/broadcasts/estimate', [App\Http\Controllers\Api\AdminBroadcastController::class, 'estimate'])->middleware('throttle:60,1');
+    Route::post('/broadcasts/test', [App\Http\Controllers\Api\AdminBroadcastController::class, 'test'])->middleware('throttle:6,1');
+    Route::post('/broadcasts', [App\Http\Controllers\Api\AdminBroadcastController::class, 'store'])->middleware('throttle:20,1');
+    Route::put('/broadcasts/{broadcast}', [App\Http\Controllers\Api\AdminBroadcastController::class, 'update'])->whereNumber('broadcast')->middleware('throttle:20,1');
+    Route::post('/broadcasts/{broadcast}/send', [App\Http\Controllers\Api\AdminBroadcastController::class, 'send'])->whereNumber('broadcast')->middleware('throttle:6,1');
+    Route::post('/broadcasts/{broadcast}/schedule', [App\Http\Controllers\Api\AdminBroadcastController::class, 'schedule'])->whereNumber('broadcast')->middleware('throttle:6,1');
+    Route::post('/broadcasts/{broadcast}/pause', [App\Http\Controllers\Api\AdminBroadcastController::class, 'pause'])->whereNumber('broadcast')->middleware('throttle:6,1');
+    Route::post('/broadcasts/{broadcast}/cancel', [App\Http\Controllers\Api\AdminBroadcastController::class, 'cancel'])->whereNumber('broadcast')->middleware('throttle:6,1');
+
     // "Bildirim reklamı": prices per audience, discount limits, anti-spam caps, what was sent
     Route::get('/notification-ads/settings', [App\Http\Controllers\Api\AdminNotificationAdController::class, 'settings']);
     Route::put('/notification-ads/settings', [App\Http\Controllers\Api\AdminNotificationAdController::class, 'updateSettings']);
