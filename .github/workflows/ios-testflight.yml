@@ -1,6 +1,10 @@
 name: Tarak iOS TestFlight
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/ios-testflight.yml"
   workflow_dispatch:
     inputs:
       build_number:
@@ -142,7 +146,7 @@ jobs:
       - name: Prepare Flutter iOS build
         run: |
           flutter build ios --release --no-codesign \
-            --build-name 1.1.0 --build-number "${{ inputs.build_number }}" \
+            --build-name 1.1.0 --build-number "${{ inputs.build_number || '3' }}" \
             --dart-define=API_BASE_URL=https://tarak.app/api \
             --dart-define=REVERB_HOST=tarak.app \
             --dart-define=REVERB_APP_KEY=hhyfpgfv2dgv95yd78kz
@@ -254,7 +258,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: tarak-ios-testflight-${{ inputs.build_number }}
+          name: tarak-ios-testflight-${{ inputs.build_number || '3' }}
           path: ${{ runner.temp }}/export/*.ipa
           if-no-files-found: ignore
           retention-days: 7
