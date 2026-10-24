@@ -37,6 +37,9 @@ class User extends Authenticatable
         'phone_verified_at',
         'email_verified_at',
         'last_login_at',
+        'terms_accepted_at',
+        'privacy_acknowledged_at',
+        'marketing_consent_at',
     ];
 
     /**
@@ -60,6 +63,9 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'phone_verified_at' => 'datetime',
             'last_login_at' => 'datetime',
+            'terms_accepted_at' => 'datetime',
+            'privacy_acknowledged_at' => 'datetime',
+            'marketing_consent_at' => 'datetime',
             'is_demo' => 'boolean',
             'password' => 'hashed',
         ];

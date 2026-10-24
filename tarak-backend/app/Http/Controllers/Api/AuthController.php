@@ -55,6 +55,9 @@ class AuthController extends Controller
                 'gender' => $validated['gender'] ?? 'unspecified',
                 'status' => 'active',
                 'email_verified_at' => $proof !== '' ? now() : null,
+                'terms_accepted_at' => !empty($validated['terms_accepted']) ? now() : null,
+                'privacy_acknowledged_at' => !empty($validated['privacy_acknowledged']) ? now() : null,
+                'marketing_consent_at' => !empty($validated['marketing_consent']) ? now() : null,
             ]);
 
             if ($user->role === User::ROLE_CUSTOMER) {

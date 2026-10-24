@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'google_oauth' => ['web_client_id' => env('GOOGLE_OAUTH_WEB_CLIENT_ID', '')],
+    'apple_oauth' => ['bundle_id' => env('APPLE_OAUTH_BUNDLE_ID', 'app.tarak.mobile')],
     'registration' => ['require_verification' => env('REGISTRATION_VERIFICATION_REQUIRED', false)],
 
     /*
