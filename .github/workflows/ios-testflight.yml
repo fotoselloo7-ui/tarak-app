@@ -1,0 +1,260 @@
+name: Tarak iOS TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: 'New Tarak.app iOS build number (higher than previous uploads)'
+        required: true
+        default: '3'
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-upload:
+    runs-on: macos-26
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.4'
+          cache: true
+
+      - name: Enable Swift Package Manager
+        run: flutter config --enable-swift-package-manager
+
+      - name: Flutter dependencies
+        run: flutter pub get
+
+      - name: Check Tarak iOS bundle and Firebase config
+        run: |
+          test -f ios/Runner/GoogleService-Info.plist
+          grep -q 'PRODUCT_BUNDLE_IDENTIFIER = app.tarak.mobile;' ios/Runner.xcodeproj/project.pbxproj
+          grep -q '<string>app.tarak.mobile</string>' ios/Runner/GoogleService-Info.plist
+
+      - name: Install Apple signing assets
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_PASSWORD }}
+          PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          set -euo pipefail
+
+          CERT_PATH="$RUNNER_TEMP/distribution.p12"
+          PROFILE_PATH="$RUNNER_TEMP/profile.mobileprovision"
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 24)"
+
+          printf '%s' "$CERTIFICATE_BASE64" | base64 -D > "$CERT_PATH"
+          printf '%s' "$PROVISIONING_PROFILE_BASE64" | base64 -D > "$PROFILE_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          security import "$CERT_PATH" \
+            -P "$CERTIFICATE_PASSWORD" \
+            -A \
+            -t cert \
+            -f pkcs12 \
+            -k "$KEYCHAIN_PATH"
+
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
+
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s \
+            -k "$KEYCHAIN_PASSWORD" \
+            "$KEYCHAIN_PATH"
+
+          security cms -D -i "$PROFILE_PATH" > "$RUNNER_TEMP/profile.plist"
+
+          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print :UUID" "$RUNNER_TEMP/profile.plist")
+          PROFILE_NAME=$(/usr/libexec/PlistBuddy -c "Print :Name" "$RUNNER_TEMP/profile.plist")
+          PROFILE_APP_ID=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$RUNNER_TEMP/profile.plist")
+          TEAM_ID=$(/usr/libexec/PlistBuddy -c "Print :TeamIdentifier:0" "$RUNNER_TEMP/profile.plist")
+
+          if [ "$PROFILE_APP_ID" != "$TEAM_ID.app.tarak.mobile" ]; then
+            echo "ERROR: Apple provisioning profile must belong to app.tarak.mobile, not another app."
+            exit 1
+          fi
+
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+
+          cp "$PROFILE_PATH" \
+            "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
+
+          echo "PROFILE_UUID=$PROFILE_UUID" >> "$GITHUB_ENV"
+          echo "PROFILE_NAME=$PROFILE_NAME" >> "$GITHUB_ENV"
+          echo "TEAM_ID=$TEAM_ID" >> "$GITHUB_ENV"
+
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+
+      - name: Configure Runner signing
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          path = Path("ios/Runner.xcodeproj/project.pbxproj")
+          text = path.read_text()
+
+          team_id = os.environ["TEAM_ID"]
+          profile_name = os.environ["PROFILE_NAME"]
+
+          marker = "PRODUCT_BUNDLE_IDENTIFIER = app.tarak.mobile;"
+
+          replacement = (
+              f"DEVELOPMENT_TEAM = {team_id};\n"
+              f"\t\t\t\tCODE_SIGN_STYLE = Manual;\n"
+              f"\t\t\t\tCODE_SIGN_IDENTITY = \"Apple Distribution\";\n"
+              f"\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = \"{profile_name}\";\n"
+              f"\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = app.tarak.mobile;"
+          )
+
+          count = text.count(marker)
+
+          if count == 0:
+              raise SystemExit("Runner bundle identifier bulunamadi.")
+
+          text = text.replace(marker, replacement)
+          path.write_text(text)
+
+          print(f"Runner signing configured in {count} build configurations.")
+          PY
+
+      - name: Flutter analyze
+        run: flutter analyze
+
+      - name: Prepare Flutter iOS build
+        run: |
+          flutter build ios --release --no-codesign \
+            --build-name 1.1.0 --build-number "${{ inputs.build_number }}" \
+            --dart-define=API_BASE_URL=https://tarak.app/api \
+            --dart-define=REVERB_HOST=tarak.app \
+            --dart-define=REVERB_APP_KEY=hhyfpgfv2dgv95yd78kz
+
+      - name: Create signed archive
+        run: |
+          set -euo pipefail
+
+          xcodebuild \
+            -project ios/Runner.xcodeproj \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/Runner.xcarchive" \
+            archive
+
+      - name: Create Export Options
+        run: |
+          set -euo pipefail
+
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store-connect</string>
+
+            <key>teamID</key>
+            <string>$TEAM_ID</string>
+
+            <key>signingStyle</key>
+            <string>manual</string>
+
+            <key>signingCertificate</key>
+            <string>Apple Distribution</string>
+
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>app.tarak.mobile</key>
+              <string>$PROFILE_NAME</string>
+            </dict>
+
+            <key>stripSwiftSymbols</key>
+            <true/>
+
+            <key>uploadSymbols</key>
+            <true/>
+          </dict>
+          </plist>
+          EOF
+
+      - name: Export signed IPA
+        run: |
+          set -euo pipefail
+
+          mkdir -p "$RUNNER_TEMP/export"
+
+          xcodebuild \
+            -exportArchive \
+            -archivePath "$RUNNER_TEMP/Runner.xcarchive" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
+
+          IPA_PATH=$(find "$RUNNER_TEMP/export" -name "*.ipa" -print -quit)
+
+          if [ -z "$IPA_PATH" ]; then
+            echo "IPA bulunamadi."
+            exit 1
+          fi
+
+          echo "IPA_PATH=$IPA_PATH" >> "$GITHUB_ENV"
+          ls -lah "$RUNNER_TEMP/export"
+
+      - name: Prepare App Store Connect API key
+        env:
+          API_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+
+          KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_$API_KEY_ID.p8"
+
+          printf '%s' "$API_PRIVATE_KEY" > "$KEY_PATH"
+
+          chmod 600 "$KEY_PATH"
+
+          grep -q "BEGIN PRIVATE KEY" "$KEY_PATH"
+          grep -q "END PRIVATE KEY" "$KEY_PATH"
+
+      - name: Upload to TestFlight
+        env:
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+
+          xcrun altool \
+            --upload-app \
+            --type ios \
+            --file "$IPA_PATH" \
+            --apiKey "$API_KEY_ID" \
+            --apiIssuer "$API_ISSUER_ID"
+
+      - name: Upload IPA artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tarak-ios-testflight-${{ inputs.build_number }}
+          path: ${{ runner.temp }}/export/*.ipa
+          if-no-files-found: ignore
+          retention-days: 7
