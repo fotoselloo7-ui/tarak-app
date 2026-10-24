@@ -60,3 +60,32 @@ Kullanım koşulları kabulü ve KVKK aydınlatma metninin okunduğu teyidi iki 
 - Backend migrations çalışmadan Laravel dosyalarını devreye alma; ilgili kullanıcılara yeni consent alanları eklenmiştir.
 - Eski web kayıt ekranı doğrulama bilmediğinden OTP zorunluluğu yalnızca yeni web + mobil dağıtıldıktan sonra açılmalıdır.
 - Bu görevde gerçek cihaz/cihaz emülatörü, canlı hesaplar ve Apple provisioning doğrulanamadı. Uçtan uca üretim testi gereklidir.
+
+
+## 24 Ekim ekleri — müşteri, uzman ve yakınlık (web + Flutter)
+
+- **Kayıt:** Google / Apple ID token doğrulamasından gelen doğrulanmış isim ve e-posta yalnızca düzenlenebilir ön doldurma alanlarıdır. `/auth/social/preview` *oturum açmaz, hesap oluşturmaz, login token döndürmez*. Apple seçeneği iOS için hazırlanmıştır. Kullanıcı adı/soyadı/e-postayı düzeltebilir; zorunlu e-posta OTP ve açık son onay ile kayıt olur.
+- **E-posta OTP:** 6 rakam, 10 dakika, 5 yanlış deneme, 60 saniye yeniden isteme süresi. SMTP canlıda yapılandırılmadan doğrulama e-postası gönderilemez. **SMS OTP** isteğe bağlı; SMS entegrasyonu ve `sms_events.otp` etkin olmadıkça 503 döner; e-posta üzerinden devam edilir.
+- **Harita:** Kayıt ekranında müşteri hizmet adresini, hizmet veren işletme adresini yazabilir. Anahtarlar varsa haritada adres eşleştirmesi, sürüklenebilir pin, lat/lng kaydı vardır. Anahtar yoksa elle metin adresi kaydedilebilir; bunun *koordinat doğrulaması anlamına gelmediği* kullanıcıya gösterilir. Kullanıcıdan habersiz konum isteği yoktur.
+- **Kayıt sonrası:** Flutter müşteri / Adreslerim / adres düzenle üzerinden pini yeniden seçip aynı adresi günceller. Flutter hizmet veren profilinde "İşletme Konumumu Haritada Düzenle" ile işletme pinini yalnızca sahibi günceller; tam koordinat sadece sahibinin özel profil API yanıtında bulunur.
+- **Müşteri ana sayfası:** Web ve mobil "Size Yakın Berberler" 1–50 km kaydırıcısı kullanır. Kayıtlı varsayılan adresin lat/lng'si (veya kullanıcı **açıkça izin verdiyse** cihaz koordinatı) ile `GET /api/providers?sort=distance&lat=...&lng=...&max_distance_km=...` sorgulanır. Sunucu sadece halka açık listelenebilir gerçek hizmet verenleri döndürür, km Haversine ile hesaplanır; koordinatsız uzman filtreye dahil değildir. Koordinat yoksa sahte yakınlık sonucu gösterilmez. Kartlar profil ekranına gider.
+- **Web yayını:** `tarak.app/assets/tarak-nearby-providers.js`, değişen `CustomerDashboard-AVc8Kzdf.js`, `index-Bj5sn6If.js`, `tarak.app/index.html` dosyalarının **tamamını** birlikte cPanel'de dağıt. Sadece `git pull` web hosting üzerinde yayın yapmayabilir; senin dağıtım yöntemin geçerli. JS asset cache bust yenilendi.
+- **Backend yayını:** `ProviderProfileResource.php` güncellemesini dağıt; kayıt sistemi için `php artisan migrate --force`, `php artisan optimize:clear` çalıştır. Mevcut `.env` / `APP_KEY` değerlerini silme/değiştirme. **Her istemci yeni doğrulama ekranına geçince** `REGISTRATION_VERIFICATION_REQUIRED=true` aç. Aksi halde eski API istemcileri hâlâ OTP zorunluluğunun dışındadır.
+
+### GitHub Actions Secret isimleri
+
+| Secret | Nerede kullanılıyor? |
+|---|---|
+| `GOOGLE_OAUTH_WEB_CLIENT_ID` | Android/iOS Dart Google Sign-In; aynı Web OAuth Client ID backend `GOOGLE_OAUTH_WEB_CLIENT_ID` ile |
+| `TARAK_MAPS_ANDROID_API_KEY` | Android Maps SDK, Gradle `TARAK_MAPS_API_KEY` çevre değişkeni |
+| `TARAK_GOOGLE_IOS_CLIENT_ID` | iOS Xcode Google Client |
+| `TARAK_GOOGLE_IOS_REVERSED_CLIENT_ID` | iOS Google URL scheme |
+| `TARAK_MAPS_IOS_API_KEY` | iOS Google Maps SDK |
+
+Bu değerleri GitHub'daki **Settings > Secrets and variables > Actions** menüsüne özel olarak ekle. Kaynak koda API secret, private key, Apple sertifika veya keystore koyma. API key'leri uygulama paketi/bundle kimliklerine veya web referrer'ına kısıtla. Harita için Google Cloud billing etkinliği, kota ve bütçe uyarısı gerekir. Native Maps yapılandırıldığında release workflow `TARAK_MAPS_ENABLED=true` ile build eder.
+
+### Doğrulama / blokaj bilgisi
+
+- `.github/workflows/tarak-code-health.yml` Flutter analiz + web JS syntax + backend PHP syntax doğrulamaları içindir.
+- GitHub Actions'ta iOS ve code-health işlemleri bazen **runner tahsis edilmeden**, adımlar başlamadan `failure` ile kapanabiliyor. Bu durum başarılı derleme ya da derleme hatası olarak yorumlanmamalıdır. Repo **Actions**, organizasyon planı/dakika, GitHub Billing, workflow izinleri ve runner erişimini kontrol et; otomatik kontroller bir runner'da gerçekleşip yeşil olmadan "derlendi/test edildi" denemez.
+- Tamamlandı saymak için: çalışan workflow, kayıt / OTP canlı uçtan uca testleri, harita API anahtarlarıyla gerçek cihaz adres pini, hizmet veren profili, yakınlık kartları, her iki mağaza build'i ve cPanel dağıtımı doğrulanmalı.
