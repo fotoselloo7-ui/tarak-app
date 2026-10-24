@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,follow">
+<meta name="theme-color" content="#101827">
+<title>Güvenli Üyelik | Tarak.app</title>
+<link rel="icon" href="/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#111a2e;--orange:#ff5429;--line:#dce3ef;--muted:#66758d;--bg:#f7f9fc}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Poppins,Arial,sans-serif}
+header{background:#fff;border-bottom:1px solid var(--line)}.wrap{max-width:1200px;margin:0 auto;padding:17px 20px}header .wrap{display:flex;align-items:center;justify-content:space-between}header img{width:132px;max-height:50px;object-fit:contain}a{color:#f15a30}main{max-width:840px;padding:24px 20px 50px;margin:0 auto}h1{font-size:clamp(25px,4vw,36px);letter-spacing:-.04em;margin:0 0 6px}p{color:var(--muted);font-size:13px;line-height:1.75}section{background:white;border:1px solid var(--line);padding:23px;border-radius:18px;margin-top:16px;box-shadow:0 10px 40px rgba(25,39,66,.03)}h2{font-size:18px;margin:0 0 16px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{display:flex;flex-direction:column;gap:7px;margin-bottom:10px}label{font-size:13px;font-weight:600}
+input,select,textarea{font:inherit;width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;min-height:46px;color:var(--ink)}textarea{min-height:74px}
+input:focus,textarea:focus{outline:2px solid rgba(255,84,41,.22);border-color:var(--orange)}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.row>*{flex:1}.row button{flex:0 0 auto}
+button{font:600 13px Poppins,sans-serif;cursor:pointer;border:1px solid var(--line);background:white;padding:12px 18px;border-radius:10px;color:var(--ink)}button.primary{background:var(--orange);color:#fff;border-color:var(--orange)}button:disabled{opacity:.55;cursor:not-allowed}
+.help{font-size:12px;color:var(--muted)}.status{display:none;border-radius:12px;padding:13px;font-size:13px;margin:12px 0;background:#fff4eb;border:1px solid #ffd3b8}.status.show{display:block}
+.check{display:flex;gap:10px;align-items:flex-start;margin:12px 0}.check input{width:18px;height:18px;min-height:0;flex:0 0 18px;accent-color:var(--orange)}.check label{font-size:12px;font-weight:500}
+#map{height:280px;background:#f0f4fb;border:1px dashed var(--line);border-radius:14px;display:none}#google-button{min-height:18px}
+#success{display:none;background:#e8fbf1;color:#125837;border:1px solid #b6ebd3;border-radius:14px;padding:20px}
+@media(max-width:650px){.grid{grid-template-columns:1fr}main{padding:18px 16px}section{padding:18px}.row{align-items:stretch}.row>*{flex:1 1 100%}}
+</style>
+</head>
+<body>
+<header><div class="wrap"><a href="/"><img src="/brand/tarak-logo-header.png" alt="Tarak.app"></a><a href="/">Ana sayfaya dön</a></div></header>
+<main>
+<h1>Güvenli hesap oluştur</h1>
+<p>Müşteri veya berber/kuaför olarak kaydol. Google ile bilgileri doldurabilirsin; hesap yalnızca sen onayladıktan sonra açılır.</p>
+<div id="status" class="status" role="alert" aria-live="polite"></div>
+<div id="success"><strong>Hesabınız oluşturuldu.</strong><p>Giriş yapmak için Tarak.app ana sayfasını açın.</p><a href="/">Ana sayfaya dön</a></div>
+<form id="signup" autocomplete="on">
+<section><h2>Hesap ve kişisel bilgiler</h2>
+<div class="field"><label for="role">Hesap türü *</label><select id="role"><option value="CUSTOMER">Müşteri · Hizmet al</option><option value="PROVIDER">Berber / kuaför · Hizmet ver</option></select></div>
+<div id="google-button"></div><p class="help">Google yalnızca doğrulanmış profil bilgilerini forma getirir. Hiçbir hesap otomatik açılmaz.</p>
+<div class="grid"><div class="field"><label for="first">Ad *</label><input id="first" required maxlength="50"></div><div class="field"><label for="last">Soyad *</label><input id="last" required maxlength="50"></div></div>
+<div id="business-area" class="field" hidden><label for="business">İşletme / salon adı</label><input id="business" maxlength="100"></div>
+<div class="field"><label for="email">E-posta *</label><input id="email" type="email" required autocomplete="email"></div>
+<div class="field"><label for="phone">Telefon (isteğe bağlı)</label><input id="phone" placeholder="05XXXXXXXXX" inputmode="tel" autocomplete="tel"></div>
+<div class="grid"><div class="field"><label for="password">Şifre *</label><input id="password" type="password" required minlength="8" autocomplete="new-password"></div><div class="field"><label for="password2">Şifre tekrar *</label><input id="password2" type="password" required minlength="8" autocomplete="new-password"></div></div>
+</section>
+<section><h2>E-posta doğrulaması</h2>
+<div class="row"><button type="button" id="send-code">6 haneli kod gönder</button><input id="code" inputmode="numeric" maxlength="6" placeholder="E-postanıza gelen kod"><button type="button" id="verify-code">Kodu doğrula</button></div>
+<p class="help">Kod 10 dakika geçerli, yanlış deneme limiti 5. Kod doğrulanmadan hesap oluşturulmaz.</p>
+</section>
+<section><h2>Hizmet adresiniz</h2><p>Hizmet almak veya sunmak istediğiniz konumu doğru işaretleyin; binanın kapısını siz kontrol edin.</p>
+<div class="grid"><div class="field"><label for="province">İl *</label><input id="province" required></div><div class="field"><label for="district">İlçe *</label><input id="district" required></div></div>
+<div class="grid"><div class="field"><label for="neighborhood">Mahalle / köy</label><input id="neighborhood"></div><div class="field"><label for="street">Cadde / sokak</label><input id="street"></div></div>
+<div class="grid"><div class="field"><label for="building">Bina no</label><input id="building"></div><div class="field"><label for="apartment">Daire</label><input id="apartment"></div></div>
+<div class="field"><label for="directions">Adres tarifi</label><textarea id="directions"></textarea></div>
+<div class="row"><button id="find-map" type="button">Yazdığım adresi haritada bul</button><span id="coords" class="help">Konum seçilmedi (adres metin olarak kaydedilecek).</span></div>
+<div id="map" aria-label="Konum seçme haritası"></div>
+</section>
+<section><h2>Onaylar</h2>
+<div class="check"><input type="checkbox" id="terms" required><label for="terms"><a href="/legal/terms" target="_blank" rel="noopener">Kullanım koşullarını</a> kabul ediyorum. *</label></div>
+<div class="check"><input type="checkbox" id="privacy" required><label for="privacy"><a href="/legal/privacy" target="_blank" rel="noopener">KVKK aydınlatma metnini</a> okudum. *</label></div>
+<div class="check"><input type="checkbox" id="marketing"><label for="marketing">Kampanya ve tanıtım iletilerini almak istiyorum (isteğe bağlı).</label></div>
+<button id="register" class="primary" type="submit">Bilgilerimi onayla ve hesabımı oluştur</button>
+</section></form>
+</main>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="/assets/tarak-secure-registration.js" defer></script>
+</body></html>
