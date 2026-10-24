@@ -319,13 +319,13 @@ class _VerifiedProvidersSectionState extends ConsumerState<VerifiedProvidersSect
               : providers.isEmpty
                   ? const Center(child: Text('Bu filtrede hizmet veren bulunamadı.', style: TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 12, color: AppTheme.slate400)))
                   : providers.length == 1
-                      ? _ProviderCard(provider: providers.first, width: double.infinity, onTap: onProviderTap)
+                      ? HomeProviderCard(provider: providers.first, width: double.infinity, onTap: onProviderTap)
                       : ListView.separated(
                           scrollDirection: Axis.horizontal,
                           padding: EdgeInsets.zero,
                           itemCount: providers.length,
                           separatorBuilder: (_, _) => const SizedBox(width: 12),
-                          itemBuilder: (context, i) => _ProviderCard(provider: providers[i], onTap: onProviderTap),
+                          itemBuilder: (context, i) => HomeProviderCard(provider: providers[i], onTap: onProviderTap),
                         ),
         ),
         const SizedBox(height: 20),
@@ -334,11 +334,11 @@ class _VerifiedProvidersSectionState extends ConsumerState<VerifiedProvidersSect
   }
 }
 
-class _ProviderCard extends StatelessWidget {
+class HomeProviderCard extends StatelessWidget {
   final Map<String, dynamic> provider;
   final double width;
   final void Function(int, String)? onTap;
-  const _ProviderCard({required this.provider, this.width = 252, this.onTap});
+  const HomeProviderCard({required this.provider, this.width = 252, this.onTap});
 
   @override
   Widget build(BuildContext context) {
