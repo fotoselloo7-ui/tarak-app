@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'registration_location_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../shared/widgets/custom_button.dart';
@@ -65,6 +66,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     } else {
       _selectedRole = 'CUSTOMER';
     }
+    _phoneController.addListener(() { if (mounted) setState(() {}); });
     if (widget.initialSocialProvider != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _socialPreview(widget.initialSocialProvider!);
@@ -543,12 +545,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 CheckboxListTile(value: _termsAccepted,
                   onChanged: (v) => setState(() => _termsAccepted = v ?? false),
                   title: const Text('Kullanım Koşullarını kabul ediyorum *', style: TextStyle(fontSize: 13)),
-                  subtitle: const Text('tarak.app/legal/terms', style: TextStyle(fontSize: 11)),
+                  subtitle: TextButton(
+                    onPressed: () => launchUrl(Uri.parse('https://tarak.app/legal/terms'), mode: LaunchMode.externalApplication),
+                    child: const Text('Kullanım koşullarını oku', style: TextStyle(fontSize: 11)),
+                  ),
                   controlAffinity: ListTileControlAffinity.leading),
                 CheckboxListTile(value: _privacyAcknowledged,
                   onChanged: (v) => setState(() => _privacyAcknowledged = v ?? false),
                   title: const Text('KVKK aydınlatma metnini okudum *', style: TextStyle(fontSize: 13)),
-                  subtitle: const Text('tarak.app/legal/privacy', style: TextStyle(fontSize: 11)),
+                  subtitle: TextButton(
+                    onPressed: () => launchUrl(Uri.parse('https://tarak.app/legal/privacy'), mode: LaunchMode.externalApplication),
+                    child: const Text('KVKK aydınlatma metnini oku', style: TextStyle(fontSize: 11)),
+                  ),
                   controlAffinity: ListTileControlAffinity.leading),
                 CheckboxListTile(value: _marketingConsent,
                   onChanged: (v) => setState(() => _marketingConsent = v ?? false),
