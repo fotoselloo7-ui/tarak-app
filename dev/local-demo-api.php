@@ -68,17 +68,17 @@ function tarakLocalDemoApi(string $requestPath): void
 
     // Synthetic specialists for layout testing. These are NOT real or verified businesses.
     $specialists = [
-        ['id' => 90001, 'name' => 'DEMO · Alanya Berber', 'type' => 'barber',
+        ['id' => 90001, 'name' => 'Akdeniz Erkek Bakım', 'type' => 'barber',
          'city' => 'Antalya', 'district' => 'Alanya', 'lat' => 36.5438, 'lng' => 31.9980],
-        ['id' => 90002, 'name' => 'DEMO · Kadın Kuaförü', 'type' => 'coiffeur',
+        ['id' => 90002, 'name' => 'Luna Saç Tasarım', 'type' => 'coiffeur',
          'city' => 'Antalya', 'district' => 'Alanya', 'lat' => 36.5352, 'lng' => 32.0121],
-        ['id' => 90003, 'name' => 'DEMO · Mahmutlar Berber', 'type' => 'barber',
+        ['id' => 90003, 'name' => 'Mahmutlar Stil Atölyesi', 'type' => 'barber',
          'city' => 'Antalya', 'district' => 'Mahmutlar', 'lat' => 36.4919, 'lng' => 32.0971],
-        ['id' => 90004, 'name' => 'DEMO · Oba Kuaför', 'type' => 'coiffeur',
+        ['id' => 90004, 'name' => 'Oba Saç ve Güzellik', 'type' => 'coiffeur',
          'city' => 'Antalya', 'district' => 'Oba', 'lat' => 36.5431, 'lng' => 32.0531],
-        ['id' => 90005, 'name' => 'DEMO · Kestel Erkek Berberi', 'type' => 'barber',
+        ['id' => 90005, 'name' => 'Kestel Barber Studio', 'type' => 'barber',
          'city' => 'Antalya', 'district' => 'Kestel', 'lat' => 36.5160, 'lng' => 32.0795],
-        ['id' => 90006, 'name' => 'DEMO · Konaklı Kuaför', 'type' => 'coiffeur',
+        ['id' => 90006, 'name' => 'Konaklı Saç Atölyesi', 'type' => 'coiffeur',
          'city' => 'Antalya', 'district' => 'Konaklı', 'lat' => 36.5943, 'lng' => 31.8809],
     ];
 
