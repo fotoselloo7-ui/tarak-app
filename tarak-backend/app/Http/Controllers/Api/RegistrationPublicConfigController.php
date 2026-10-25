@@ -15,6 +15,8 @@ class RegistrationPublicConfigController extends Controller
             'data' => [
                 'google_client_id' => (string) config('services.google_oauth.web_client_id', ''),
                 'maps_browser_api_key' => (string) config('services.google_maps.browser_api_key', ''),
+                'apple_client_id' => (string) config('services.apple_oauth.web_client_id', ''),
+                'apple_redirect_uri' => (string) config('services.apple_oauth.web_redirect_uri', ''),
             ],
         ]);
     }
