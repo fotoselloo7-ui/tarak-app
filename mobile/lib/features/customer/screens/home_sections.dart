@@ -319,13 +319,13 @@ class _VerifiedProvidersSectionState extends ConsumerState<VerifiedProvidersSect
               : providers.isEmpty
                   ? const Center(child: Text('Bu filtrede hizmet veren bulunamadı.', style: TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 12, color: AppTheme.slate400)))
                   : providers.length == 1
-                      ? HomeProviderCard(provider: providers.first, width: double.infinity, onTap: onProviderTap)
+                      ? _ProviderCard(provider: providers.first, width: double.infinity, onTap: onProviderTap)
                       : ListView.separated(
                           scrollDirection: Axis.horizontal,
                           padding: EdgeInsets.zero,
                           itemCount: providers.length,
                           separatorBuilder: (_, _) => const SizedBox(width: 12),
-                          itemBuilder: (context, i) => HomeProviderCard(provider: providers[i], onTap: onProviderTap),
+                          itemBuilder: (context, i) => _ProviderCard(provider: providers[i], onTap: onProviderTap),
                         ),
         ),
         const SizedBox(height: 20),
@@ -334,11 +334,11 @@ class _VerifiedProvidersSectionState extends ConsumerState<VerifiedProvidersSect
   }
 }
 
-class HomeProviderCard extends StatelessWidget {
+class _ProviderCard extends StatelessWidget {
   final Map<String, dynamic> provider;
   final double width;
   final void Function(int, String)? onTap;
-  const HomeProviderCard({required this.provider, this.width = 252, this.onTap});
+  const _ProviderCard({required this.provider, this.width = 252, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -416,14 +416,6 @@ class HomeProviderCard extends StatelessWidget {
                       Flexible(child: Text(location, maxLines: 1, overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 11, color: AppTheme.textSecondary))),
                     ]),
-                  ],
-                  if (provider['distance_km'] is num) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      (provider['distance_km'] as num).toDouble().toStringAsFixed(1) + ' km uzaklıkta',
-                      style: const TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 11,
-                        fontWeight: FontWeight.w700, color: AppTheme.primary),
-                    ),
                   ],
                   if (serviceCount > 0) ...[
                     const SizedBox(height: 4),

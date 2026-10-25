@@ -12,9 +12,6 @@ class ProviderProfileModel {
   final bool profileCompleted;
   final String? city;
   final String? district;
-  final String? addressDetail;
-  final double? latitude;
-  final double? longitude;
   final bool isVerified;
   final String? coverUrl;
   final List<String> gallery;
@@ -66,9 +63,6 @@ class ProviderProfileModel {
       profileCompleted: profileData['profile_completed'] as bool? ?? false,
       city: profileData['city']?.toString(),
       district: profileData['district']?.toString(),
-      addressDetail: profileData['address_detail']?.toString(),
-      latitude: double.tryParse(profileData['latitude']?.toString() ?? ''),
-      longitude: double.tryParse(profileData['longitude']?.toString() ?? ''),
       isVerified: profileData['is_verified'] as bool? ?? false,
       coverUrl: profileData['cover_url']?.toString(),
       gallery: profileData['gallery'] is List
@@ -91,9 +85,6 @@ class ProviderProfileModel {
     bool? profileCompleted,
     String? city,
     String? district,
-    String? addressDetail,
-    double? latitude,
-    double? longitude,
     bool? isVerified,
   }) {
     return ProviderProfileModel(
@@ -110,9 +101,6 @@ class ProviderProfileModel {
       profileCompleted: profileCompleted ?? this.profileCompleted,
       city: city ?? this.city,
       district: district ?? this.district,
-      addressDetail: addressDetail ?? this.addressDetail,
-      latitude: latitude ?? this.latitude,
-      longitude: longitude ?? this.longitude,
       isVerified: isVerified ?? this.isVerified,
     );
   }

@@ -52,9 +52,6 @@ android {
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        manifestPlaceholders["TARAK_MAPS_API_KEY"] =
-            (project.findProperty("TARAK_MAPS_API_KEY") as String?)
-                ?: (System.getenv("TARAK_MAPS_API_KEY") ?: "")
     }
 
     buildTypes {

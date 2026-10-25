@@ -1,15 +1,6 @@
 <?php
 
 return [
-    'google_maps' => ['browser_api_key' => env('GOOGLE_MAPS_BROWSER_API_KEY', '')],
-    'google_oauth' => ['web_client_id' => env('GOOGLE_OAUTH_WEB_CLIENT_ID', '')],
-    'apple_oauth' => [
-        'bundle_id' => env('APPLE_OAUTH_BUNDLE_ID', 'app.tarak.mobile'),
-        // Apple Developer Services ID (web audience). NOT an Apple private key.
-        'web_client_id' => env('APPLE_OAUTH_WEB_CLIENT_ID', ''),
-        'web_redirect_uri' => env('APPLE_OAUTH_WEB_REDIRECT_URI', ''),
-    ],
-    'registration' => ['require_verification' => env('REGISTRATION_VERIFICATION_REQUIRED', false)],
 
     /*
     |--------------------------------------------------------------------------

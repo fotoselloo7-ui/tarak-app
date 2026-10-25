@@ -8,7 +8,6 @@ import '../models/customer_address.dart';
 import '../providers/customer_profile_stats_provider.dart';
 import '../providers/instant_request_provider.dart';
 import 'address_selection_screen.dart';
-import '../../auth/screens/registration_location_screen.dart';
 
 /// Saved address management for the customer profile.
 ///
@@ -408,8 +407,6 @@ class _EditAddressSheetState extends ConsumerState<_EditAddressSheet> {
     text: widget.address.directions ?? '',
   );
   late bool _isDefault = widget.address.isDefault;
-  late double? _pinLatitude = widget.address.latitude;
-  late double? _pinLongitude = widget.address.longitude;
 
   bool _saving = false;
   String? _error;
@@ -430,35 +427,6 @@ class _EditAddressSheetState extends ConsumerState<_EditAddressSheet> {
   String? _trimmedOrNull(TextEditingController c) =>
       c.text.trim().isEmpty ? null : c.text.trim();
 
-  /// Reposition an existing saved address without duplicating it.
-  Future<void> _chooseMapPin() async {
-    final selected = await Navigator.of(context).push<Map<String, dynamic>>(
-      MaterialPageRoute(builder: (_) => RegistrationLocationScreen(initial: {
-        'province': _province.text,
-        'district': _district.text,
-        'neighborhood': _neighborhood.text,
-        'street': _street.text,
-        'building_no': _building.text,
-        'apartment_no': _apartment.text,
-        'directions': _directions.text,
-        if (_pinLatitude != null) 'latitude': _pinLatitude,
-        if (_pinLongitude != null) 'longitude': _pinLongitude,
-      })),
-    );
-    if (!mounted || selected == null) return;
-    setState(() {
-      _province.text = (selected['province'] ?? '').toString();
-      _district.text = (selected['district'] ?? '').toString();
-      _neighborhood.text = (selected['neighborhood'] ?? '').toString();
-      _street.text = (selected['street'] ?? '').toString();
-      _building.text = (selected['building_no'] ?? '').toString();
-      _apartment.text = (selected['apartment_no'] ?? '').toString();
-      _directions.text = (selected['directions'] ?? '').toString();
-      _pinLatitude = (selected['latitude'] as num?)?.toDouble();
-      _pinLongitude = (selected['longitude'] as num?)?.toDouble();
-    });
-  }
-
   Future<void> _save() async {
     if (_title.text.trim().isEmpty) {
       setState(() => _error = 'Adres başlığı zorunludur.');
@@ -473,10 +441,6 @@ class _EditAddressSheetState extends ConsumerState<_EditAddressSheet> {
         widget.address.id,
         {
           'title': _title.text.trim(),
-          'province': _province.text.trim(),
-          'district': _district.text.trim(),
-          'latitude': _pinLatitude,
-          'longitude': _pinLongitude,
           'neighborhood': _trimmedOrNull(_neighborhood),
           'street': _trimmedOrNull(_street),
           'building_no': _trimmedOrNull(_building),
@@ -589,14 +553,6 @@ class _EditAddressSheetState extends ConsumerState<_EditAddressSheet> {
                 controller: _directions,
                 maxLines: 2,
                 decoration: _dec('Tarif / Not'),
-              ),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: _chooseMapPin,
-                icon: const Icon(Icons.edit_location_alt_outlined),
-                label: Text(_pinLatitude == null
-                    ? 'Adresi Haritada Bul / Pin Seç'
-                    : 'Seçili konumu haritada düzenle'),
               ),
               const SizedBox(height: 8),
               SwitchListTile.adaptive(

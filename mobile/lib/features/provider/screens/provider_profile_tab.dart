@@ -11,7 +11,6 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/tarak_rating.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../../auth/screens/registration_location_screen.dart';
 import '../../shared/widgets/common_widgets.dart';
 import '../../shared/screens/support_screen.dart';
 import '../../shared/screens/legal_screen.dart';
@@ -329,45 +328,6 @@ class _ProviderProfileTabState extends ConsumerState<ProviderProfileTab> {
         notifier.lastOnlineError ?? 'Hizmet durumu güncellenemedi.',
         isError: true,
       );
-    }
-  }
-
-  /// The provider updates only their own saved salon pin and address.
-  /// Coordinates are necessary for correct customer distance matching.
-  Future<void> _editBusinessPin() async {
-    final profile = ref.read(providerProfileNotifierProvider).value;
-    if (profile == null) return;
-    final selected = await Navigator.of(context).push<Map<String, dynamic>>(
-      MaterialPageRoute(builder: (_) => RegistrationLocationScreen(initial: {
-        'province': profile.city ?? '',
-        'district': profile.district ?? '',
-        'directions': profile.addressDetail ?? '',
-        if (profile.latitude != null) 'latitude': profile.latitude,
-        if (profile.longitude != null) 'longitude': profile.longitude,
-      })),
-    );
-    if (!mounted || selected == null) return;
-    if (selected['latitude'] == null || selected['longitude'] == null) {
-      _showSnack('Lütfen haritada işletme konumunu işaretleyin. Harita anahtarı gerekli.', isError: true);
-      return;
-    }
-    try {
-      final description = [
-        selected['neighborhood'], selected['street'], selected['building_no'],
-        selected['directions'],
-      ].where((value) => value != null && value.toString().trim().isNotEmpty)
-        .map((value) => value.toString().trim()).join(', ');
-      await ref.read(apiClientProvider).put('/provider/profile', data: {
-        'city': selected['province'],
-        'district': selected['district'],
-        'address_detail': description,
-        'latitude': selected['latitude'],
-        'longitude': selected['longitude'],
-      });
-      await ref.read(providerProfileNotifierProvider.notifier).refresh();
-      if (mounted) _showSnack('İşletme konumu güncellendi.');
-    } catch (_) {
-      if (mounted) _showSnack('Konum kaydedilemedi. Lütfen tekrar deneyin.', isError: true);
     }
   }
 
@@ -976,15 +936,6 @@ class _ProviderProfileTabState extends ConsumerState<ProviderProfileTab> {
                 ),
               ),
 
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2),
-                child: OutlinedButton.icon(
-                  onPressed: _editBusinessPin,
-                  icon: const Icon(Icons.edit_location_alt_outlined),
-                  label: const Text('İşletme Konumumu Haritada Düzenle'),
-                  style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 48)),
-                ),
-              ),
               const SizedBox(height: 14),
 
               // ── Hesap Onay Durumu Card (Matching Image 2) ──────────────────

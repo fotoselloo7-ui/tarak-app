@@ -18,12 +18,6 @@ Route::get('/health/ready', [HealthController::class, 'ready']);
 // Public Auth Routes (Rate limited to 20 req/min to protect against brute-force)
 Route::prefix('auth')->middleware('throttle:20,1')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
-    Route::post('/social/preview', [App\Http\Controllers\Api\SocialProfilePreviewController::class, 'preview'])->middleware('throttle:5,1');
-    Route::post('/registration/start', [App\Http\Controllers\Api\RegistrationVerificationController::class, 'start'])->middleware('throttle:5,1');
-    Route::post('/registration/sms/start', [App\Http\Controllers\Api\RegistrationVerificationController::class, 'startSms'])->middleware('throttle:5,1');
-    Route::post('/registration/sms/confirm', [App\Http\Controllers\Api\RegistrationVerificationController::class, 'confirmSms'])->middleware('throttle:10,1');
-    Route::get('/registration/config', [App\Http\Controllers\Api\RegistrationPublicConfigController::class, 'index'])->middleware('throttle:60,1');
-    Route::post('/registration/confirm', [App\Http\Controllers\Api\RegistrationVerificationController::class, 'confirm'])->middleware('throttle:10,1');
     Route::post('/login', [AuthController::class, 'login']);
 });
 

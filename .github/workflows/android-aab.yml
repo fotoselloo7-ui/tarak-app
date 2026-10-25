@@ -83,18 +83,12 @@ jobs:
         run: flutter pub get
 
       - name: Build signed Tarak AAB
-        env:
-          GOOGLE_OAUTH_WEB_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_WEB_CLIENT_ID }}
-          TARAK_MAPS_API_KEY: ${{ secrets.TARAK_MAPS_ANDROID_API_KEY }}
         run: |
-          if [ -n "$TARAK_MAPS_API_KEY" ]; then MAPS_ENABLED=true; else MAPS_ENABLED=false; fi
           flutter build appbundle --release \
             --build-name 1.1.0 --build-number "${{ inputs.build_number }}" \
             --dart-define=API_BASE_URL=https://tarak.app/api \
             --dart-define=REVERB_HOST=tarak.app \
-            --dart-define=REVERB_APP_KEY=hhyfpgfv2dgv95yd78kz \
-            --dart-define=GOOGLE_OAUTH_WEB_CLIENT_ID="$GOOGLE_OAUTH_WEB_CLIENT_ID" \
-            --dart-define=TARAK_MAPS_ENABLED="$MAPS_ENABLED"
+            --dart-define=REVERB_APP_KEY=hhyfpgfv2dgv95yd78kz
 
       - name: Verify output and non-debug signing
         run: |
