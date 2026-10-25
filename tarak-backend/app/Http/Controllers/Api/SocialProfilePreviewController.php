@@ -53,7 +53,10 @@ class SocialProfilePreviewController extends Controller
                     throw new \RuntimeException('apple keys unavailable');
                 }
                 $claims = (array) JWT::decode($input['identity_token'], JWK::parseKeySet($jwks, 'RS256'));
-                if (!hash_equals($client, (string) ($claims['aud'] ?? ''))
+                $webClient = (string) config('services.apple_oauth.web_client_id', '');
+                $audience = (string) ($claims['aud'] ?? '');
+                if (!($audience !== '' && (hash_equals($client, $audience)
+                    || ($webClient !== '' && hash_equals($webClient, $audience))))
                     || ($claims['iss'] ?? null) !== 'https://appleid.apple.com'
                     || !in_array($claims['email_verified'] ?? false, [true, 'true', 1, '1'], true)) {
                     throw new \RuntimeException('invalid apple identity');
