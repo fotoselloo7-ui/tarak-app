@@ -128,10 +128,12 @@ export function SocialPrefill({onProfile}) {
     h("p",{className:"text-xs font-semibold text-gray-700"},"Bilgilerini hızlıca doldur"),
     h("div",{className:"flex flex-wrap items-center gap-2"},
       h("div",{ref:area,className:"min-h-[40px]"},
-        !config.google_client_id ? h("button",{type:"button",disabled:true,
-          className:button},"Google ile bilgileri doldur · yapılandırma gerekli") : null),
+        !config.google_client_id ? h("button",{type:"button",className:button,
+          onClick:()=>setStatus("Google bağlantısı için OAuth Web Client ID tanımlanmalı. Manuel kayıt açıktır.")},
+          "Google ile bilgileri doldur") : null),
       h("button",{type:"button",className:button,onClick:apple,disabled:busy},
-        h("span",{className:"font-black text-base"},"●"),"Apple ile bilgileri doldur")
+        h("svg",{viewBox:"0 0 24 24",width:16,height:16,fill:"currentColor","aria-hidden":"true"},
+          h("path",{d:"M17.05 20.28c-.98.95-2.05.8-3.09.35-1.1-.46-2.1-.48-3.26 0-1.45.62-2.2.44-3.06-.35-4.91-5.03-4.18-12.69 1.64-12.96 1.4.08 2.38.78 3.2.84 1.22-.23 2.4-.9 3.7-.81 1.56.13 2.74.74 3.51 1.84-3.22 1.93-2.46 6.13.5 7.32-.6 1.56-1.38 3.1-2.75 4.76zM12.03 7.25c-.15-2.38 1.77-4.33 4.02-4.52.31 2.74-2.5 4.78-4.02 4.52z"})),"Apple ile bilgileri doldur")
     ),
     h("p",{className:"text-[11px] text-gray-500 leading-relaxed"},
       "Google/Apple yalnızca ad, soyad ve e-posta önerir. Tüm alanları değiştirebilir, kayıt olmadan çıkabilirsiniz."),
@@ -294,6 +296,7 @@ export function AddressFields({value,onChange,role}) {
     try{
       if(!(await script()))return;
       const google=window.google;
+      mapRef.current.style.display="block";
       if(!mapObject.current){
         mapObject.current=new google.maps.Map(mapRef.current,{
           center:{lat:39,lng:35},zoom:5,streetViewControl:false,mapTypeControl:false
@@ -301,7 +304,6 @@ export function AddressFields({value,onChange,role}) {
         mapObject.current.addListener("click",ev=>putPin(ev.latLng,google));
         geo.current=new google.maps.Geocoder();
       }
-      mapRef.current.style.display="block";
       const address=[value.street,value.neighborhood,value.district,value.province,"Türkiye"]
         .filter(Boolean).join(", ");
       const results=await new Promise((resolve,reject)=>
