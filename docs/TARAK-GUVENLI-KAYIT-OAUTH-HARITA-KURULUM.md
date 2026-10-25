@@ -4,7 +4,7 @@
 
 ## Yayın sırası
 
-1. Web köküne tarak.app/guvenli-kayit.html, index.html ve assets/tarak-secure-registration*.js dosyalarını yükle. Eski varlıkları silme.
+1. Web köküne `tarak.app/index.html`, `assets/index-Bj5sn6If.js`, **yeni** `assets/tarak-auth-inline.js` ve `guvenli-kayit.html` dosyalarını birlikte yükle. Eski `/auth/register` ve `/auth/login` React tasarımları korunur; `guvenli-kayit.html` yalnızca eski bağlantıları aynı `/auth/register` yoluna yönlendirir. `tarak-secure-registration-entry.js` artık `index.html` tarafından çağrılmaz.
 2. Laravel backend değişen dosyalarını yükle. Mevcut .env ve APP_KEY değerini KORU.
 3. Terminalde: cd /home/alac6ayazilimtr/tarak-backend
 4. Terminalde: php artisan migrate --force
@@ -17,6 +17,8 @@
 REGISTRATION_VERIFICATION_REQUIRED=false
 GOOGLE_OAUTH_WEB_CLIENT_ID=
 APPLE_OAUTH_BUNDLE_ID=app.tarak.mobile
+APPLE_OAUTH_WEB_CLIENT_ID=
+APPLE_OAUTH_WEB_REDIRECT_URI=https://tarak.app/auth/register
 GOOGLE_MAPS_BROWSER_API_KEY=
 
 APP_KEY değiştirilmemeli: şifreli SMTP/PayTR ayarları eski anahtara bağlı olabilir. Bu örnekteki boş değerin yerine kişisel OAuth istemci kimliğini sunucuda tanımla. Şifre/parola/servis hesabı JSON'unu repoya push etme.
@@ -29,7 +31,7 @@ Google kimlik ID token'ı Laravel'de imza + audience + issuer kontrolünden geç
 
 ## Apple bağlantısı
 
-Apple Developer -> Identifier app.tarak.mobile -> Sign in with Apple capability etkinleştir. Güncel provisioning profile yeniden üret. Runner.entitlements Apple entitlement içerir. Apple JWT, Apple public JWKS anahtarları ve audience/issuer ile doğrulanır. Apple yalnızca ilk yetki verilişinde ad soyad gönderebilir; kullanıcı elle düzenler. Hesap otomatik açılmaz.
+Apple Developer -> Identifier app.tarak.mobile -> Sign in with Apple capability etkinleştir. **Web için ayrıca Services ID** oluştur, `tarak.app` domain'ini ve Apple'a kaydedilen HTTPS `https://tarak.app/auth/register` dönüş adresini ekle. Services ID'yi `APPLE_OAUTH_WEB_CLIENT_ID`, dönüş adresini `APPLE_OAUTH_WEB_REDIRECT_URI` olarak sunucuya gir. Güncel provisioning profile yeniden üret. Runner.entitlements Apple entitlement içerir. Apple JWT, Apple public JWKS anahtarları ve audience/issuer ile doğrulanır. Apple yalnızca ilk yetki verilişinde ad soyad gönderebilir; kullanıcı elle düzenler. Hesap otomatik açılmaz.
 
 ## Harita
 
@@ -56,9 +58,9 @@ Kullanım koşulları kabulü ve KVKK aydınlatma metninin okunduğu teyidi iki 
 
 - Uçtan uca e-posta, SMS ve Google/Apple OAuth testleri gerçek sağlayıcı hesapları ile yapılmalı.
 - Flutter pub get, flutter analyze, Android imzalı AAB ve iOS IPA build; mağazalarda yeni sürüm gereklidir.
-- Webde https://tarak.app/guvenli-kayit.html yolu canlı olmalı ve tüm kayıt butonları bu forma yönlenmeli.
+- Webde `https://tarak.app/auth/register` ve `/auth/login` **mevcut React tasarımında** çalışmalı. `guvenli-kayit.html` eski bağlantılar için yalnızca aynı mevcut forma yönlendirme yapmalıdır.
 - Backend migrations çalışmadan Laravel dosyalarını devreye alma; ilgili kullanıcılara yeni consent alanları eklenmiştir.
-- Eski web kayıt ekranı doğrulama bilmediğinden OTP zorunluluğu yalnızca yeni web + mobil dağıtıldıktan sonra açılmalıdır.
+- Güncellenmiş web kayıt formu OTP'yi bilir. Ancak daha önce üretilmiş **eski mobil paketler** geçişle uyumsuz olabilir: `REGISTRATION_VERIFICATION_REQUIRED=true` ayarını web + mobil güncellemeleri yayımlandıktan sonra etkinleştir.
 - Bu görevde gerçek cihaz/cihaz emülatörü, canlı hesaplar ve Apple provisioning doğrulanamadı. Uçtan uca üretim testi gereklidir.
 
 
@@ -69,7 +71,7 @@ Kullanım koşulları kabulü ve KVKK aydınlatma metninin okunduğu teyidi iki 
 - **Harita:** Kayıt ekranında müşteri hizmet adresini, hizmet veren işletme adresini yazabilir. Anahtarlar varsa haritada adres eşleştirmesi, sürüklenebilir pin, lat/lng kaydı vardır. Anahtar yoksa elle metin adresi kaydedilebilir; bunun *koordinat doğrulaması anlamına gelmediği* kullanıcıya gösterilir. Kullanıcıdan habersiz konum isteği yoktur.
 - **Kayıt sonrası:** Flutter müşteri / Adreslerim / adres düzenle üzerinden pini yeniden seçip aynı adresi günceller. Flutter hizmet veren profilinde "İşletme Konumumu Haritada Düzenle" ile işletme pinini yalnızca sahibi günceller; tam koordinat sadece sahibinin özel profil API yanıtında bulunur.
 - **Müşteri ana sayfası:** Web ve mobil "Size Yakın Berberler" 1–50 km kaydırıcısı kullanır. Kayıtlı varsayılan adresin lat/lng'si (veya kullanıcı **açıkça izin verdiyse** cihaz koordinatı) ile `GET /api/providers?sort=distance&lat=...&lng=...&max_distance_km=...` sorgulanır. Sunucu sadece halka açık listelenebilir gerçek hizmet verenleri döndürür, km Haversine ile hesaplanır; koordinatsız uzman filtreye dahil değildir. Koordinat yoksa sahte yakınlık sonucu gösterilmez. Kartlar profil ekranına gider.
-- **Web yayını:** `tarak.app/assets/tarak-nearby-providers.js`, değişen `CustomerDashboard-AVc8Kzdf.js`, `index-Bj5sn6If.js`, `tarak.app/index.html` dosyalarının **tamamını** birlikte cPanel'de dağıt. Sadece `git pull` web hosting üzerinde yayın yapmayabilir; senin dağıtım yöntemin geçerli. JS asset cache bust yenilendi.
+- **Web yayını:** `tarak.app/assets/tarak-nearby-providers.js`, **yeni** `tarak-auth-inline.js`, değişen `CustomerDashboard-AVc8Kzdf.js`, `index-Bj5sn6If.js`, `tarak.app/index.html` dosyalarının **tamamını** birlikte cPanel'de dağıt. Sadece `git pull` web hosting üzerinde yayın yapmayabilir; senin dağıtım yöntemin geçerli. JS asset cache bust yenilendi.
 - **Backend yayını:** `ProviderProfileResource.php` güncellemesini dağıt; kayıt sistemi için `php artisan migrate --force`, `php artisan optimize:clear` çalıştır. Mevcut `.env` / `APP_KEY` değerlerini silme/değiştirme. **Her istemci yeni doğrulama ekranına geçince** `REGISTRATION_VERIFICATION_REQUIRED=true` aç. Aksi halde eski API istemcileri hâlâ OTP zorunluluğunun dışındadır.
 
 ### GitHub Actions Secret isimleri
@@ -89,3 +91,19 @@ Bu değerleri GitHub'daki **Settings > Secrets and variables > Actions** menüs�
 - `.github/workflows/tarak-code-health.yml` Flutter analiz + web JS syntax + backend PHP syntax doğrulamaları içindir.
 - GitHub Actions'ta iOS ve code-health işlemleri bazen **runner tahsis edilmeden**, adımlar başlamadan `failure` ile kapanabiliyor. Bu durum başarılı derleme ya da derleme hatası olarak yorumlanmamalıdır. Repo **Actions**, organizasyon planı/dakika, GitHub Billing, workflow izinleri ve runner erişimini kontrol et; otomatik kontroller bir runner'da gerçekleşip yeşil olmadan "derlendi/test edildi" denemez.
 - Tamamlandı saymak için: çalışan workflow, kayıt / OTP canlı uçtan uca testleri, harita API anahtarlarıyla gerçek cihaz adres pini, hizmet veren profili, yakınlık kartları, her iki mağaza build'i ve cPanel dağıtımı doğrulanmalı.
+
+
+## 25 Ekim — Tek tasarımda kayıt/giriş
+
+Eski React/Vite SPA'nin `/auth/register` ve `/auth/login` görsel yapısı korunur. Yeni ayrı kayıt tasarımı kullanılmaz.
+
+- `tarak.app/assets/tarak-auth-inline.js`: tasarımla uyumlu Google ve Apple **düzenlenebilir ön doldurma**, e-posta OTP, isteğe bağlı SMS OTP, il/ilçe/açık adres ve Maps pin, 2 zorunlu onay + isteğe bağlı reklam onayı.
+- `tarak.app/assets/index-Bj5sn6If.js`: orijinal formun içine modüller entegre edildi. Kayıt API'sine `registration_proof`, `sms_proof`, `address` ve açık onaylar gönderilir. Şifreyle giriş olduğu gibi korunur.
+- **Girişte Google/Apple:** Kimlik sağlayıcısı başarılı olunca kullanıcı hesabına *otomatik giriş yapılmaz*. Doğrulanmış ad/e-posta geçici oturum verisiyle mevcut `/auth/register` formuna taşınır, alanlar düzenlenebilir ve kayıt için OTP gerekir. Bu davranış kullanıcı tarafından istenmiştir; henüz OAuth tabanlı mevcut-hesap parola-sız oturumu değildir.
+- Apple Web: backend yalnızca `APPLE_OAUTH_BUNDLE_ID` veya yapılandırılmış `APPLE_OAUTH_WEB_CLIENT_ID` audience kimliğini kabul eder. İmza, issuer ve e-posta doğrulaması zorunludur. `/auth/social/preview` hesap oluşturmaz.
+- **Yerel demo görünüm:** `dev/TARAK-WEB-YEREL-BASLAT.cmd`. Composer veya MySQL olmadan UI ve sentetik uzmanlar görünür. OTP ve girişler **kasıtlı olarak kapalıdır**; bu bir gerçek auth testi değildir.
+- **Gerçek izole yerel backend görünüm:** Önce yerel MySQL ve Composer ile `tarak-backend` dizininde `.env` yapılandırılır; `php artisan serve --host=127.0.0.1 --port=8000` çalıştırılır. Web `dev/TARAK-WEB-YEREL-GERCEK-API.cmd` ile 8010'da başlatılır; `/api/*` istekleri **yalnızca 127.0.0.1:8000** adresine aktarılır. Gerçek OTP için SMTP ve SMS ayarları gerekir. Mevcut canlı veritabanı / APP_KEY / üretim sunucusuna dokunulmaz.
+- Google OAuth Web Client Authorized JavaScript Origin: dağıtılan domain için `https://tarak.app`. Yerel test için `http://127.0.0.1:8010` ayrı origin olarak tanımlanmalıdır. Apple web Services ID, kayıtlı HTTPS domain/dönüş adresi ister; canlı domain veya uygun HTTPS test domain'i gereklidir.
+- Her iki webde `index.html` cache-bust `20261025-inline-auth` içerir. Eski `tarak-secure-registration-entry.js` tıklama müdahalesi kaldırıldı.
+
+**Yayın öncesi QA:** Node `--check` (SPA ve yeni modül), PHP `-l` backend dosyaları, e-posta 6 haneli kod, tekrar gönderim ve süre aşımı, kayıt onayları, Google ve Apple test sağlayıcıları, Maps API key, müşteri/berber adres koordinatları, mevcut şifreli giriş ve ücretli işlem regresyonu. GitHub CI runner tahsis edilmediği için tüm gerçek çalıştırma ve uçtan uca doğrulamalar ayrıca yapılmalı.
