@@ -31,6 +31,14 @@ if (str_contains($path, "\0") || str_contains($path, '\\') ||
     return true;
 }
 
+// Local-only bundled fixtures. They take precedence over any older live-API flag.
+// Explicit opt-in avoids accidentally presenting demo records as production users.
+if (getenv('TARAK_DEV_DEMO') === '1' && preg_match('~^/api(?:/|$)~', $path)) {
+    require_once __DIR__ . '/local-demo-api.php';
+    tarakLocalDemoApi($path);
+    return true;
+}
+
 if (getenv('TARAK_DEV_LIVE_API') === '1' && preg_match('~^/api(?:/|$)~', $path)) {
     // Explicit opt-in preview: GETs read the real live catalog, and login
     // can return a bearer token for viewing customer/provider dashboards.
