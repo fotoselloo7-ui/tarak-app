@@ -91,14 +91,16 @@ function tarakLocalDemoApi(string $requestPath): void
         $radius = isset($_GET['max_distance_km']) && is_numeric($_GET['max_distance_km'])
             ? max(0, min(500, (float) $_GET['max_distance_km'])) : 0;
         $type = (string) ($_GET['type'] ?? '');
-        $term = mb_strtolower(trim((string) ($_GET['q'] ?? '')), 'UTF-8');
+        $fold = static fn (string $value) => function_exists('mb_strtolower')
+            ? mb_strtolower($value, 'UTF-8') : strtolower($value);
+        $term = $fold(trim((string) ($_GET['q'] ?? '')));
         $result = [];
         foreach ($specialists as $specialist) {
             if (in_array($type, ['barber', 'coiffeur'], true) && $type !== $specialist['type']) {
                 continue;
             }
             if ($term !== '' && !str_contains(
-                mb_strtolower($specialist['name'] . ' ' . $specialist['district'], 'UTF-8'), $term
+                $fold($specialist['name'] . ' ' . $specialist['district']), $term
             )) {
                 continue;
             }
@@ -151,7 +153,9 @@ function tarakLocalDemoApi(string $requestPath): void
             $answer = ['success' => $profile !== null, 'demo' => true,
                 'data' => $profile, 'message' => $profile ? null : 'Demo uzman bulunamadı.'];
         } elseif ($route === 'providers/spotlight') {
-            $answer = ['success' => true, 'demo' => true, 'data' => []];
+            $answer = ['success' => true, 'demo' => true,
+                'data' => array_slice($result, 0, 4),
+                'meta' => ['rotate_seconds' => 8]];
         } elseif ($route === 'providers/featured' || $route === 'providers/newest') {
             $limit = max(1, min(20, (int) ($_GET['limit'] ?? 8)));
             $answer = ['success' => true, 'demo' => true, 'data' => array_slice($result, 0, $limit)];
