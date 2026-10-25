@@ -31,6 +31,61 @@ if (str_contains($path, "\0") || str_contains($path, '\\') ||
     return true;
 }
 
+// Real LOCAL Laravel API mode. Useful for testing registration/login/OTP
+// against an isolated local database without touching production or cPanel.
+if (getenv('TARAK_DEV_LOCAL_API') === '1' && preg_match('~^/api(?:/|$)~', $path)) {
+    $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+    $query = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_QUERY);
+    $target = 'http://127.0.0.1:8000' . $path . ($query ? '?' . $query : '');
+    $incoming = function_exists('getallheaders') ? getallheaders() : [];
+    $headers = ['Accept: application/json'];
+    foreach ($incoming as $key => $value) {
+        if (in_array(strtolower($key), ['authorization', 'content-type', 'accept'], true)) {
+            $headers[] = $key . ': ' . $value;
+        }
+    }
+    $auth = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? null;
+    if ($auth && !array_filter($headers, static fn($v) => stripos($v, 'authorization:') === 0)) {
+        $headers[] = 'Authorization: ' . $auth;
+    }
+    if (!function_exists('curl_init')) {
+        http_response_code(503);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['success' => false,
+            'message' => 'Yerel Laravel API proxy için PHP cURL eklentisi gerekli.']);
+        return true;
+    }
+    $ch = curl_init($target);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CUSTOMREQUEST => $method,
+        CURLOPT_HTTPHEADER => $headers,
+        CURLOPT_TIMEOUT => 30,
+        CURLOPT_CONNECTTIMEOUT => 3,
+        CURLOPT_FOLLOWLOCATION => false,
+    ]);
+    if (!in_array($method, ['GET', 'HEAD'], true)) {
+        curl_setopt($ch, CURLOPT_POSTFIELDS, file_get_contents('php://input'));
+    }
+    $response = curl_exec($ch);
+    $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $type = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+    curl_close($ch);
+    if (!is_string($response) || !$status) {
+        http_response_code(502);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['success' => false, 'message' =>
+            'Yerel Laravel API kapalı. Ayrı CMD: cd tarak-backend && php artisan serve --host=127.0.0.1 --port=8000'],
+            JSON_UNESCAPED_UNICODE);
+        return true;
+    }
+    http_response_code($status);
+    header('Cache-Control: no-store');
+    header('Content-Type: ' . ($type ?: 'application/json; charset=utf-8'));
+    if ($method !== 'HEAD') echo $response;
+    return true;
+}
+
 // Local-only bundled fixtures. They take precedence over any older live-API flag.
 // Explicit opt-in avoids accidentally presenting demo records as production users.
 if (getenv('TARAK_DEV_DEMO') === '1' && preg_match('~^/api(?:/|$)~', $path)) {
