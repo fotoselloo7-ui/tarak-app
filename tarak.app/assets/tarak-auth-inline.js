@@ -47,6 +47,7 @@ export function SocialPrefill({onProfile}) {
   const [config,setConfig] = React.useState({});
   const [status,setStatus] = React.useState("");
   const [busy,setBusy] = React.useState(false);
+  const [googleState,setGoogleState] = React.useState("idle");
   const area = React.useRef(null);
   const callback = React.useRef(onProfile);
   callback.current = onProfile;
@@ -65,6 +66,7 @@ export function SocialPrefill({onProfile}) {
     (googleLoader ||= loadScript("https://accounts.google.com/gsi/client"))
       .then(() => {
         if(!active || !area.current || !window.google?.accounts?.id)return;
+        setGoogleState("ready");
         area.current.replaceChildren();
         window.google.accounts.id.initialize({
           client_id: config.google_client_id,
@@ -83,7 +85,7 @@ export function SocialPrefill({onProfile}) {
         });
         window.google.accounts.id.renderButton(area.current,{
           type:"standard",theme:"outline",size:"large",text:"continue_with",
-          shape:"rectangular",locale:"tr",width:260
+          shape:"rectangular",locale:"tr",width:280
         });
       }).catch(error=>{if(active)setStatus(error.message);});
     return () => {active=false;};
@@ -123,24 +125,47 @@ export function SocialPrefill({onProfile}) {
     }finally{setBusy(false);}
   };
 
-  return h("section",{className:"rounded-xl border border-gray-200 bg-white p-3.5 space-y-2",
-    "aria-label":"Google ve Apple ile bilgileri doldur"},
-    h("p",{className:"text-xs font-semibold text-gray-700"},"Bilgilerini hızlıca doldur"),
-    h("div",{className:"flex flex-wrap items-center gap-2"},
-      h("div",{ref:area,className:"min-h-[40px]"},
-        !config.google_client_id ? h("button",{type:"button",className:button,
-          onClick:()=>setStatus("Google bağlantısı için OAuth Web Client ID tanımlanmalı. Manuel kayıt açıktır.")},
-          "Google ile bilgileri doldur") : null),
-      h("button",{type:"button",className:button,onClick:apple,disabled:busy},
-        h("svg",{viewBox:"0 0 24 24",width:16,height:16,fill:"currentColor","aria-hidden":"true"},
-          h("path",{d:"M17.05 20.28c-.98.95-2.05.8-3.09.35-1.1-.46-2.1-.48-3.26 0-1.45.62-2.2.44-3.06-.35-4.91-5.03-4.18-12.69 1.64-12.96 1.4.08 2.38.78 3.2.84 1.22-.23 2.4-.9 3.7-.81 1.56.13 2.74.74 3.51 1.84-3.22 1.93-2.46 6.13.5 7.32-.6 1.56-1.38 3.1-2.75 4.76zM12.03 7.25c-.15-2.38 1.77-4.33 4.02-4.52.31 2.74-2.5 4.78-4.02 4.52z"})),"Apple ile bilgileri doldur")
+  const googleIcon = h("svg",{width:20,height:20,viewBox:"0 0 24 24","aria-hidden":"true"},
+    h("path",{fill:"#4285F4",d:"M21.35 12.24c0-.77-.07-1.5-.19-2.21H12v4.18h5.24a4.49 4.49 0 0 1-1.94 2.94v2.44h3.13c1.83-1.69 2.92-4.19 2.92-7.35Z"}),
+    h("path",{fill:"#34A853",d:"M12 21.6c2.62 0 4.82-.86 6.43-2.31l-3.13-2.44c-.87.58-1.98.93-3.3.93-2.54 0-4.69-1.71-5.46-4H3.3v2.51A9.6 9.6 0 0 0 12 21.6Z"}),
+    h("path",{fill:"#FBBC05",d:"M6.54 13.78a5.76 5.76 0 0 1 0-3.56V7.71H3.3a9.6 9.6 0 0 0 0 8.58l3.24-2.51Z"}),
+    h("path",{fill:"#EA4335",d:"M12 6.22c1.43 0 2.72.49 3.73 1.47l2.8-2.8A9.14 9.14 0 0 0 12 2.4a9.6 9.6 0 0 0-8.7 5.31l3.24 2.51c.77-2.29 2.92-4 5.46-4Z"})
+  );
+  const appleIcon=h("svg",{viewBox:"0 0 24 24",width:19,height:19,fill:"currentColor","aria-hidden":"true"},
+    h("path",{d:"M17.05 20.28c-.98.95-2.05.8-3.09.35-1.1-.46-2.1-.48-3.26 0-1.45.62-2.2.44-3.06-.35-4.91-5.03-4.18-12.69 1.64-12.96 1.4.08 2.38.78 3.2.84 1.22-.23 2.4-.9 3.7-.81 1.56.13 2.74.74 3.51 1.84-3.22 1.93-2.46 6.13.5 7.32-.6 1.56-1.38 3.1-2.75 4.76zM12.03 7.25c-.15-2.38 1.77-4.33 4.02-4.52.31 2.74-2.5 4.78-4.02 4.52z"})
+  );
+  const fallbackGoogle=h("button",{type:"button",className:
+    "flex h-11 w-full items-center justify-center gap-2.5 px-3 rounded-xl border border-slate-200 bg-white text-slate-800 text-[13px] font-bold hover:bg-orange-50/50 hover:border-orange-200 transition-all",
+    onClick:()=>setStatus("Google OAuth Web Client ID ayarlanmamış. Devam etmek için aşağıdaki alanları doldurabilir veya yerel Google kurulumunu tamamlayabilirsiniz.")},
+    googleIcon,"Google ile devam et");
+  return h("section",{className:"rounded-2xl border border-orange-100 bg-gradient-to-br from-orange-50/80 via-white to-slate-50 p-4 sm:p-5 shadow-sm space-y-3.5",
+      "aria-label":"Google veya Apple ile kayıt bilgilerini doldur"},
+    h("div",{className:"flex items-center justify-between gap-3"},
+      h("div",null,
+        h("div",{className:"text-[10px] tracking-[.14em] uppercase font-extrabold text-[#EE5528] mb-1"},"HIZLI KAYIT"),
+        h("p",{className:"text-[15px] sm:text-base font-extrabold text-slate-900 leading-snug"},"Hesap bilgilerini tek dokunuşla getir"),
+        h("p",{className:"text-[11px] sm:text-xs text-slate-500 mt-1"},"Bilgileri düzenle, e-postanı doğrula, kararını sen ver.")),
+      h("span",{className:"hidden sm:flex shrink-0 items-center gap-1 px-2.5 py-1.5 rounded-full bg-white border border-emerald-100 text-[10px] text-emerald-700 font-bold"},
+        "✓ Kontrol sende")
     ),
-    h("p",{className:"text-[11px] text-gray-500 leading-relaxed"},
-      "Google/Apple yalnızca ad, soyad ve e-posta önerir. Tüm alanları değiştirebilir, kayıt olmadan çıkabilirsiniz."),
+    h("div",{className:"grid grid-cols-1 sm:grid-cols-2 gap-2.5 items-center"},
+      h("div",{className:"min-w-0 rounded-xl overflow-hidden",style:{minHeight:44}},
+        config.google_client_id
+        ? h("div",{ref:area,className:"flex items-center justify-center sm:justify-start bg-white rounded-xl min-h-[44px] overflow-hidden",style:{minWidth:0}},
+            googleState==="ready" ? null : h("span",{className:"text-xs px-2 text-slate-500"},"Google hazırlanıyor..."))
+        : fallbackGoogle),
+      h("button",{type:"button",onClick:apple,disabled:busy,
+        className:"min-h-[44px] w-full flex items-center justify-center gap-2.5 px-3 rounded-xl bg-[#15191F] text-white hover:bg-[#303743] transition-colors text-[13px] font-bold disabled:opacity-50"},
+        appleIcon,"Apple ile devam et")
+    ),
+    h("div",{className:"flex items-center gap-3"},
+      h("span",{className:"h-px bg-slate-200 flex-1"}),
+      h("span",{className:"text-[10px] uppercase tracking-[.12em] font-semibold text-slate-400"},"veya bilgileri kendin gir"),
+      h("span",{className:"h-px bg-slate-200 flex-1"})
+    ),
     notice(status,status.includes("aktarıldı"))
   );
 }
-
 export function EmailVerification({email,onProof}) {
   const [challenge,setChallenge]=React.useState("");
   const [code,setCode]=React.useState("");
