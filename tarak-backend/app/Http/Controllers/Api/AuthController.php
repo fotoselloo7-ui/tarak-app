@@ -24,7 +24,9 @@ class AuthController extends Controller
     public function register(RegisterRequest $request): JsonResponse
     {
         $validated = $request->validated();
-        $smsVerificationEnabled = !empty($validated['phone'])
+        $legacyNative = $request->isLegacyNativeClient();
+        $smsVerificationEnabled = !$legacyNative
+            && !empty($validated['phone'])
             && $this->verification->isSmsVerificationEnabled();
 
         // Extra guard: ADMIN cannot be registered publicly
@@ -35,7 +37,7 @@ class AuthController extends Controller
             ], 403);
         }
 
-        $user = DB::transaction(function () use ($validated, $smsVerificationEnabled) {
+        $user = DB::transaction(function () use ($validated, $smsVerificationEnabled, $legacyNative) {
             $socialAttempt = null;
             if (!empty($validated['social_prefill_token'])) {
                 $socialAttempt = DB::table('social_auth_attempts')
@@ -53,8 +55,10 @@ class AuthController extends Controller
             $verifiedSocialEmail = $socialAttempt && $socialAttempt->email_verified
                 && !empty($validated['email'])
                 && hash_equals((string) $socialAttempt->email, (string) $validated['email']);
-            if (!empty($validated['email']) && !$verifiedSocialEmail) {
+            $emailVerified = (bool) $verifiedSocialEmail;
+            if (!empty($validated['email']) && !$verifiedSocialEmail && !$legacyNative) {
                 $this->verification->consume('email', $validated['email'], $validated['email_verification_token'] ?? null);
+                $emailVerified = true;
             }
             if ($smsVerificationEnabled) {
                 $this->verification->consume('sms', $validated['phone'], $validated['phone_verification_token'] ?? null);
@@ -70,18 +74,20 @@ class AuthController extends Controller
                 'password' => Hash::make($validated['password']),
                 'gender' => $validated['gender'] ?? 'unspecified',
                 'status' => 'active',
-                'email_verified_at' => !empty($validated['email']) ? now() : null,
+                'email_verified_at' => $emailVerified ? now() : null,
                 'phone_verified_at' => $smsVerificationEnabled ? now() : null,
             ]);
 
-            DB::table('registration_consents')->insert([
-                'user_id' => $user->id,
-                'terms_accepted_at' => now(),
-                'kvkk_acknowledged_at' => now(),
-                'marketing_consented_at' => !empty($validated['marketing_consent']) ? now() : null,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+            if (!$legacyNative) {
+                DB::table('registration_consents')->insert([
+                    'user_id' => $user->id,
+                    'terms_accepted_at' => now(),
+                    'kvkk_acknowledged_at' => now(),
+                    'marketing_consented_at' => !empty($validated['marketing_consent']) ? now() : null,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
 
             if ($socialAttempt) {
                 DB::table('social_identities')->insert([
