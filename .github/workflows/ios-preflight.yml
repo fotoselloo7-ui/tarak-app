@@ -73,7 +73,7 @@ jobs:
           GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID || secrets.GOOGLE_WEB_CLIENT_ID }}
         run: |
           flutter build ios --release --no-codesign \
-            --build-name 1.1.0 \
+            --build-name 1.1.1 \
             --build-number "${{ inputs.build_number || '3' }}" \
             --dart-define=API_BASE_URL=https://tarak.app/api \
             --dart-define=REVERB_HOST=tarak.app \
