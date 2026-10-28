@@ -26,6 +26,7 @@ Route::prefix('auth')->middleware('throttle:20,1')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
     Route::get('/social/config', [App\Http\Controllers\Api\SocialAuthController::class, 'config']);
     Route::get('/social/nonce', [App\Http\Controllers\Api\SocialAuthController::class, 'nonce'])->middleware('throttle:10,1');
+    Route::get('/verification/config', [App\Http\Controllers\Api\RegistrationVerificationController::class, 'config']);
     Route::post('/social/{provider}/prefill', [App\Http\Controllers\Api\SocialAuthController::class, 'prefill'])
         ->where('provider', 'google|apple')->middleware('throttle:10,1');
     Route::post('/social/{provider}/login', [App\Http\Controllers\Api\SocialAuthController::class, 'login'])
