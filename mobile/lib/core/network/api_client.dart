@@ -29,6 +29,7 @@ class ApiClient {
                 sendTimeout: const Duration(seconds: 15),
                 headers: {
                   'Accept': 'application/json',
+                  'X-Tarak-Client': 'mobile-secure-v2',
                 },
               ),
             ) {
