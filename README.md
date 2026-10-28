@@ -1,5 +1,23 @@
 # Tarak.app — temiz yayın kaynağı (22 Ekim 2026)
 
+## Yerel web ve API (28 Ekim 2026)
+
+Proje kökünde tek komut:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-local.ps1
+```
+
+Başlatıcı mevcut Laravel API ile web dağıtımını aynı origin üzerinde sunar. İlk kurulumda yalnız yerel SQLite veritabanını hazırlar, mevcut hizmet kataloğunu ve `is_demo` işaretli orijinal demo üreticisini kullanır. Canlı MySQL/cPanel bağlantısı kabul etmez. Dolu portta başka projeye yönelmemek için durur.
+
+Bu bilgisayarda 8010 başka bir geliştirme projesi tarafından kullanılıyor. Boş port alternatifi:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-local.ps1 -Port 18810
+```
+
+Entegrasyon ayarları, doğrulama sonuçları ve mağaza kalanları: [release/INTEGRATION-READINESS.md](release/INTEGRATION-READINESS.md).
+
 Bu paket kullanıcı tarafından yüklenen `release.zip` içinden doğrulanmış **en güncel tam** paketlerden oluşturulmuştur.
 
 ## Klasörler

@@ -28,7 +28,19 @@ class DemoImagePack
 
     public function packPath(): string
     {
-        return storage_path('app/demo-pack');
+        $pack = storage_path('app/demo-pack');
+        if (is_dir($pack)) {
+            return $pack;
+        }
+
+        // The published source archive already contains the original demo
+        // portraits and covers. Reuse them for local previews only.
+        $bundled = base_path('../tarak.app/demo-media/pool');
+        if (app()->environment('local') && is_dir($bundled)) {
+            return $bundled;
+        }
+
+        return $pack;
     }
 
     /** @return array{portraits_women:int, portraits_men:int, works_women:int, works_men:int} */

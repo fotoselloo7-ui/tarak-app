@@ -34,3 +34,7 @@
 **/*.aab
 **/*.ipa
 **/*.apk
+/.tools/
+/tarak-backend/database/database.sqlite
+**/.phpunit*.cache
+**/*.sync-conflict-*
