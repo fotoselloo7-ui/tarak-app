@@ -11,6 +11,16 @@ class RegistrationVerificationController extends Controller
 {
     public function __construct(private RegistrationVerificationService $verification) {}
 
+    public function config(): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'sms_enabled' => $this->verification->isSmsVerificationEnabled(),
+            ],
+        ])->header('Cache-Control', 'no-store');
+    }
+
     public function send(Request $request, string $channel): JsonResponse
     {
         $field = $channel === 'email' ? 'email' : 'phone';
