@@ -39,6 +39,12 @@ return [
         'ttl_minutes' => (int) env('LOCATION_SHARE_TTL_MINUTES', 120),
     ],
 
+    'registration' => [
+        // Temporary compatibility for store builds released before consent/OTP
+        // fields were added. Disable after build 5+ adoption.
+        'legacy_mobile_compat' => filter_var(env('ALLOW_LEGACY_MOBILE_REGISTRATION', true), FILTER_VALIDATE_BOOL),
+    ],
+
     'google' => [
         'web_client_id' => env('GOOGLE_WEB_CLIENT_ID', ''),
         'client_ids' => array_values(array_filter([
