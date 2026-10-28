@@ -33,6 +33,8 @@ Route::prefix('auth')->middleware('throttle:120,1')->group(function () {
 Route::prefix('auth')->middleware('throttle:20,1')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/password/forgot', [App\Http\Controllers\Api\PasswordResetController::class, 'forgot'])->middleware('throttle:5,1');
+    Route::post('/password/reset', [App\Http\Controllers\Api\PasswordResetController::class, 'reset'])->middleware('throttle:10,1');
     Route::post('/social/{provider}/prefill', [App\Http\Controllers\Api\SocialAuthController::class, 'prefill'])
         ->where('provider', 'google|apple')->middleware('throttle:10,1');
     Route::post('/social/{provider}/login', [App\Http\Controllers\Api\SocialAuthController::class, 'login'])
