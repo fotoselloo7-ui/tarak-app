@@ -134,6 +134,7 @@ export function SocialButtons({api, mode = 'prefill', onResult, onError, extraPa
 }
 
 export function VerificationControl({api, channel, destination, verified, onVerified}) {
+  const [available, setAvailable] = React.useState(channel !== 'sms');
   const [code, setCode] = React.useState('');
   const [wait, setWait] = React.useState(0);
   const [sent, setSent] = React.useState(false);
@@ -141,6 +142,24 @@ export function VerificationControl({api, channel, destination, verified, onVeri
   const [message, setMessage] = React.useState('');
   const currentDestination = React.useRef(destination);
   currentDestination.current = destination;
+  React.useEffect(() => {
+    if (channel !== 'sms') {
+      setAvailable(true);
+      return;
+    }
+    let active = true;
+    api.get('/auth/verification/config')
+      .then(result => {
+        const enabled = !!result.data?.sms_enabled;
+        window.__TARAK_SMS_VERIFICATION_ENABLED__ = enabled;
+        if (active) setAvailable(enabled);
+      })
+      .catch(() => {
+        window.__TARAK_SMS_VERIFICATION_ENABLED__ = false;
+        if (active) setAvailable(false);
+      });
+    return () => { active = false; };
+  }, [api, channel]);
   React.useEffect(() => { setCode(''); setWait(0); setSent(false); setMessage(''); }, [destination]);
   React.useEffect(() => {
     if (wait <= 0) return;
@@ -159,7 +178,7 @@ export function VerificationControl({api, channel, destination, verified, onVeri
     } catch (error) { if (currentDestination.current === target) setMessage(error.message); }
     finally { setBusy(false); }
   };
-  if (!destination.trim()) return null;
+  if (!available || !destination.trim()) return null;
   return h('div', {className: 'p-3 rounded-xl border border-gray-200 space-y-2'},
     h('div', {className: 'flex items-center justify-between gap-2'},
       h('span', {className: 'text-xs font-semibold text-gray-700'}, channel === 'email' ? 'E-posta doğrulama' : 'Telefon doğrulama'),
