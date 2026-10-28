@@ -21,6 +21,10 @@ class RegistrationVerificationService
 
     public function isSmsVerificationEnabled(): bool
     {
+        if (!config('services.registration.sms_verification_enabled', false)) {
+            return false;
+        }
+
         if (!$this->sms->isEnabled() || !$this->sms->isEventEnabled('otp')) {
             return false;
         }
