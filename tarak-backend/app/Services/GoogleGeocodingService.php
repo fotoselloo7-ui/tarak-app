@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Client\ConnectionException;
 
 /** Server-side geocoding so the billable Google API key never reaches web or mobile clients. */
@@ -34,15 +35,27 @@ class GoogleGeocodingService
         }
 
         try {
-            $response = Http::acceptJson()->timeout(8)->get(self::ENDPOINT, $parameters + [
-                'language' => 'tr',
-                'key' => $key,
-            ]);
+            $response = Http::acceptJson()
+                // The production Maps server key is restricted to the hosting
+                // server's IPv4 egress address. Force IPv4 so PHP/Guzzle does
+                // not occasionally reach Google over an unlisted IPv6 address.
+                ->withOptions(['force_ip_resolve' => 'v4'])
+                ->timeout(8)
+                ->get(self::ENDPOINT, $parameters + [
+                    'language' => 'tr',
+                    'key' => $key,
+                ]);
         } catch (ConnectionException $e) {
+            Log::warning('Google Geocoding connection failed', [
+                'message' => $e->getMessage(),
+            ]);
             return ['status' => 'UNAVAILABLE'];
         }
 
         if (!$response->successful()) {
+            Log::warning('Google Geocoding HTTP request failed', [
+                'http_status' => $response->status(),
+            ]);
             return ['status' => 'UNAVAILABLE'];
         }
 
@@ -55,6 +68,14 @@ class GoogleGeocodingService
             return ['status' => 'ZERO_RESULTS'];
         }
         if ($status !== 'OK' || empty($payload['results'][0]) || !is_array($payload['results'][0])) {
+            // Keep the API key private, but record Google's status/message so
+            // production configuration problems are diagnosable from Laravel.
+            Log::warning('Google Geocoding API rejected request', [
+                'google_status' => $status,
+                'error_message' => isset($payload['error_message'])
+                    ? mb_substr((string) $payload['error_message'], 0, 500)
+                    : null,
+            ]);
             // Denied/over-quota errors must not be cached; an admin can correct settings immediately.
             return ['status' => 'UNAVAILABLE'];
         }
