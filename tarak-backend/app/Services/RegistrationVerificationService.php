@@ -19,6 +19,21 @@ class RegistrationVerificationService
         private MailSettingsApplier $mailSettings,
     ) {}
 
+    public function isSmsVerificationEnabled(): bool
+    {
+        if (!$this->sms->isEnabled() || !$this->sms->isEventEnabled('otp')) {
+            return false;
+        }
+
+        try {
+            $config = $this->sms->validateConfig();
+
+            return (bool) ($config['valid'] ?? false);
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
     public function normalize(string $channel, string $value): string
     {
         $destination = $channel === 'email'
