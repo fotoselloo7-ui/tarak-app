@@ -58,14 +58,29 @@ jobs:
           grep -q "<string>app.tarak.mobile</string>" ios/Runner/GoogleService-Info.plist
           echo "Tarak iOS source configuration OK"
 
+      - name: Configure Google OAuth and Maps for iOS
+        env:
+          GOOGLE_IOS_CLIENT_ID: ${{ vars.GOOGLE_IOS_CLIENT_ID || secrets.GOOGLE_IOS_CLIENT_ID }}
+          GOOGLE_MAPS_IOS_API_KEY: ${{ secrets.GOOGLE_MAPS_IOS_API_KEY }}
+          GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID || secrets.GOOGLE_WEB_CLIENT_ID }}
+        run: |
+          test -n "$GOOGLE_WEB_CLIENT_ID" || { echo "::error::GOOGLE_WEB_CLIENT_ID is missing"; exit 1; }
+          python3 tools/configure_ios_identity.py
+
       - name: Build unsigned iOS app for verification
+        env:
+          GOOGLE_IOS_CLIENT_ID: ${{ vars.GOOGLE_IOS_CLIENT_ID || secrets.GOOGLE_IOS_CLIENT_ID }}
+          GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID || secrets.GOOGLE_WEB_CLIENT_ID }}
         run: |
           flutter build ios --release --no-codesign \
             --build-name 1.1.0 \
             --build-number "${{ inputs.build_number || '3' }}" \
             --dart-define=API_BASE_URL=https://tarak.app/api \
             --dart-define=REVERB_HOST=tarak.app \
-            --dart-define=REVERB_APP_KEY=hhyfpgfv2dgv95yd78kz
+            --dart-define=REVERB_APP_KEY=hhyfpgfv2dgv95yd78kz \
+            --dart-define=GOOGLE_CLIENT_ID="$GOOGLE_IOS_CLIENT_ID" \
+            --dart-define=GOOGLE_WEB_CLIENT_ID="$GOOGLE_WEB_CLIENT_ID" \
+            --dart-define=GOOGLE_MAPS_ENABLED=true
 
       - name: Upload unsigned app (NOT an App Store IPA)
         uses: actions/upload-artifact@v4

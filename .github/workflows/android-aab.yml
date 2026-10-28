@@ -82,13 +82,26 @@ jobs:
       - name: Install Flutter dependencies
         run: flutter pub get
 
+      - name: Require Maps and Google OAuth configuration
+        env:
+          MAPS_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
+          GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID || secrets.GOOGLE_WEB_CLIENT_ID }}
+        run: |
+          test -n "$MAPS_KEY" || { echo "::error::GOOGLE_MAPS_ANDROID_API_KEY is missing"; exit 1; }
+          test -n "$GOOGLE_WEB_CLIENT_ID" || { echo "::error::GOOGLE_WEB_CLIENT_ID is missing"; exit 1; }
+
       - name: Build signed Tarak AAB
+        env:
+          ORG_GRADLE_PROJECT_GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
+          GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID || secrets.GOOGLE_WEB_CLIENT_ID }}
         run: |
           flutter build appbundle --release \
             --build-name 1.1.0 --build-number "${{ inputs.build_number }}" \
             --dart-define=API_BASE_URL=https://tarak.app/api \
             --dart-define=REVERB_HOST=tarak.app \
-            --dart-define=REVERB_APP_KEY=hhyfpgfv2dgv95yd78kz
+            --dart-define=REVERB_APP_KEY=hhyfpgfv2dgv95yd78kz \
+            --dart-define=GOOGLE_WEB_CLIENT_ID="$GOOGLE_WEB_CLIENT_ID" \
+            --dart-define=GOOGLE_MAPS_ENABLED=true
 
       - name: Verify output and non-debug signing
         run: |

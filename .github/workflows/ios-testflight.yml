@@ -1,10 +1,6 @@
 name: Tarak iOS TestFlight
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/ios-testflight.yml"
   workflow_dispatch:
     inputs:
       build_number:
@@ -47,6 +43,15 @@ jobs:
           grep -q 'PRODUCT_BUNDLE_IDENTIFIER = app.tarak.mobile;' ios/Runner.xcodeproj/project.pbxproj
           grep -q '<string>app.tarak.mobile</string>' ios/Runner/GoogleService-Info.plist
 
+      - name: Configure Google OAuth and Maps for iOS
+        env:
+          GOOGLE_IOS_CLIENT_ID: ${{ vars.GOOGLE_IOS_CLIENT_ID || secrets.GOOGLE_IOS_CLIENT_ID }}
+          GOOGLE_MAPS_IOS_API_KEY: ${{ secrets.GOOGLE_MAPS_IOS_API_KEY }}
+          GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID || secrets.GOOGLE_WEB_CLIENT_ID }}
+        run: |
+          test -n "$GOOGLE_WEB_CLIENT_ID" || { echo "::error::GOOGLE_WEB_CLIENT_ID is missing"; exit 1; }
+          python3 tools/configure_ios_identity.py
+
       - name: Install Apple signing assets
         env:
           CERTIFICATE_BASE64: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_BASE64 }}
@@ -83,6 +88,18 @@ jobs:
             "$KEYCHAIN_PATH"
 
           security cms -D -i "$PROFILE_PATH" > "$RUNNER_TEMP/profile.plist"
+
+          python3 - <<'PY'
+          import os, plistlib
+          from pathlib import Path
+          with (Path(os.environ['RUNNER_TEMP']) / 'profile.plist').open('rb') as source:
+              profile = plistlib.load(source)
+          entitlements = profile.get('Entitlements', {})
+          if 'Default' not in entitlements.get('com.apple.developer.applesignin', []):
+              raise SystemExit('Provisioning profile must enable Sign in with Apple')
+          if entitlements.get('aps-environment') != 'production':
+              raise SystemExit('Provisioning profile must enable production Push Notifications')
+          PY
 
           PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print :UUID" "$RUNNER_TEMP/profile.plist")
           PROFILE_NAME=$(/usr/libexec/PlistBuddy -c "Print :Name" "$RUNNER_TEMP/profile.plist")
@@ -144,12 +161,18 @@ jobs:
         run: flutter analyze
 
       - name: Prepare Flutter iOS build
+        env:
+          GOOGLE_IOS_CLIENT_ID: ${{ vars.GOOGLE_IOS_CLIENT_ID || secrets.GOOGLE_IOS_CLIENT_ID }}
+          GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID || secrets.GOOGLE_WEB_CLIENT_ID }}
         run: |
           flutter build ios --release --no-codesign \
             --build-name 1.1.0 --build-number "${{ inputs.build_number || '3' }}" \
             --dart-define=API_BASE_URL=https://tarak.app/api \
             --dart-define=REVERB_HOST=tarak.app \
-            --dart-define=REVERB_APP_KEY=hhyfpgfv2dgv95yd78kz
+            --dart-define=REVERB_APP_KEY=hhyfpgfv2dgv95yd78kz \
+            --dart-define=GOOGLE_CLIENT_ID="$GOOGLE_IOS_CLIENT_ID" \
+            --dart-define=GOOGLE_WEB_CLIENT_ID="$GOOGLE_WEB_CLIENT_ID" \
+            --dart-define=GOOGLE_MAPS_ENABLED=true
 
       - name: Create signed archive
         run: |
