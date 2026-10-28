@@ -73,6 +73,25 @@ export function SocialButtons({api, mode = 'prefill', onResult, onError, extraPa
     return () => { active = false; };
   }, [api, config, generation, mode]);
 
+  // Google Identity Services renders its button outside React. A parent re-render
+  // (for example a failed phone/e-mail login attempt) can remove that external
+  // iframe even though the social auth state is still valid. Restore the button
+  // after every render if React/the browser cleared the host.
+  React.useEffect(() => {
+    if (!config?.google_client_id || !googleHost.current || busy) return;
+    if (!window.google?.accounts?.id) return;
+    if (googleHost.current.childElementCount > 0) return;
+
+    try {
+      window.google.accounts.id.renderButton(googleHost.current, {
+        type: 'standard', theme: 'outline', size: 'large', text: 'continue_with',
+        shape: 'rectangular', locale: 'tr', width: Math.max(200, Math.min(360, googleHost.current.clientWidth)),
+      });
+    } catch (_) {
+      // The primary initialization effect above will retry with a fresh nonce.
+    }
+  });
+
   const signInApple = async () => {
     if (!apple || busy) return;
     try {
