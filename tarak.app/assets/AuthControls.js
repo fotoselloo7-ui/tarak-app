@@ -73,24 +73,40 @@ export function SocialButtons({api, mode = 'prefill', onResult, onError, extraPa
     return () => { active = false; };
   }, [api, config, generation, mode]);
 
-  // Google Identity Services renders its button outside React. A parent re-render
-  // (for example a failed phone/e-mail login attempt) can remove that external
-  // iframe even though the social auth state is still valid. Restore the button
-  // after every render if React/the browser cleared the host.
+  // Google Identity Services owns the iframe it injects into this host. React
+  // re-renders elsewhere on the login form can occasionally clear that external
+  // DOM. Watch the host and restore the official Google button immediately.
   React.useEffect(() => {
-    if (!config?.google_client_id || !googleHost.current || busy) return;
-    if (!window.google?.accounts?.id) return;
-    if (googleHost.current.childElementCount > 0) return;
+    const host = googleHost.current;
+    if (!config?.google_client_id || !host) return;
 
-    try {
-      window.google.accounts.id.renderButton(googleHost.current, {
-        type: 'standard', theme: 'outline', size: 'large', text: 'continue_with',
-        shape: 'rectangular', locale: 'tr', width: Math.max(200, Math.min(360, googleHost.current.clientWidth)),
-      });
-    } catch (_) {
-      // The primary initialization effect above will retry with a fresh nonce.
-    }
-  });
+    let restoreTimer = null;
+    const restoreGoogleButton = () => {
+      if (restoreTimer) clearTimeout(restoreTimer);
+      restoreTimer = setTimeout(() => {
+        if (!host.isConnected || !window.google?.accounts?.id) return;
+        const hasVisibleButton = host.querySelector('iframe, div[role="button"]');
+        if (hasVisibleButton) return;
+        try {
+          host.replaceChildren();
+          window.google.accounts.id.renderButton(host, {
+            type: 'standard', theme: 'outline', size: 'large', text: 'continue_with',
+            shape: 'rectangular', locale: 'tr',
+            width: Math.max(200, Math.min(360, host.clientWidth || 360)),
+          });
+        } catch (_) {}
+      }, 0);
+    };
+
+    restoreGoogleButton();
+    const observer = new MutationObserver(restoreGoogleButton);
+    observer.observe(host, {childList: true, subtree: true});
+
+    return () => {
+      observer.disconnect();
+      if (restoreTimer) clearTimeout(restoreTimer);
+    };
+  }, [config?.google_client_id]);
 
   const signInApple = async () => {
     if (!apple || busy) return;
