@@ -15,10 +15,25 @@ use Illuminate\Support\Facades\Route;
 Route::get('/health', [HealthController::class, 'index']);
 Route::get('/health/ready', [HealthController::class, 'ready']);
 
+// Address lookup during existing customer/provider registration. Keep the server key private.
+Route::get('/geo/search', [App\Http\Controllers\Api\GeoController::class, 'search'])->middleware('throttle:20,1');
+Route::get('/geo/reverse', [App\Http\Controllers\Api\GeoController::class, 'reverse'])->middleware('throttle:20,1');
+Route::get('/geo/config', [App\Http\Controllers\Api\GeoController::class, 'config'])->middleware('throttle:60,1');
+
 // Public Auth Routes (Rate limited to 20 req/min to protect against brute-force)
 Route::prefix('auth')->middleware('throttle:20,1')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);
+    Route::get('/social/config', [App\Http\Controllers\Api\SocialAuthController::class, 'config']);
+    Route::get('/social/nonce', [App\Http\Controllers\Api\SocialAuthController::class, 'nonce'])->middleware('throttle:10,1');
+    Route::post('/social/{provider}/prefill', [App\Http\Controllers\Api\SocialAuthController::class, 'prefill'])
+        ->where('provider', 'google|apple')->middleware('throttle:10,1');
+    Route::post('/social/{provider}/login', [App\Http\Controllers\Api\SocialAuthController::class, 'login'])
+        ->where('provider', 'google|apple')->middleware('throttle:10,1');
+    Route::post('/verification/{channel}/send', [App\Http\Controllers\Api\RegistrationVerificationController::class, 'send'])
+        ->where('channel', 'email|sms')->middleware('throttle:5,1');
+    Route::post('/verification/{channel}/confirm', [App\Http\Controllers\Api\RegistrationVerificationController::class, 'confirm'])
+        ->where('channel', 'email|sms')->middleware('throttle:10,1');
 });
 
 // Authenticated Auth Routes
@@ -26,6 +41,8 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/change-password', [AuthController::class, 'changePassword'])->middleware('throttle:10,1');
+    Route::post('/social/{provider}/link', [App\Http\Controllers\Api\SocialAuthController::class, 'link'])
+        ->where('provider', 'google|apple')->middleware('throttle:5,1');
 
     // Active session (Sanctum token) management — no raw tokens exposed.
     Route::get('/sessions', [App\Http\Controllers\Api\SessionController::class, 'index']);
@@ -333,6 +350,9 @@ Route::middleware(['auth:sanctum', 'role:CUSTOMER'])->prefix('customer')->group(
     Route::post('/addresses', [App\Http\Controllers\Api\CustomerProfileController::class, 'storeAddress']);
     Route::put('/addresses/{id}', [App\Http\Controllers\Api\CustomerProfileController::class, 'updateAddress']);
     Route::delete('/addresses/{id}', [App\Http\Controllers\Api\CustomerProfileController::class, 'destroyAddress']);
+
+    // Shared web/mobile "Size Yakın Berberler" query; saved default address is used by default.
+    Route::get('/providers/nearby', [App\Http\Controllers\Api\PublicProviderController::class, 'nearby'])->middleware('throttle:60,1');
 
     // Instant Service Requests & Offers
     Route::get('/service-requests', [App\Http\Controllers\Api\CustomerServiceRequestController::class, 'index']);

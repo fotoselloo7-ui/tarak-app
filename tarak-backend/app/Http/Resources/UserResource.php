@@ -24,6 +24,7 @@ class UserResource extends JsonResource
             'phone' => $this->phone,
             'gender' => $this->gender,
             'status' => $this->status,
+            'is_demo' => (bool) $this->is_demo,
             'avatar_url' => $this->avatar_url,
             'phone_verified_at' => $this->phone_verified_at?->toISOString(),
             'email_verified_at' => $this->email_verified_at?->toISOString(),

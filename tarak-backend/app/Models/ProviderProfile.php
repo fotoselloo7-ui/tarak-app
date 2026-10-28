@@ -24,6 +24,9 @@ class ProviderProfile extends Model
         'profile_completed',
         'city',
         'district',
+        'neighborhood',
+        'street',
+        'building_no',
         'address_detail',
         'bio',
         'title',
@@ -115,6 +118,11 @@ class ProviderProfile extends Model
      */
     public function isVerified(): bool
     {
+        // Demo documents are placeholders, never evidence of a real identity review.
+        if ($this->user?->is_demo) {
+            return false;
+        }
+
         if (! $this->is_approved || $this->identity_status !== 'APPROVED') {
             return false;
         }

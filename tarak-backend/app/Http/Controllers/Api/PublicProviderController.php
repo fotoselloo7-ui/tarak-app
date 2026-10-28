@@ -92,7 +92,9 @@ class PublicProviderController extends Controller
             [$distanceSql, $bindings] = Geo::sql($origin, 'provider_profiles.latitude', 'provider_profiles.longitude');
             if ($maxDistance) {
                 $query->whereNotNull('provider_profiles.latitude')->whereNotNull('provider_profiles.longitude')
-                    ->whereRaw($distanceSql . ' <= ?', [...$bindings, $maxDistance]);
+                    // PDO binds PHP floats as strings on SQLite; cast the radius to a
+                    // number so SQLite compares distances numerically, like MySQL.
+                    ->whereRaw($distanceSql . ' <= CAST(? AS REAL)', [...$bindings, $maxDistance]);
             }
             if ($sort === 'distance') {
                 // Providers without coordinates sink to the end.
@@ -121,8 +123,61 @@ class PublicProviderController extends Controller
                 'per_page' => $page->perPage(),
                 'total' => $page->total(),
                 'has_origin' => $origin !== null,
+                'origin_source' => $request->attributes->get('nearby_origin_source'),
+                'radius_km' => $request->attributes->get('nearby_radius_km'),
             ] + $this->listingAds->meta(),
         ]);
+    }
+
+    /**
+     * The same filtered, ranked card query for web and Flutter home screens.
+     * Device coordinates are opt-in query parameters; otherwise use the customer's
+     * saved default address. A missing position is an explicit error so the client
+     * can ask for location permission or an address instead of showing unrelated cards.
+     */
+    public function nearby(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'radius_km' => ['sometimes', 'numeric', 'between:1,50'],
+            'lat' => ['required_with:lng', 'numeric', 'between:-90,90'],
+            'lng' => ['required_with:lat', 'numeric', 'between:-180,180'],
+            'type' => ['sometimes', 'in:barber,coiffeur'],
+            'per_page' => ['sometimes', 'integer', 'between:1,30'],
+            'page' => ['sometimes', 'integer', 'min:1'],
+        ]);
+
+        $radius = (float) ($validated['radius_km'] ?? 10);
+        $source = 'device';
+        if (isset($validated['lat'], $validated['lng'])) {
+            $latitude = (float) $validated['lat'];
+            $longitude = (float) $validated['lng'];
+        } else {
+            $profile = $request->user()->customerProfile;
+            $address = null;
+            if ($profile) {
+                $address = $profile->defaultAddress()->whereNotNull('latitude')->whereNotNull('longitude')->first()
+                    ?? $profile->addresses()->whereNotNull('latitude')->whereNotNull('longitude')->orderByDesc('is_default')->first();
+            }
+            $latitude = $address?->latitude !== null ? (float) $address->latitude : null;
+            $longitude = $address?->longitude !== null ? (float) $address->longitude : null;
+            $source = 'saved_address';
+        }
+
+        if ($latitude === null || $longitude === null || ($latitude === 0.0 && $longitude === 0.0)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Yakındaki berberler için kayıtlı koordinatlı bir adres veya konum izni gerekli.',
+            ], 422);
+        }
+
+        $request->query->set('lat', (string) $latitude);
+        $request->query->set('lng', (string) $longitude);
+        $request->query->set('max_distance_km', (string) $radius);
+        $request->query->set('sort', 'distance');
+        $request->attributes->set('nearby_origin_source', $source);
+        $request->attributes->set('nearby_radius_km', $radius);
+
+        return $this->index($request);
     }
 
     /**
@@ -132,9 +187,13 @@ class PublicProviderController extends Controller
     private function rankedQuery(?string $type): \Illuminate\Database\Eloquent\Builder
     {
         $stats = DB::table('provider_reviews')
+            ->join('users as review_customers', 'review_customers.id', '=', 'provider_reviews.customer_user_id')
+            ->where('review_customers.is_demo', false)
             ->select('provider_user_id', DB::raw('COUNT(*) as review_total'), DB::raw('AVG(rating) as review_avg'))
             ->groupBy('provider_user_id');
-        $globalAvg = (float) (DB::table('provider_reviews')->avg('rating') ?: 4.0);
+        $globalAvg = (float) (DB::table('provider_reviews')
+            ->join('users as review_customers', 'review_customers.id', '=', 'provider_reviews.customer_user_id')
+            ->where('review_customers.is_demo', false)->avg('rating') ?: 4.0);
         $m = self::SCORE_PRIOR_REVIEWS;
 
         return ProviderProfile::query()
@@ -257,6 +316,7 @@ class PublicProviderController extends Controller
 
         $reviewStats = ProviderReview::query()
             ->whereIn('provider_user_id', $profiles->pluck('user_id'))
+            ->whereHas('customer', fn ($query) => $query->where('is_demo', false))
             ->groupBy('provider_user_id')
             ->selectRaw('provider_user_id, COUNT(*) as review_total, AVG(rating) as review_avg')
             ->get()
@@ -269,14 +329,11 @@ class PublicProviderController extends Controller
             ->selectRaw('provider_profile_id, COUNT(*) as service_total')
             ->pluck('service_total', 'provider_profile_id');
 
-        $vocational = [ProviderDocument::TYPE_DIPLOMA, ProviderDocument::TYPE_MASTER_CERTIFICATE, ProviderDocument::TYPE_JOURNEYMAN_CERTIFICATE];
-
         $discounts = app(\App\Services\ProviderDiscountService::class)->percentsFor($profiles->pluck('user_id'));
 
-        return $profiles->map(function (ProviderProfile $profile) use ($reviewStats, $serviceCounts, $vocational, $origin, $discounts) {
-            $row = $reviewStats->get($profile->user_id);
-            $verified = (bool) ($profile->is_approved && $profile->identity_status === 'APPROVED'
-                && $profile->documents->contains(fn ($d) => $d->status === ProviderDocument::STATUS_APPROVED && in_array($d->document_type, $vocational, true)));
+        return $profiles->map(function (ProviderProfile $profile) use ($reviewStats, $serviceCounts, $origin, $discounts) {
+            $row = $profile->user?->is_demo ? null : $reviewStats->get($profile->user_id);
+            $verified = $profile->isVerified();
 
             $card = $this->offerings->presentProvider($profile, [
                 'count' => (int) ($row->review_total ?? 0),

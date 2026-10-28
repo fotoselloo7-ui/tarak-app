@@ -35,6 +35,12 @@ class RegisterRequest extends BaseFormRequest
             'gender' => ['nullable', 'string', 'in:male,female,other,unspecified'],
             'business_name' => ['nullable', 'string', 'max:100'],
             'provider_type' => ['nullable', 'string', 'max:50'],
+            'email_verification_token' => ['nullable', 'string', 'size:64', 'regex:/^[a-f0-9]+$/'],
+            'phone_verification_token' => ['nullable', 'string', 'size:64', 'regex:/^[a-f0-9]+$/'],
+            'social_prefill_token' => ['nullable', 'string', 'size:64', 'regex:/^[a-f0-9]+$/'],
+            'accept_terms' => ['required', 'accepted'],
+            'accept_kvkk' => ['required', 'accepted'],
+            'marketing_consent' => ['sometimes', 'boolean'],
         ];
     }
 
@@ -54,6 +60,8 @@ class RegisterRequest extends BaseFormRequest
             'password.confirmed' => 'Şifre onayı eşleşmiyor.',
             'role.required' => 'Rol seçimi zorunludur.',
             'role.in' => 'Geçersiz rol seçimi. Yalnızca CUSTOMER veya PROVIDER olarak kayıt olunabilir.',
+            'accept_terms.accepted' => 'Kullanım koşullarını kabul etmelisiniz.',
+            'accept_kvkk.accepted' => 'KVKK aydınlatma metnini okuduğunuzu onaylamalısınız.',
         ];
     }
 }

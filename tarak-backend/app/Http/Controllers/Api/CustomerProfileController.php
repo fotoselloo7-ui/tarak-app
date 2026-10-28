@@ -57,8 +57,8 @@ class CustomerProfileController extends Controller
             'address.building_no' => ['nullable', 'string', 'max:30'],
             'address.apartment_no' => ['nullable', 'string', 'max:30'],
             'address.directions' => ['nullable', 'string'],
-            'address.latitude' => ['nullable', 'numeric'],
-            'address.longitude' => ['nullable', 'numeric'],
+            'address.latitude' => ['nullable', 'required_with:address.longitude', 'numeric', 'between:-90,90'],
+            'address.longitude' => ['nullable', 'required_with:address.latitude', 'numeric', 'between:-180,180'],
         ], [
             'first_name.required' => 'Ad alanı zorunludur.',
             'last_name.required' => 'Soyad alanı zorunludur.',
@@ -187,8 +187,8 @@ class CustomerProfileController extends Controller
             'building_no' => ['nullable', 'string', 'max:30'],
             'apartment_no' => ['nullable', 'string', 'max:30'],
             'directions' => ['nullable', 'string'],
-            'latitude' => ['nullable', 'numeric'],
-            'longitude' => ['nullable', 'numeric'],
+            'latitude' => ['nullable', 'required_with:longitude', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'required_with:latitude', 'numeric', 'between:-180,180'],
             'is_default' => ['nullable', 'boolean'],
         ], [
             'province.required' => 'İl seçimi zorunludur.',
@@ -265,8 +265,8 @@ class CustomerProfileController extends Controller
             'building_no' => ['nullable', 'string', 'max:30'],
             'apartment_no' => ['nullable', 'string', 'max:30'],
             'directions' => ['nullable', 'string'],
-            'latitude' => ['nullable', 'numeric'],
-            'longitude' => ['nullable', 'numeric'],
+            'latitude' => ['nullable', 'required_with:longitude', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'required_with:latitude', 'numeric', 'between:-180,180'],
             'is_default' => ['nullable', 'boolean'],
         ]);
 

@@ -85,6 +85,7 @@ class CustomerAppointmentController extends Controller
             // Just the cards of the rotating slots: the clients ask again every `rotation_seconds`.
             $reviewTotals = \App\Models\ProviderReview::query()
                 ->whereIn('provider_user_id', $sponsored->pluck('user_id'))
+                ->whereHas('customer', fn ($customer) => $customer->where('is_demo', false))
                 ->selectRaw('provider_user_id, COUNT(*) as review_count, AVG(rating) as average_rating')
                 ->groupBy('provider_user_id')->get()->keyBy('provider_user_id');
 
@@ -106,6 +107,7 @@ class CustomerAppointmentController extends Controller
 
         $reviewTotals = \App\Models\ProviderReview::query()
             ->whereIn('provider_user_id', $verifiedProviders->pluck('user_id')->merge($sponsored->pluck('user_id')))
+            ->whereHas('customer', fn ($customer) => $customer->where('is_demo', false))
             ->selectRaw('provider_user_id, COUNT(*) as review_count, AVG(rating) as average_rating')
             ->groupBy('provider_user_id')->get()->keyBy('provider_user_id');
 
@@ -161,6 +163,7 @@ class CustomerAppointmentController extends Controller
     private function presentListedProvider(ProviderProfile $p, $reviews, ?array $origin, array $discounts = []): array
     {
         $u = $p->user;
+        $isDemo = (bool) ($u?->is_demo ?? false);
         $discountPercent = (int) ($discounts[(int) $p->user_id] ?? 0);
 
         return [
@@ -172,12 +175,13 @@ class CustomerAppointmentController extends Controller
             'avatar_url' => $u?->avatar_url,
             'city' => $p->city,
             'district' => $p->district,
-            'rating' => $reviews ? round((float) $reviews->average_rating, 2) : null,
-            'review_count' => $reviews ? (int) $reviews->review_count : 0,
+            'rating' => !$isDemo && $reviews ? round((float) $reviews->average_rating, 2) : null,
+            'review_count' => !$isDemo && $reviews ? (int) $reviews->review_count : 0,
             'experience_years' => $p->experience_years,
+            'is_demo' => $isDemo,
             'is_approved' => (bool) $p->is_approved,
-            'identity_status' => $p->identity_status,
-            'is_verified' => true,
+            'identity_status' => $isDemo ? 'DEMO' : $p->identity_status,
+            'is_verified' => $p->isVerified(),
             // Presentation fields the web dashboard used to fetch with one extra request per provider.
             'cover_url' => $p->cover_url,
             'gallery' => $p->gallery ?? [],

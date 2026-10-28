@@ -18,21 +18,22 @@ class FavoriteController extends Controller
     {
         $favorites = CustomerFavorite::query()
             ->where('customer_user_id', $request->user()->id)
-            ->with(['provider:id,name', 'provider.providerProfile.documents'])
+            ->with(['provider:id,name,is_demo', 'provider.providerProfile.documents'])
             ->latest()
             ->get()
             ->map(function (CustomerFavorite $f) {
                 $p = $f->provider;
                 $profile = $p?->providerProfile;
-                $count = ProviderReview::query()->where('provider_user_id', $p?->id)->count();
-                $avg = $count > 0
-                    ? round((float) ProviderReview::query()->where('provider_user_id', $p?->id)->avg('rating'), 2)
-                    : 0.0;
+                $reviews = ProviderReview::query()->where('provider_user_id', $p?->id)
+                    ->whereHas('customer', fn ($customer) => $customer->where('is_demo', false));
+                $count = $p?->is_demo ? 0 : (clone $reviews)->count();
+                $avg = $count > 0 ? round((float) (clone $reviews)->avg('rating'), 2) : 0.0;
 
                 return [
                     'provider_user_id' => $p?->id,
                     'name' => $p?->name,
                     'business_name' => $profile?->business_name,
+                    'is_demo' => (bool) ($p?->is_demo ?? false),
                     'is_verified' => (bool) ($profile?->isVerified() ?? false),
                     'city' => $profile?->city,
                     'district' => $profile?->district,
