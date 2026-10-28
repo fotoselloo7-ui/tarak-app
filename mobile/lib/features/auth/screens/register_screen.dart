@@ -47,6 +47,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   bool _socialBusy = false;
   bool _emailBusy = false;
   bool _smsBusy = false;
+  bool _smsVerificationEnabled = false;
   DateTime? _emailResendAt;
   DateTime? _smsResendAt;
   String? _emailCodeDestination;
@@ -78,6 +79,24 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     } else {
       _selectedRole = 'CUSTOMER';
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadVerificationConfig());
+  }
+
+  Future<void> _loadVerificationConfig() async {
+    try {
+      final response = await ref.read(apiClientProvider).get('/auth/verification/config');
+      final body = response.data;
+      final data = body is Map ? body['data'] : null;
+      final enabled = data is Map && data['sms_enabled'] == true;
+      if (mounted) {
+        setState(() {
+          _smsVerificationEnabled = enabled;
+          if (!enabled) _phoneProof = null;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _smsVerificationEnabled = false);
+    }
   }
 
   @override
@@ -102,7 +121,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       setState(() => _flowError = 'E-posta adresinizi doğrulayın.');
       return;
     }
-    if (_phoneController.text.trim().isNotEmpty && _phoneProof == null) {
+    if (_smsVerificationEnabled &&
+        _phoneController.text.trim().isNotEmpty &&
+        _phoneProof == null) {
       setState(() => _flowError = 'Telefon numaranızı SMS koduyla doğrulayın.');
       return;
     }
@@ -249,7 +270,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     }
   }
 
-  Widget _verificationAction(String channel) {
+  Widget? _verificationAction(String channel) {
+    if (channel == 'sms' && !_smsVerificationEnabled) return null;
     final verified = channel == 'email' ? _emailProof != null || _hasVerifiedSocialEmail : _phoneProof != null;
     final busy = channel == 'email' ? _emailBusy : _smsBusy;
     if (verified) {
