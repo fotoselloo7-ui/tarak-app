@@ -20,13 +20,19 @@ Route::get('/geo/search', [App\Http\Controllers\Api\GeoController::class, 'searc
 Route::get('/geo/reverse', [App\Http\Controllers\Api\GeoController::class, 'reverse'])->middleware('throttle:20,1');
 Route::get('/geo/config', [App\Http\Controllers\Api\GeoController::class, 'config'])->middleware('throttle:60,1');
 
-// Public Auth Routes (Rate limited to 20 req/min to protect against brute-force)
+// Public auth bootstrap/config endpoints are read-only and are requested on page
+// render. Keep them outside the brute-force bucket so normal UI re-renders do
+// not consume login/register attempts.
+Route::prefix('auth')->middleware('throttle:120,1')->group(function () {
+    Route::get('/social/config', [App\Http\Controllers\Api\SocialAuthController::class, 'config']);
+    Route::get('/verification/config', [App\Http\Controllers\Api\RegistrationVerificationController::class, 'config']);
+});
+
+// Public Auth Routes (Rate limited to protect against brute-force)
 Route::prefix('auth')->middleware('throttle:20,1')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);
-    Route::get('/social/config', [App\Http\Controllers\Api\SocialAuthController::class, 'config']);
     Route::get('/social/nonce', [App\Http\Controllers\Api\SocialAuthController::class, 'nonce'])->middleware('throttle:10,1');
-    Route::get('/verification/config', [App\Http\Controllers\Api\RegistrationVerificationController::class, 'config']);
     Route::post('/social/{provider}/prefill', [App\Http\Controllers\Api\SocialAuthController::class, 'prefill'])
         ->where('provider', 'google|apple')->middleware('throttle:10,1');
     Route::post('/social/{provider}/login', [App\Http\Controllers\Api\SocialAuthController::class, 'login'])
