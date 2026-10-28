@@ -24,6 +24,8 @@ class AuthController extends Controller
     public function register(RegisterRequest $request): JsonResponse
     {
         $validated = $request->validated();
+        $smsVerificationEnabled = !empty($validated['phone'])
+            && $this->verification->isSmsVerificationEnabled();
 
         // Extra guard: ADMIN cannot be registered publicly
         if ($validated['role'] === User::ROLE_ADMIN) {
@@ -33,7 +35,7 @@ class AuthController extends Controller
             ], 403);
         }
 
-        $user = DB::transaction(function () use ($validated) {
+        $user = DB::transaction(function () use ($validated, $smsVerificationEnabled) {
             $socialAttempt = null;
             if (!empty($validated['social_prefill_token'])) {
                 $socialAttempt = DB::table('social_auth_attempts')
@@ -54,7 +56,7 @@ class AuthController extends Controller
             if (!empty($validated['email']) && !$verifiedSocialEmail) {
                 $this->verification->consume('email', $validated['email'], $validated['email_verification_token'] ?? null);
             }
-            if (!empty($validated['phone'])) {
+            if ($smsVerificationEnabled) {
                 $this->verification->consume('sms', $validated['phone'], $validated['phone_verification_token'] ?? null);
             }
 
@@ -69,7 +71,7 @@ class AuthController extends Controller
                 'gender' => $validated['gender'] ?? 'unspecified',
                 'status' => 'active',
                 'email_verified_at' => !empty($validated['email']) ? now() : null,
-                'phone_verified_at' => !empty($validated['phone']) ? now() : null,
+                'phone_verified_at' => $smsVerificationEnabled ? now() : null,
             ]);
 
             DB::table('registration_consents')->insert([
