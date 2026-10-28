@@ -9,6 +9,7 @@ import '../providers/auth_provider.dart';
 import '../services/social_identity_service.dart';
 import '../widgets/web_landing_widgets.dart';
 import 'register_screen.dart';
+import 'forgot_password_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -223,7 +224,28 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 24),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => ForgotPasswordScreen(
+                            initialEmail: _loginController.text.trim().contains('@')
+                                ? _loginController.text.trim()
+                                : null,
+                          ),
+                        ),
+                      ),
+                      child: const Text(
+                        'Şifremi Unuttum',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
 
                   // Submit Button
                   PrimaryButton(
