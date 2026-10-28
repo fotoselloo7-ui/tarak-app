@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\MailSettingsApplier;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -43,8 +44,8 @@ class PasswordResetController extends Controller
         $emailHash = hash_hmac('sha256', $email, (string) config('app.key'));
         $existing = DB::table('password_reset_codes')->where('email_hash', $emailHash)->first();
 
-        if ($existing && now()->lessThan($existing->resend_after)) {
-            $remaining = max(1, now()->diffInSeconds($existing->resend_after, false));
+        if ($existing && now()->lessThan(Carbon::parse($existing->resend_after))) {
+            $remaining = max(1, (int) now()->diffInSeconds(Carbon::parse($existing->resend_after), false));
             $generic['data']['resend_after_seconds'] = $remaining;
             return response()->json($generic);
         }
@@ -108,7 +109,7 @@ class PasswordResetController extends Controller
                 ->lockForUpdate()
                 ->first();
 
-            if (!$row || $row->consumed_at || now()->greaterThan($row->expires_at)) {
+            if (!$row || $row->consumed_at || now()->greaterThan(Carbon::parse($row->expires_at))) {
                 throw ValidationException::withMessages([
                     'code' => 'Kod geçersiz veya süresi dolmuş. Yeni kod isteyiniz.',
                 ]);
