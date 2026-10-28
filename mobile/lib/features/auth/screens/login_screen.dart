@@ -8,6 +8,7 @@ import '../../shared/widgets/custom_text_field.dart';
 import '../providers/auth_provider.dart';
 import '../services/social_identity_service.dart';
 import '../widgets/web_landing_widgets.dart';
+import '../widgets/google_auth_button.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
 
@@ -255,10 +256,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                   const SizedBox(height: 10),
                   Row(children: [
-                    Expanded(child: OutlinedButton.icon(
+                    Expanded(child: GoogleAuthButton(
                       onPressed: _socialBusy ? null : () => _socialLogin('google'),
-                      icon: const Icon(Icons.account_circle_outlined, size: 18),
-                      label: const Text('Google ile giriş'),
+                      isLoading: _socialBusy,
+                      label: 'Google ile giriş',
                     )),
                     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) ...[
                       const SizedBox(width: 8),

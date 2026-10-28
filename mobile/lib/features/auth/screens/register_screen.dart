@@ -9,6 +9,7 @@ import '../../shared/widgets/custom_text_field.dart';
 import '../providers/auth_provider.dart';
 import '../services/social_identity_service.dart';
 import '../widgets/preauth_widgets.dart';
+import '../widgets/google_auth_button.dart';
 import '../widgets/verification_code_dialog.dart';
 import '../widgets/web_landing_widgets.dart';
 import 'login_screen.dart';
@@ -413,10 +414,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 // Provider identity only pre-fills editable fields. The user
                 // still completes this existing form and grants each consent.
                 Row(children: [
-                  Expanded(child: OutlinedButton.icon(
+                  Expanded(child: GoogleAuthButton(
                     onPressed: _socialBusy ? null : () => _prefillSocial('google'),
-                    icon: const Icon(Icons.account_circle_outlined, size: 18),
-                    label: const Text('Google ile doldur'),
+                    isLoading: _socialBusy,
+                    label: 'Google ile doldur',
                   )),
                   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) ...[
                     const SizedBox(width: 8),
