@@ -35,6 +35,7 @@ export function SocialButtons({api, mode = 'prefill', onResult, onError, extraPa
     if (!config) return;
     let active = true;
     setApple(null);
+    const noncePromise = api.get('/auth/social/nonce');
     const complete = async (provider, payload) => {
       if (!active) return;
       setBusy(true);
@@ -45,7 +46,7 @@ export function SocialButtons({api, mode = 'prefill', onResult, onError, extraPa
       finally { if (active) { setBusy(false); setGeneration(value => value + 1); } }
     };
     if (config.google_client_id) {
-      Promise.all([loadScript('https://accounts.google.com/gsi/client'), api.get('/auth/social/nonce')])
+      Promise.all([loadScript('https://accounts.google.com/gsi/client'), noncePromise])
         .then(([, result]) => {
           if (!active || !googleHost.current) return;
           const nonce = result.data.nonce;
@@ -61,7 +62,7 @@ export function SocialButtons({api, mode = 'prefill', onResult, onError, extraPa
         }).catch(error => { if (active) callback.current.onError(error.message); });
     }
     if (config.apple_client_id && config.apple_redirect_uri) {
-      Promise.all([loadScript('https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js'), api.get('/auth/social/nonce')])
+      Promise.all([loadScript('https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js'), noncePromise])
         .then(([, result]) => {
           if (!active) return;
           const nonce = result.data.nonce;
