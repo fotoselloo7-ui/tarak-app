@@ -43,6 +43,10 @@ return [
         // Temporary compatibility for store builds released before consent/OTP
         // fields were added. Disable after build 5+ adoption.
         'legacy_mobile_compat' => filter_var(env('ALLOW_LEGACY_MOBILE_REGISTRATION', true), FILTER_VALIDATE_BOOL),
+        // Registration SMS verification is independent from the general SMS
+        // integration. Keeping SMS notifications enabled must not make signup
+        // OTP mandatory unless this flag is explicitly enabled.
+        'sms_verification_enabled' => filter_var(env('REGISTRATION_SMS_VERIFICATION_ENABLED', false), FILTER_VALIDATE_BOOL),
     ],
 
     'google' => [
