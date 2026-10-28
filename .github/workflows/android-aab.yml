@@ -96,7 +96,7 @@ jobs:
           GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID || secrets.GOOGLE_WEB_CLIENT_ID }}
         run: |
           flutter build appbundle --release \
-            --build-name 1.1.0 --build-number "${{ inputs.build_number }}" \
+            --build-name 1.1.1 --build-number "${{ inputs.build_number }}" \
             --dart-define=API_BASE_URL=https://tarak.app/api \
             --dart-define=REVERB_HOST=tarak.app \
             --dart-define=REVERB_APP_KEY=hhyfpgfv2dgv95yd78kz \
@@ -118,7 +118,7 @@ jobs:
       - name: Downloadable Google Play AAB
         uses: actions/upload-artifact@v4
         with:
-          name: tarak-android-1.1.0-${{ inputs.build_number }}-release-aab
+          name: tarak-android-1.1.1-${{ inputs.build_number }}-release-aab
           path: mobile/build/app/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 7
