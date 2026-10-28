@@ -62,6 +62,7 @@ Google haritası yalnız seçici açıldığında yüklenir; native arama beklem
 - iOS için Windows üzerinde IPA üretilemez. TestFlight iş akışı açık manuel tetiklemeye alındı; OAuth/Maps ayarları build sırasında enjekte edilir. Mevcut Firebase dosyaları korunur.
 - GitHub erişimi doğrulandı; depodaki Actions secret listesi kontrolde boştu. iOS dağıtım sertifikası/provisioning/App Store Connect ve Android upload signing/Maps/OAuth değerleri repository Actions ayarlarına sahibi tarafından eklenmelidir. Özel anahtarlar Git'e eklenmez.
 - Önceki TestFlight run `40171778526`, GitHub'ın hesap ödemesi/harcama limiti engeli nedeniyle derleme adımına başlamamıştı. `Billing & plans` ayarı hesap sahibi tarafından çözülmeden yeni Actions işleri de başlayamayabilir. Bu, yerel derleme sonucundan ayrı bir dış engeldir.
+- Bu dalın yeni [entegrasyon kontrolü (40693519675)](https://github.com/fotoselloo7-ui/tarak-app/actions/runs/40693519675) de aynı hesap ödemesi/harcama limiti nedeniyle API, web ve mobile işleri başlamadan engellendi. Yerel test sonuçları başarılıdır; uzak CI başarısı doğrulanamadı. Değişiklikler [taslak PR #1](https://github.com/fotoselloo7-ui/tarak-app/pull/1) üzerinden incelenebilir.
 - App Store/TestFlight veya Google Play'e yükleme/yayın tamamlandı iddiası yoktur. İmzalama ve gerçek servis yapılandırmaları olmadan release iş akışı yayın başarısı sayılmaz.
 
 ## Web kaynağı sınırı ve tekrar uygulama
