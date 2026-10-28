@@ -23,8 +23,32 @@ class RegisterRequest extends BaseFormRequest
         ]);
     }
 
+    public function isLegacyNativeClient(): bool
+    {
+        if (!(bool) config('services.registration.legacy_mobile_compat', true)) {
+            return false;
+        }
+
+        if ($this->headers->has('X-Tarak-Client')) {
+            return false;
+        }
+
+        // Legacy Flutter builds did not send the consent/verification fields and
+        // do not send a browser Origin. Keep this compatibility path narrowly
+        // scoped until the store rollout is complete.
+        $userAgent = strtolower((string) $this->userAgent());
+        $looksNative = !$this->headers->has('Origin')
+            && ($userAgent === '' || str_contains($userAgent, 'dart'));
+
+        return $looksNative
+            && !$this->has('accept_terms')
+            && !$this->has('accept_kvkk');
+    }
+
     public function rules(): array
     {
+        $legacyNative = $this->isLegacyNativeClient();
+
         return [
             'first_name' => ['required', 'string', 'max:50'],
             'last_name' => ['required', 'string', 'max:50'],
@@ -38,8 +62,8 @@ class RegisterRequest extends BaseFormRequest
             'email_verification_token' => ['nullable', 'string', 'size:64', 'regex:/^[a-f0-9]+$/'],
             'phone_verification_token' => ['nullable', 'string', 'size:64', 'regex:/^[a-f0-9]+$/'],
             'social_prefill_token' => ['nullable', 'string', 'size:64', 'regex:/^[a-f0-9]+$/'],
-            'accept_terms' => ['required', 'accepted'],
-            'accept_kvkk' => ['required', 'accepted'],
+            'accept_terms' => $legacyNative ? ['sometimes', 'accepted'] : ['required', 'accepted'],
+            'accept_kvkk' => $legacyNative ? ['sometimes', 'accepted'] : ['required', 'accepted'],
             'marketing_consent' => ['sometimes', 'boolean'],
         ];
     }
@@ -60,7 +84,9 @@ class RegisterRequest extends BaseFormRequest
             'password.confirmed' => 'Şifre onayı eşleşmiyor.',
             'role.required' => 'Rol seçimi zorunludur.',
             'role.in' => 'Geçersiz rol seçimi. Yalnızca CUSTOMER veya PROVIDER olarak kayıt olunabilir.',
+            'accept_terms.required' => 'Kullanım koşullarını kabul etmelisiniz.',
             'accept_terms.accepted' => 'Kullanım koşullarını kabul etmelisiniz.',
+            'accept_kvkk.required' => 'KVKK aydınlatma metnini okuduğunuzu onaylamalısınız.',
             'accept_kvkk.accepted' => 'KVKK aydınlatma metnini okuduğunuzu onaylamalısınız.',
         ];
     }
