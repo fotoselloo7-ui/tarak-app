@@ -137,7 +137,11 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final bottomSafeSpace = media.viewInsets.bottom + media.padding.bottom + 32;
+
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: AppTheme.background,
       appBar: AppBar(
         title: const Text('Şifremi Unuttum'),
@@ -147,7 +151,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: EdgeInsets.fromLTRB(24, 20, 24, bottomSafeSpace),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
