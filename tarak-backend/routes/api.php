@@ -26,13 +26,13 @@ Route::get('/geo/config', [App\Http\Controllers\Api\GeoController::class, 'confi
 Route::prefix('auth')->middleware('throttle:120,1')->group(function () {
     Route::get('/social/config', [App\Http\Controllers\Api\SocialAuthController::class, 'config']);
     Route::get('/verification/config', [App\Http\Controllers\Api\RegistrationVerificationController::class, 'config']);
+    Route::get('/social/nonce', [App\Http\Controllers\Api\SocialAuthController::class, 'nonce'])->middleware('throttle:60,1');
 });
 
 // Public Auth Routes (Rate limited to protect against brute-force)
 Route::prefix('auth')->middleware('throttle:20,1')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);
-    Route::get('/social/nonce', [App\Http\Controllers\Api\SocialAuthController::class, 'nonce'])->middleware('throttle:10,1');
     Route::post('/social/{provider}/prefill', [App\Http\Controllers\Api\SocialAuthController::class, 'prefill'])
         ->where('provider', 'google|apple')->middleware('throttle:10,1');
     Route::post('/social/{provider}/login', [App\Http\Controllers\Api\SocialAuthController::class, 'login'])
