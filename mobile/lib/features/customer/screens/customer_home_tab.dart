@@ -61,6 +61,7 @@ class CustomerHomeTab extends ConsumerWidget {
           ref.invalidate(featuredProvidersProvider);
           ref.invalidate(spotlightProvidersProvider);
           ref.invalidate(newestProvidersProvider);
+          ref.invalidate(nearbyHomeProvidersProvider);
           ref.invalidate(homeStatsProvider);
           await Future.wait([
             ref.read(myServiceRequestsProvider.notifier).refresh(),
@@ -326,6 +327,8 @@ class CustomerHomeTab extends ConsumerWidget {
                         loading: () => const SizedBox.shrink(),
                         error: (_, _) => const SizedBox.shrink(),
                       ),
+
+                    const HomeNearbyProvidersSection(),
 
                     // Yeni katılan profesyoneller (most recently approved).
                     if (sectionOn('newest')) const HomeNewestSection(),

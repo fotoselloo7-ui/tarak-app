@@ -57,6 +57,8 @@ class InstantRequestRepository {
     String? buildingNo,
     String? apartmentNo,
     String? directions,
+    double? latitude,
+    double? longitude,
     bool isDefault = false,
   }) async {
     final payload = <String, dynamic>{
@@ -64,6 +66,8 @@ class InstantRequestRepository {
       'province': province.trim(),
       'district': district.trim(),
       'is_default': isDefault,
+      'latitude': ?latitude,
+      'longitude': ?longitude,
     };
     if (neighborhood != null && neighborhood.trim().isNotEmpty) {
       payload['neighborhood'] = neighborhood.trim();

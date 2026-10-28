@@ -231,3 +231,19 @@ final homeServicesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) as
   if (data is! List) throw const FormatException('Hizmetler yüklenemedi.');
   return data.map((item) => Map<String, dynamic>.from(item as Map)).toList();
 }, retry: (_, _) => null);
+
+/// Uses the same server-side distance query as the web home. The API computes
+/// distance from the customer's actual profile coordinates and never sends
+/// provider coordinates to the client.
+typedef NearbyHomeQuery = ({double? latitude, double? longitude, int radiusKm});
+
+final nearbyHomeProvidersProvider = FutureProvider.family<List<Map<String, dynamic>>, NearbyHomeQuery>((ref, query) async {
+  final res = await ref.read(apiClientProvider).get('/customer/providers/nearby', queryParameters: {
+    if (query.latitude != null) 'lat': query.latitude,
+    if (query.longitude != null) 'lng': query.longitude,
+    'radius_km': query.radiusKm,
+  });
+  final data = res.data is Map ? res.data['data'] : null;
+  if (data is! List) throw const FormatException('Yakındaki hizmet verenler yüklenemedi.');
+  return data.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
+}, retry: (_, _) => null);

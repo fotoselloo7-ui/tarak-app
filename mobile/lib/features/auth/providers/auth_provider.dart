@@ -232,6 +232,12 @@ class AuthNotifier extends Notifier<AuthState> {
     required String password,
     required String passwordConfirmation,
     String? businessName,
+    String? emailVerificationToken,
+    String? phoneVerificationToken,
+    String? socialPrefillToken,
+    required bool acceptTerms,
+    required bool acceptKvkk,
+    bool marketingConsent = false,
   }) async {
     // Client-side guard: ADMIN cannot be registered
     final cleanRole = role.toUpperCase().trim();
@@ -252,7 +258,14 @@ class AuthNotifier extends Notifier<AuthState> {
         'role': cleanRole,
         'password': password,
         'password_confirmation': passwordConfirmation,
+        'accept_terms': acceptTerms,
+        'accept_kvkk': acceptKvkk,
+        'marketing_consent': marketingConsent,
       };
+
+      if (emailVerificationToken != null) payload['email_verification_token'] = emailVerificationToken;
+      if (phoneVerificationToken != null) payload['phone_verification_token'] = phoneVerificationToken;
+      if (socialPrefillToken != null) payload['social_prefill_token'] = socialPrefillToken;
 
       if (email != null && email.trim().isNotEmpty) {
         payload['email'] = email.trim();
@@ -295,6 +308,36 @@ class AuthNotifier extends Notifier<AuthState> {
         status: AuthStatus.unauthenticated,
         errorMessage: 'Kayıt işlemi başarısız oldu.',
       );
+      return false;
+    }
+  }
+
+  /// Provider login only succeeds when the verified provider subject was
+  /// explicitly linked to a Tarak account by the backend.
+  Future<bool> loginWithSocial(String provider, Map<String, dynamic> credential) async {
+    state = state.copyWith(status: AuthStatus.loading, clearError: true);
+    try {
+      final response = await _apiClient.post('/auth/social/$provider/login', data: credential);
+      final data = response.data;
+      if (data is! Map<String, dynamic>) {
+        throw const AppException(message: 'Sunucudan geçersiz yanıt alındı.');
+      }
+      final authResponse = AuthResponse.fromJson(data);
+      await _storage.saveToken(authResponse.token);
+      if (authResponse.user.isAdmin) {
+        state = AuthState(status: AuthStatus.unsupportedAdmin, user: authResponse.user);
+        return false;
+      }
+      state = AuthState(status: AuthStatus.authenticated, user: authResponse.user);
+      _pushService.registerDevice();
+      _pushService.requestPermissions();
+      return true;
+    } on AppException catch (e) {
+      state = state.copyWith(status: AuthStatus.unauthenticated, errorMessage: e.message);
+      return false;
+    } catch (_) {
+      state = state.copyWith(status: AuthStatus.unauthenticated,
+          errorMessage: 'Sağlayıcı ile giriş yapılamadı.');
       return false;
     }
   }

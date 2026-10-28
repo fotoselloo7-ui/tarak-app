@@ -17,10 +17,12 @@ import '../../shared/screens/legal_screen.dart';
 import '../../shared/screens/sessions_screen.dart';
 import '../../offerings/screens/provider_offerings_screen.dart';
 import '../../shared/widgets/account_sheets.dart';
+import '../../shared/widgets/social_account_link_sheet.dart';
 import '../../shared/widgets/avatar_picker.dart';
 import '../appointments/screens/provider_schedule_screen.dart';
 import 'provider_wallet_screen.dart';
 import 'provider_documents_screen.dart';
+import 'provider_location_sheet.dart';
 import '../instant/providers/provider_instant_providers.dart';
 import '../../shared/widgets/app_icon_card.dart';
 import '../../../core/widgets/verified_tick.dart';
@@ -358,6 +360,14 @@ class _ProviderProfileTabState extends ConsumerState<ProviderProfileTab> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const SizedBox(height: 8),
+            ListTile(
+              leading: const Icon(Icons.link_rounded, color: AppTheme.primary),
+              title: const Text('Google / Apple hesabı bağla'),
+              onTap: () {
+                Navigator.pop(ctx);
+                showSocialAccountLinkSheet(context);
+              },
+            ),
             ListTile(
               leading: const Icon(
                 Icons.lock_outline_rounded,
@@ -874,6 +884,23 @@ class _ProviderProfileTabState extends ConsumerState<ProviderProfileTab> {
                         ),
                       ],
                     ),
+                    if (providerProfile != null)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: () async {
+                            final saved = await showModalBottomSheet<bool>(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (_) => ProviderLocationSheet(profile: providerProfile),
+                            );
+                            if (saved == true) ref.invalidate(providerProfileNotifierProvider);
+                          },
+                          icon: const Icon(Icons.edit_location_alt_outlined, size: 17),
+                          label: const Text('İşletme konumunu düzenle'),
+                        ),
+                      ),
                   ],
                 ),
               ),

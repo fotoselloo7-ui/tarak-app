@@ -19,12 +19,28 @@ class VerifiedTick extends StatelessWidget {
 }
 
 /// `is_verified` of an API map (older shapes only carry `is_approved`).
-bool isVerifiedMap(Map<dynamic, dynamic>? provider) => provider != null && (provider['is_verified'] ?? provider['is_approved']) == true;
+bool isVerifiedMap(Map<dynamic, dynamic>? provider) => provider != null &&
+    provider['is_demo'] != true && (provider['is_verified'] ?? provider['is_approved']) == true;
+
+/// Explicitly separates illustrative profiles from real verified accounts.
+class DemoProfileTag extends StatelessWidget {
+  const DemoProfileTag({super.key});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+        decoration: BoxDecoration(color: const Color(0xFFFFF2DF),
+            borderRadius: BorderRadius.circular(5)),
+        child: const Text('Demo profil', style: TextStyle(
+            color: Color(0xFF9A5700), fontSize: 9, fontWeight: FontWeight.w700)),
+      );
+}
 
 /// A provider name with its tick: the name shortens first (ellipsis), the tick always stays.
 class ProviderNameRow extends StatelessWidget {
   final String name;
   final bool verified;
+  final bool demo;
   final TextStyle? style;
   final int maxLines;
   final double tickSize;
@@ -34,6 +50,7 @@ class ProviderNameRow extends StatelessWidget {
     super.key,
     required this.name,
     required this.verified,
+    this.demo = false,
     this.style,
     this.maxLines = 1,
     this.tickSize = 15,
@@ -50,6 +67,10 @@ class ProviderNameRow extends StatelessWidget {
         if (verified) ...[
           const SizedBox(width: 4),
           VerifiedTick(size: tickSize),
+        ],
+        if (demo) ...[
+          const SizedBox(width: 4),
+          const DemoProfileTag(),
         ],
       ],
     );

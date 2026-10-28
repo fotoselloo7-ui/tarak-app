@@ -73,6 +73,8 @@ class ProviderListOriginNotifier extends Notifier<ProviderListOriginState> {
   @override
   ProviderListOriginState build() => const ProviderListOriginState();
 
+  void useSavedAddress() => state = const ProviderListOriginState();
+
   /// "Konumumu kullan": asks for the permission (once) and remembers the position for every list.
   Future<void> useDevice() async {
     if (state.status == DeviceLocationStatus.locating) return;

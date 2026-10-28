@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../shared/widgets/common_widgets.dart';
 import '../../shared/widgets/geo_select_fields.dart';
+import '../../shared/screens/map_address_picker.dart';
 import '../models/customer_address.dart';
 import '../providers/customer_profile_stats_provider.dart';
 import '../providers/instant_request_provider.dart';
@@ -407,9 +408,19 @@ class _EditAddressSheetState extends ConsumerState<_EditAddressSheet> {
     text: widget.address.directions ?? '',
   );
   late bool _isDefault = widget.address.isDefault;
+  late double? _latitude = widget.address.latitude;
+  late double? _longitude = widget.address.longitude;
 
   bool _saving = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    for (final controller in [_province, _district, _neighborhood, _street, _building]) {
+      controller.addListener(() { _latitude = null; _longitude = null; });
+    }
+  }
 
   @override
   void dispose() {
@@ -427,9 +438,29 @@ class _EditAddressSheetState extends ConsumerState<_EditAddressSheet> {
   String? _trimmedOrNull(TextEditingController c) =>
       c.text.trim().isEmpty ? null : c.text.trim();
 
+  Future<void> _selectOnMap() async {
+    final query = [_street.text, _neighborhood.text, _district.text, _province.text]
+        .where((part) => part.trim().isNotEmpty).join(', ');
+    final result = await Navigator.push<MapAddressData>(context,
+        MaterialPageRoute(builder: (_) => MapAddressPicker(
+          initialQuery: query, initialLatitude: _latitude, initialLongitude: _longitude,
+        )));
+    if (result == null || !mounted) return;
+    _province.text = result.province;
+    _district.text = result.district;
+    _neighborhood.text = result.neighborhood;
+    _street.text = result.street;
+    _building.text = result.buildingNo;
+    setState(() { _latitude = result.latitude; _longitude = result.longitude; });
+  }
+
   Future<void> _save() async {
     if (_title.text.trim().isEmpty) {
       setState(() => _error = 'Adres başlığı zorunludur.');
+      return;
+    }
+    if (_province.text.trim().isEmpty || _district.text.trim().isEmpty) {
+      setState(() => _error = 'İl ve ilçe zorunludur.');
       return;
     }
     setState(() {
@@ -441,12 +472,16 @@ class _EditAddressSheetState extends ConsumerState<_EditAddressSheet> {
         widget.address.id,
         {
           'title': _title.text.trim(),
+          'province': _province.text.trim(),
+          'district': _district.text.trim(),
           'neighborhood': _trimmedOrNull(_neighborhood),
           'street': _trimmedOrNull(_street),
           'building_no': _trimmedOrNull(_building),
           'apartment_no': _trimmedOrNull(_apartment),
           'directions': _trimmedOrNull(_directions),
           'is_default': _isDefault,
+          'latitude': _latitude,
+          'longitude': _longitude,
         },
       );
       if (mounted) Navigator.pop(context, true);
@@ -520,12 +555,18 @@ class _EditAddressSheetState extends ConsumerState<_EditAddressSheet> {
               const SizedBox(height: 16),
               TextField(controller: _title, decoration: _dec('Adres Başlığı')),
               const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: _selectOnMap,
+                icon: const Icon(Icons.map_outlined),
+                label: const Text('Haritadan adres seç'),
+              ),
+              const SizedBox(height: 12),
               GeoSelectFields(
                 province: _province,
                 district: _district,
                 neighborhood: _neighborhood,
                 neighborhoodLabel: 'Mahalle / Köy',
-                showLocation: false,
+                showLocation: true,
                 decoration: _dec,
               ),
               const SizedBox(height: 12),

@@ -9,6 +9,7 @@ import '../../shared/screens/legal_screen.dart';
 import '../../shared/screens/sessions_screen.dart';
 import '../../shared/screens/support_screen.dart';
 import '../../shared/widgets/account_sheets.dart';
+import '../../shared/widgets/social_account_link_sheet.dart';
 import '../../shared/widgets/common_widgets.dart';
 import 'customer_profile_edit_screen.dart';
 
@@ -219,6 +220,12 @@ class _CustomerSettingsScreenState extends ConsumerState<CustomerSettingsScreen>
             ),
           ]),
           _group('Güvenlik', [
+            _row(
+              icon: Icons.link_rounded,
+              title: 'Google / Apple hesabı bağla',
+              subtitle: 'Sağlayıcınızı şifrenizle onaylayarak bağlayın',
+              onTap: () => showSocialAccountLinkSheet(context),
+            ),
             _row(
               icon: Icons.lock_outline_rounded,
               title: 'Şifre değiştir',

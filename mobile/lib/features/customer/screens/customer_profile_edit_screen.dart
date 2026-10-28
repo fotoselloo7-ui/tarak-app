@@ -8,6 +8,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/widgets/web_landing_widgets.dart' show trUpper;
 import '../../shared/widgets/geo_select_fields.dart';
+import '../../shared/screens/map_address_picker.dart';
 import '../providers/customer_profile_stats_provider.dart';
 
 /// Full customer profile editor (`GET/PUT /customer/profile`, same fields as the web dialog):
@@ -37,6 +38,8 @@ class _CustomerProfileEditScreenState extends ConsumerState<CustomerProfileEditS
   DateTime? _birthDate;
   // The API rewrites the whole default address: what this form does not edit is sent back unchanged.
   Map<String, dynamic>? _currentAddress;
+  double? _latitude;
+  double? _longitude;
 
   bool _loading = true;
   bool _saving = false;
@@ -50,6 +53,9 @@ class _CustomerProfileEditScreenState extends ConsumerState<CustomerProfileEditS
   @override
   void initState() {
     super.initState();
+    for (final controller in [_province, _district, _neighborhood, _street, _buildingNo]) {
+      controller.addListener(() { _latitude = null; _longitude = null; });
+    }
     _load();
   }
 
@@ -92,6 +98,8 @@ class _CustomerProfileEditScreenState extends ConsumerState<CustomerProfileEditS
       _street.text = _s(address?['street']);
       _buildingNo.text = _s(address?['building_no']);
       _apartmentNo.text = _s(address?['apartment_no']);
+      _latitude = (address?['latitude'] as num?)?.toDouble();
+      _longitude = (address?['longitude'] as num?)?.toDouble();
       if (mounted) setState(() => _loading = false);
     } catch (_) {
       if (mounted) {
@@ -122,6 +130,22 @@ class _CustomerProfileEditScreenState extends ConsumerState<CustomerProfileEditS
     return v.isEmpty ? null : v;
   }
 
+  Future<void> _selectOnMap() async {
+    final query = [_street.text, _neighborhood.text, _district.text, _province.text]
+        .where((part) => part.trim().isNotEmpty).join(', ');
+    final result = await Navigator.push<MapAddressData>(context,
+        MaterialPageRoute(builder: (_) => MapAddressPicker(
+          initialQuery: query, initialLatitude: _latitude, initialLongitude: _longitude,
+        )));
+    if (result == null || !mounted) return;
+    _province.text = result.province;
+    _district.text = result.district;
+    _neighborhood.text = result.neighborhood;
+    _street.text = result.street;
+    _buildingNo.text = result.buildingNo;
+    setState(() { _latitude = result.latitude; _longitude = result.longitude; });
+  }
+
   Future<void> _save() async {
     if (_saving) return;
     setState(() => _error = null);
@@ -144,8 +168,8 @@ class _CustomerProfileEditScreenState extends ConsumerState<CustomerProfileEditS
           'building_no': _nullIfEmpty(_buildingNo),
           'apartment_no': _nullIfEmpty(_apartmentNo),
           'directions': _currentAddress?['directions'],
-          'latitude': _currentAddress?['latitude'],
-          'longitude': _currentAddress?['longitude'],
+          'latitude': _latitude,
+          'longitude': _longitude,
         },
     };
 
@@ -326,6 +350,12 @@ class _CustomerProfileEditScreenState extends ConsumerState<CustomerProfileEditS
                             ], note: 'Güvenliğin için e-posta ve telefon değişikliği destek ekibi üzerinden yapılır.'),
                             _section('Varsayılan adres', [
                               TextFormField(controller: _addressTitle, maxLength: 50, decoration: _dec('Adres başlığı', hint: 'Ev, İş…')),
+                              _gap(),
+                              OutlinedButton.icon(
+                                onPressed: _selectOnMap,
+                                icon: const Icon(Icons.map_outlined),
+                                label: const Text('Haritadan adres seç'),
+                              ),
                               _gap(),
                               GeoSelectFields(
                                 province: _province,
