@@ -172,14 +172,28 @@
 
   const installLink = () => {
     if (document.getElementById(LINK_ID)) return;
-    const password = [...document.querySelectorAll('input[type="password"]')]
-      .find(input => input.closest('form') && input.closest('form').textContent.includes('Giriş Yap'));
-    if (!password) return;
 
-    const form = password.closest('form');
-    const loginButton = [...form.querySelectorAll('button')]
-      .find(button => button.textContent.trim().startsWith('Giriş Yap'));
-    if (!loginButton) return;
+    const forms = [...document.querySelectorAll('form')];
+    let form = null;
+    let loginButton = null;
+
+    for (const candidate of forms) {
+      const passwordInputs = candidate.querySelectorAll('input[type="password"]');
+      if (passwordInputs.length !== 1) continue;
+
+      const buttons = [...candidate.querySelectorAll('button')];
+      const candidateLoginButton = buttons.find(button => {
+        const text = (button.textContent || '').trim().toLocaleLowerCase('tr-TR');
+        return text === 'giriş yap' || text.startsWith('giriş yap') || text === 'giriş';
+      });
+      if (!candidateLoginButton) continue;
+
+      form = candidate;
+      loginButton = candidateLoginButton;
+      break;
+    }
+
+    if (!form || !loginButton) return;
 
     const row = document.createElement('div');
     row.id = LINK_ID;
