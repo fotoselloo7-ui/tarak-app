@@ -12,6 +12,12 @@ class ProviderProfileModel {
   final bool profileCompleted;
   final String? city;
   final String? district;
+  final String? neighborhood;
+  final String? street;
+  final String? buildingNo;
+  final String? addressDetail;
+  final double? latitude;
+  final double? longitude;
   final bool isVerified;
   final String? coverUrl;
   final List<String> gallery;
@@ -30,6 +36,12 @@ class ProviderProfileModel {
     this.profileCompleted = false,
     this.city,
     this.district,
+    this.neighborhood,
+    this.street,
+    this.buildingNo,
+    this.addressDetail,
+    this.latitude,
+    this.longitude,
     this.isVerified = false,
     this.coverUrl,
     this.gallery = const [],
@@ -63,6 +75,12 @@ class ProviderProfileModel {
       profileCompleted: profileData['profile_completed'] as bool? ?? false,
       city: profileData['city']?.toString(),
       district: profileData['district']?.toString(),
+      neighborhood: profileData['neighborhood']?.toString(),
+      street: profileData['street']?.toString(),
+      buildingNo: profileData['building_no']?.toString(),
+      addressDetail: profileData['address_detail']?.toString(),
+      latitude: double.tryParse(profileData['latitude']?.toString() ?? ''),
+      longitude: double.tryParse(profileData['longitude']?.toString() ?? ''),
       isVerified: profileData['is_verified'] as bool? ?? false,
       coverUrl: profileData['cover_url']?.toString(),
       gallery: profileData['gallery'] is List
@@ -85,6 +103,12 @@ class ProviderProfileModel {
     bool? profileCompleted,
     String? city,
     String? district,
+    String? neighborhood,
+    String? street,
+    String? buildingNo,
+    String? addressDetail,
+    double? latitude,
+    double? longitude,
     bool? isVerified,
   }) {
     return ProviderProfileModel(
@@ -101,6 +125,12 @@ class ProviderProfileModel {
       profileCompleted: profileCompleted ?? this.profileCompleted,
       city: city ?? this.city,
       district: district ?? this.district,
+      neighborhood: neighborhood ?? this.neighborhood,
+      street: street ?? this.street,
+      buildingNo: buildingNo ?? this.buildingNo,
+      addressDetail: addressDetail ?? this.addressDetail,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
       isVerified: isVerified ?? this.isVerified,
     );
   }

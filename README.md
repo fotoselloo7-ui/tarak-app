@@ -1,5 +1,33 @@
 # Tarak.app — temiz yayın kaynağı (22 Ekim 2026)
 
+## Yerel web ve API (28 Ekim 2026)
+
+Proje kökünde tek komut:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-local.ps1
+```
+
+Başlatıcı mevcut Laravel API ile web dağıtımını aynı origin üzerinde sunar. `.env` içindeki mevcut yerel veritabanını korur: SQLite veya yalnız `127.0.0.1`/`localhost`/`::1` üzerindeki MySQL kabul edilir. Canlı cPanel bağlantısı ve `DB_URL` kabul edilmez. Boş SQLite kurulumunda yalnız hizmet kataloğu hazırlanır; otomatik örnek hesap üretilmez. Örnek veri ancak açık `-SeedPreview` seçeneğiyle ayrı SQLite üzerinde oluşturulur. Dolu portta başka projeye yönelmemek için durur.
+
+Bu bilgisayardaki mevcut Tarak kayıtları eski yerel MySQL kaynağından **ayrı bir yerel MySQL kopyasına** aktarıldı: 5.203 hesap (5.101 müşteri, 101 hizmet veren, 1 yönetici), 7.611 adres ve ilişkili veriler korunur. Kaynak değiştirilmedi; SQL yedeği `.tools/local-db-backups/` içindedir ve Git'e gönderilmez. Yeni boş önizleme veritabanı mevcut kayıtların yerine kullanılmaz. Mevcut `is_demo` değerleri de kaynaktaki haliyle korunmuştur.
+
+Başka bir bilgisayarda mevcut yerel verilerin ayrı kopyası hazırlanacaksa (hedef veritabanı önceden mevcut olmamalıdır):
+
+```powershell
+php scripts/copy-local-database.php "ESKI_YEREL_BACKEND_KLASORU" tarak_updated_local
+```
+
+Bu komut yalnız yerel MySQL kaynaklarını kabul eder, önce SQL yedeği alır ve tüm tablo sayılarını doğruladıktan sonra yerel `.env` bağlantısını yeni kopyaya geçirir. Canlı veritabanında kullanılmaz.
+
+Bu bilgisayarda 8010 başka bir geliştirme projesi tarafından kullanılıyor. Boş port alternatifi:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-local.ps1 -Port 18810
+```
+
+Entegrasyon ayarları, doğrulama sonuçları ve mağaza kalanları: [release/INTEGRATION-READINESS.md](release/INTEGRATION-READINESS.md).
+
 Bu paket kullanıcı tarafından yüklenen `release.zip` içinden doğrulanmış **en güncel tam** paketlerden oluşturulmuştur.
 
 ## Klasörler

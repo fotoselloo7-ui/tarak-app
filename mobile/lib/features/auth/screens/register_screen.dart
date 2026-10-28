@@ -1,10 +1,15 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/network/api_exception.dart';
+import '../../shared/screens/legal_screen.dart';
 import '../../shared/widgets/custom_button.dart';
 import '../../shared/widgets/custom_text_field.dart';
 import '../providers/auth_provider.dart';
+import '../services/social_identity_service.dart';
 import '../widgets/preauth_widgets.dart';
+import '../widgets/verification_code_dialog.dart';
 import '../widgets/web_landing_widgets.dart';
 import 'login_screen.dart';
 
@@ -30,13 +35,43 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _passwordConfirmController = TextEditingController();
   final _businessNameController = TextEditingController();
 
+  String? _emailProof;
+  String? _phoneProof;
+  String? _socialProof;
+  String? _socialEmail;
+  bool _socialEmailVerified = false;
+  String? _flowError;
+  bool _acceptTerms = false;
+  bool _acceptKvkk = false;
+  bool _marketingConsent = false;
+  bool _socialBusy = false;
+  bool _emailBusy = false;
+  bool _smsBusy = false;
+  DateTime? _emailResendAt;
+  DateTime? _smsResendAt;
+  String? _emailCodeDestination;
+  String? _smsCodeDestination;
+
   late String _selectedRole;
   bool _obscurePassword = true;
   bool _obscurePasswordConfirm = true;
 
+  bool get _hasVerifiedSocialEmail => _socialProof != null && _socialEmailVerified &&
+      _socialEmail?.toLowerCase() == _emailController.text.trim().toLowerCase();
+
   @override
   void initState() {
     super.initState();
+    _emailController.addListener(() {
+      if (_emailProof != null || _socialProof != null) {
+        setState(() {
+          _emailProof = null;
+        });
+      }
+    });
+    _phoneController.addListener(() {
+      if (_phoneProof != null) setState(() => _phoneProof = null);
+    });
     final role = widget.initialRole?.toUpperCase().trim();
     if (role == 'PROVIDER') {
       _selectedRole = 'PROVIDER';
@@ -59,6 +94,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (!_acceptTerms || !_acceptKvkk) {
+      setState(() => _flowError = 'Kullanım koşulları ve KVKK onayı gereklidir.');
+      return;
+    }
+    if (_emailController.text.trim().isNotEmpty && _emailProof == null && !_hasVerifiedSocialEmail) {
+      setState(() => _flowError = 'E-posta adresinizi doğrulayın.');
+      return;
+    }
+    if (_phoneController.text.trim().isNotEmpty && _phoneProof == null) {
+      setState(() => _flowError = 'Telefon numaranızı SMS koduyla doğrulayın.');
+      return;
+    }
 
     final success = await ref.read(authNotifierProvider.notifier).register(
           firstName: _firstNameController.text.trim(),
@@ -71,12 +118,161 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           businessName: _selectedRole == 'PROVIDER'
               ? _businessNameController.text.trim()
               : null,
+          emailVerificationToken: _emailProof,
+          phoneVerificationToken: _phoneProof,
+          socialPrefillToken: _socialProof,
+          acceptTerms: _acceptTerms,
+          acceptKvkk: _acceptKvkk,
+          marketingConsent: _marketingConsent,
         );
 
     if (success && mounted) {
       // Return to root where AuthGate presents CustomerShell or ProviderShell
       Navigator.of(context).popUntil((route) => route.isFirst);
     }
+  }
+
+  Future<DateTime> _sendCode(String channel) async {
+    final controller = channel == 'email' ? _emailController : _phoneController;
+    final value = controller.text.trim();
+    if (value.isEmpty) {
+      throw AppException(message: channel == 'email' ? 'E-posta adresinizi girin.' : 'Telefon numaranızı girin.');
+    }
+    setState(() {
+      if (channel == 'email') { _emailBusy = true; } else { _smsBusy = true; }
+    });
+    try {
+      final response = await ref.read(apiClientProvider).post('/auth/verification/$channel/send',
+          data: {channel == 'email' ? 'email' : 'phone': value});
+      final data = response.data is Map ? response.data['data'] : null;
+      if (!mounted || value != controller.text.trim()) {
+        throw const AppException(message: 'İletişim bilgisi değişti. Yeni bir kod isteyin.');
+      }
+      final seconds = data is Map ? (data['resend_after_seconds'] as num?)?.toInt() ?? 60 : 60;
+      final deadline = DateTime.now().add(Duration(seconds: seconds));
+      setState(() {
+        if (channel == 'email') {
+          _emailResendAt = deadline;
+          _emailCodeDestination = value;
+        } else {
+          _smsResendAt = deadline;
+          _smsCodeDestination = value;
+        }
+      });
+      return deadline;
+    } on AppException {
+      rethrow;
+    } catch (_) {
+      throw const AppException(message: 'Doğrulama kodu gönderilemedi.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          if (channel == 'email') { _emailBusy = false; } else { _smsBusy = false; }
+        });
+      }
+    }
+  }
+
+  Future<void> _confirmCode(String channel, String code) async {
+    final controller = channel == 'email' ? _emailController : _phoneController;
+    final value = controller.text.trim();
+    final response = await ref.read(apiClientProvider).post('/auth/verification/$channel/confirm',
+        data: {channel == 'email' ? 'email' : 'phone': value, 'code': code});
+    final data = response.data is Map ? response.data['data'] : null;
+    final token = data is Map ? data['verification_token']?.toString() : null;
+    if (token == null || token.isEmpty) {
+      throw const AppException(message: 'Doğrulama yanıtı geçersiz.');
+    }
+    if (!mounted || value != controller.text.trim()) {
+      throw const AppException(message: 'İletişim bilgisi değişti. Yeni bir kod isteyin.');
+    }
+    setState(() {
+      if (channel == 'email') { _emailProof = token; } else { _phoneProof = token; }
+    });
+  }
+
+  Future<void> _openVerification(String channel) async {
+    setState(() => _flowError = null);
+    try {
+      final destination = (channel == 'email' ? _emailController : _phoneController).text.trim();
+      final sentTo = channel == 'email' ? _emailCodeDestination : _smsCodeDestination;
+      var deadline = channel == 'email' ? _emailResendAt : _smsResendAt;
+      if (sentTo != destination || deadline == null || !deadline.isAfter(DateTime.now())) {
+        deadline = await _sendCode(channel);
+      }
+      if (!mounted) return;
+      await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => VerificationCodeDialog(
+          channel: channel,
+          destination: destination,
+          resendAt: deadline!,
+          onConfirm: (code) => _confirmCode(channel, code),
+          onResend: () => _sendCode(channel),
+        ),
+      );
+    } on AppException catch (e) {
+      if (mounted) setState(() => _flowError = e.message);
+    }
+  }
+
+  Future<void> _prefillSocial(String provider) async {
+    setState(() { _socialBusy = true; _flowError = null; });
+    try {
+      final api = ref.read(apiClientProvider);
+      final credential = await SocialIdentityService(api).acquire(provider);
+      final response = await api.post('/auth/social/$provider/prefill', data: credential.toJson());
+      final body = response.data;
+      final data = body is Map ? body['data'] : null;
+      if (data is! Map || data['social_prefill_token'] == null) {
+        throw const AppException(message: 'Sağlayıcı bilgileri alınamadı.');
+      }
+      if (!mounted) return;
+      final firstName = data['first_name']?.toString() ?? '';
+      final lastName = data['last_name']?.toString() ?? '';
+      if (firstName.isNotEmpty) _firstNameController.text = firstName;
+      if (lastName.isNotEmpty) _lastNameController.text = lastName;
+      _emailController.text = data['email']?.toString() ?? '';
+      setState(() {
+        _socialEmail = _emailController.text.trim();
+        _socialEmailVerified = data['email_verified'] == true;
+        _socialProof = data['social_prefill_token'].toString();
+        _emailProof = null;
+      });
+    } on AppException catch (e) {
+      if (mounted) setState(() => _flowError = e.message);
+    } catch (_) {
+      if (mounted) setState(() => _flowError = 'Sağlayıcı bilgileri alınamadı.');
+    } finally {
+      if (mounted) setState(() => _socialBusy = false);
+    }
+  }
+
+  Widget _verificationAction(String channel) {
+    final verified = channel == 'email' ? _emailProof != null || _hasVerifiedSocialEmail : _phoneProof != null;
+    final busy = channel == 'email' ? _emailBusy : _smsBusy;
+    if (verified) {
+      return const Tooltip(
+        message: 'Doğrulandı',
+        child: Icon(Icons.check_circle_rounded, color: Color(0xFF16803D), size: 22),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: TextButton(
+        onPressed: busy ? null : () => _openVerification(channel),
+        style: TextButton.styleFrom(
+          foregroundColor: AppTheme.primary,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          minimumSize: const Size(48, 48),
+          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
+        child: busy
+            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+            : const Text('Kod gönder'),
+      ),
+    );
   }
 
   @override
@@ -120,7 +316,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 const SizedBox(height: 16),
 
                 // Error Banner
-                if (authState.errorMessage != null) ...[
+                if (authState.errorMessage != null || _flowError != null) ...[
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -135,7 +331,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            authState.errorMessage!,
+                            _flowError ?? authState.errorMessage!,
                             style: const TextStyle(
                               fontFamily: AppTheme.fontFamily,
                               color: Color(0xFF991B1B),
@@ -192,6 +388,25 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 RoleInfoBox(role: _selectedRole),
                 const SizedBox(height: 20),
 
+                // Provider identity only pre-fills editable fields. The user
+                // still completes this existing form and grants each consent.
+                Row(children: [
+                  Expanded(child: OutlinedButton.icon(
+                    onPressed: _socialBusy ? null : () => _prefillSocial('google'),
+                    icon: const Icon(Icons.account_circle_outlined, size: 18),
+                    label: const Text('Google ile doldur'),
+                  )),
+                  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) ...[
+                    const SizedBox(width: 8),
+                    Expanded(child: OutlinedButton.icon(
+                      onPressed: _socialBusy ? null : () => _prefillSocial('apple'),
+                      icon: const Icon(Icons.apple, size: 18),
+                      label: const Text('Apple ile doldur'),
+                    )),
+                  ],
+                ]),
+                const SizedBox(height: 16),
+
                 // Name and Surname Inputs
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -241,6 +456,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   label: 'E-posta Adresi',
                   hint: 'ornek@mail.com',
                   keyboardType: TextInputType.emailAddress,
+                  suffixIcon: _verificationAction('email'),
                   prefixIcon: const Icon(Icons.email_outlined,
                       size: 18, color: AppTheme.slate400),
                   validator: (v) {
@@ -259,6 +475,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   label: 'Telefon Numarası',
                   hint: '05XXXXXXXXX',
                   keyboardType: TextInputType.phone,
+                  suffixIcon: _verificationAction('sms'),
                   prefixIcon: const Icon(Icons.phone_outlined,
                       size: 18, color: AppTheme.slate400),
                   validator: (v) {
@@ -325,7 +542,44 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
+                CheckboxListTile(
+                  value: _acceptTerms,
+                  onChanged: (value) => setState(() => _acceptTerms = value ?? false),
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  activeColor: AppTheme.primary,
+                  title: const Text('Kullanım koşullarını kabul ediyorum.', style: TextStyle(fontSize: 12)),
+                  secondary: IconButton(
+                    tooltip: 'Kullanım koşullarını oku',
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) =>
+                        const LegalDetailScreen(docKey: 'terms', fallbackTitle: 'Kullanım Koşulları'))),
+                    icon: const Icon(Icons.open_in_new, size: 18),
+                  ),
+                ),
+                CheckboxListTile(
+                  value: _acceptKvkk,
+                  onChanged: (value) => setState(() => _acceptKvkk = value ?? false),
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  activeColor: AppTheme.primary,
+                  title: const Text('KVKK aydınlatma metnini okudum.', style: TextStyle(fontSize: 12)),
+                  secondary: IconButton(
+                    tooltip: 'KVKK metnini oku',
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) =>
+                        const LegalDetailScreen(docKey: 'kvkk', fallbackTitle: 'KVKK Aydınlatma Metni'))),
+                    icon: const Icon(Icons.open_in_new, size: 18),
+                  ),
+                ),
+                CheckboxListTile(
+                  value: _marketingConsent,
+                  onChanged: (value) => setState(() => _marketingConsent = value ?? false),
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  activeColor: AppTheme.primary,
+                  title: const Text('Ticari ileti almak istiyorum (isteğe bağlı).', style: TextStyle(fontSize: 12)),
+                ),
+                const SizedBox(height: 16),
 
                 // Submit Button
                 PrimaryButton(

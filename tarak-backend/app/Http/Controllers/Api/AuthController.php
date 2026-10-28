@@ -7,13 +7,17 @@ use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use App\Services\RegistrationVerificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    public function __construct(private RegistrationVerificationService $verification) {}
+
     /**
      * Register new customer or provider.
      */
@@ -30,6 +34,30 @@ class AuthController extends Controller
         }
 
         $user = DB::transaction(function () use ($validated) {
+            $socialAttempt = null;
+            if (!empty($validated['social_prefill_token'])) {
+                $socialAttempt = DB::table('social_auth_attempts')
+                    ->where('token_hash', hash_hmac('sha256', $validated['social_prefill_token'], (string) config('app.key')))
+                    ->lockForUpdate()->first();
+                if (!$socialAttempt || $socialAttempt->consumed_at || now()->greaterThan($socialAttempt->expires_at)) {
+                    throw ValidationException::withMessages(['social_prefill_token' => 'Sağlayıcı doğrulamasının süresi doldu. Yeniden deneyiniz.']);
+                }
+                if (DB::table('social_identities')->where('provider', $socialAttempt->provider)
+                    ->where('subject', $socialAttempt->subject)->exists()) {
+                    throw ValidationException::withMessages(['social_prefill_token' => 'Bu sağlayıcı hesabı zaten bağlı. Giriş yapınız.']);
+                }
+            }
+
+            $verifiedSocialEmail = $socialAttempt && $socialAttempt->email_verified
+                && !empty($validated['email'])
+                && hash_equals((string) $socialAttempt->email, (string) $validated['email']);
+            if (!empty($validated['email']) && !$verifiedSocialEmail) {
+                $this->verification->consume('email', $validated['email'], $validated['email_verification_token'] ?? null);
+            }
+            if (!empty($validated['phone'])) {
+                $this->verification->consume('sms', $validated['phone'], $validated['phone_verification_token'] ?? null);
+            }
+
             $user = User::create([
                 'role' => $validated['role'],
                 'first_name' => $validated['first_name'],
@@ -40,7 +68,31 @@ class AuthController extends Controller
                 'password' => Hash::make($validated['password']),
                 'gender' => $validated['gender'] ?? 'unspecified',
                 'status' => 'active',
+                'email_verified_at' => !empty($validated['email']) ? now() : null,
+                'phone_verified_at' => !empty($validated['phone']) ? now() : null,
             ]);
+
+            DB::table('registration_consents')->insert([
+                'user_id' => $user->id,
+                'terms_accepted_at' => now(),
+                'kvkk_acknowledged_at' => now(),
+                'marketing_consented_at' => !empty($validated['marketing_consent']) ? now() : null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            if ($socialAttempt) {
+                DB::table('social_identities')->insert([
+                    'user_id' => $user->id,
+                    'provider' => $socialAttempt->provider,
+                    'subject' => $socialAttempt->subject,
+                    'email_at_link' => $socialAttempt->email,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                DB::table('social_auth_attempts')->where('id', $socialAttempt->id)
+                    ->update(['consumed_at' => now(), 'updated_at' => now()]);
+            }
 
             if ($user->role === User::ROLE_CUSTOMER) {
                 $user->customerProfile()->create([

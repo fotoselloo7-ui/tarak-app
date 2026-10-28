@@ -8,6 +8,23 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
+Artisan::command('local:seed-preview', function () {
+    if (!app()->environment('local') || config('database.default') !== 'sqlite') {
+        $this->error('This command only runs with a local SQLite database.');
+        return 1;
+    }
+
+    if (!\App\Models\Service::query()->exists()) {
+        $this->call('db:seed', ['--class' => \Database\Seeders\ServiceCatalogSeeder::class, '--force' => true]);
+    }
+    if (!\App\Models\User::query()->where('is_demo', true)->exists()) {
+        app(\App\Services\DemoDataService::class)->generate(12, 12);
+    }
+
+    $this->info('Local catalog and marked demo profiles are ready.');
+    return 0;
+})->purpose('Initialize local SQLite catalog and original demo data without touching production');
+
 /*
 |--------------------------------------------------------------------------
 | Console Schedule Definitions

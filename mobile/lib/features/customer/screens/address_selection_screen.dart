@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../providers/instant_request_provider.dart';
 import '../services/geo_service.dart';
+import '../../shared/screens/map_address_picker.dart';
 import 'payment_method_screen.dart';
 
 /// Step 2 — Address selection screen.
@@ -37,6 +38,8 @@ class _AddressSelectionScreenState
   final _buildingCtrl = TextEditingController();
   final _apartmentCtrl = TextEditingController();
   final _directionsCtrl = TextEditingController();
+  double? _latitude;
+  double? _longitude;
 
   bool _saveToProfile = true;
   bool _isSavingAddress = false;
@@ -93,6 +96,50 @@ class _AddressSelectionScreenState
     }
   }
 
+  Future<void> _selectOnMap() async {
+    final query = [
+      _streetCtrl.text.trim(),
+      _selectedNeighborhood?.name,
+      _selectedDistrict?.name,
+      _selectedProvince?.name,
+    ].whereType<String>().where((value) => value.isNotEmpty).join(', ');
+    final result = await Navigator.push<MapAddressData>(context,
+        MaterialPageRoute(builder: (_) => MapAddressPicker(
+          initialQuery: query,
+          initialLatitude: _latitude,
+          initialLongitude: _longitude,
+        )));
+    if (result == null || !mounted) return;
+    final provinces = await ref.read(geoServiceProvider).getProvinces();
+    GeoProvince? province;
+    for (final item in provinces) {
+      if (geoKey(item.name) == geoKey(result.province)) { province = item; break; }
+    }
+    if (province != null) {
+      await _onProvinceChanged(province);
+      GeoDistrict? district;
+      for (final item in province.districts) {
+        if (geoKey(item.name) == geoKey(result.district)) { district = item; break; }
+      }
+      if (district != null) {
+        await _onDistrictChanged(district);
+        for (final item in _neighborhoods) {
+          if (geoKey(item.name) == geoKey(result.neighborhood)) {
+            setState(() => _selectedNeighborhood = item);
+            break;
+          }
+        }
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _latitude = result.latitude;
+      _longitude = result.longitude;
+      if (result.street.isNotEmpty) _streetCtrl.text = result.street;
+      if (result.buildingNo.isNotEmpty) _buildingCtrl.text = result.buildingNo;
+    });
+  }
+
   Future<void> _saveAndSelectAddress() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedProvince == null || _selectedDistrict == null) {
@@ -123,6 +170,8 @@ class _AddressSelectionScreenState
         directions: _directionsCtrl.text.trim().isEmpty
             ? null
             : _directionsCtrl.text.trim(),
+        latitude: _latitude,
+        longitude: _longitude,
         isDefault: false,
       );
 
@@ -354,10 +403,18 @@ class _AddressSelectionScreenState
                           ),
                           const SizedBox(height: 16),
 
+                          OutlinedButton.icon(
+                            onPressed: _selectOnMap,
+                            icon: const Icon(Icons.map_outlined),
+                            label: const Text('Haritadan adres seç'),
+                          ),
+                          const SizedBox(height: 12),
+
                           // Province dropdown (all 81 provinces, bundled with the app)
                           provincesAsync.when(
                             data: (provinces) {
                               return DropdownButtonFormField<GeoProvince>(
+                                key: ValueKey('province-${_selectedProvince?.id}'),
                                 initialValue: _selectedProvince,
                                 isExpanded: true,
                                 decoration: const InputDecoration(
@@ -385,6 +442,7 @@ class _AddressSelectionScreenState
 
                           // District Dropdown based on selected province
                           DropdownButtonFormField<GeoDistrict>(
+                            key: ValueKey('district-${_selectedDistrict?.id}'),
                             initialValue: _selectedDistrict,
                             isExpanded: true,
                             decoration: const InputDecoration(
@@ -415,6 +473,7 @@ class _AddressSelectionScreenState
                             )
                           else
                             DropdownButtonFormField<GeoNeighborhood>(
+                              key: ValueKey('neighborhood-${_selectedNeighborhood?.id}'),
                               initialValue: _selectedNeighborhood,
                               isExpanded: true,
                               decoration: const InputDecoration(

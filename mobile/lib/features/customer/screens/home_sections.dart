@@ -7,6 +7,7 @@ import '../../../core/content/home_copy.dart';
 import '../../shared/widgets/common_widgets.dart';
 import '../../auth/widgets/web_landing_widgets.dart' show trUpper;
 import '../providers/home_content_providers.dart';
+import '../providers/provider_list_origin.dart';
 import 'service_selection_screen.dart';
 import 'all_providers_screen.dart';
 import 'provider_detail_screen.dart';
@@ -334,6 +335,64 @@ class _VerifiedProvidersSectionState extends ConsumerState<VerifiedProvidersSect
   }
 }
 
+/// A compact home section using the existing Tarak provider card. Distance and
+/// ordering are supplied by the shared Laravel query used by the web client.
+class HomeNearbyProvidersSection extends ConsumerStatefulWidget {
+  const HomeNearbyProvidersSection({super.key});
+
+  @override
+  ConsumerState<HomeNearbyProvidersSection> createState() => _HomeNearbyProvidersSectionState();
+}
+
+class _HomeNearbyProvidersSectionState extends ConsumerState<HomeNearbyProvidersSection> {
+  int _radiusKm = 10;
+  int _requestedRadiusKm = 10;
+
+  @override
+  Widget build(BuildContext context) {
+    final location = ref.watch(providerListOriginProvider);
+    final origin = location.device;
+    final nearby = ref.watch(nearbyHomeProvidersProvider((
+      latitude: origin?.lat,
+      longitude: origin?.lng,
+      radiusKm: _requestedRadiusKm,
+    )));
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const SectionHeader(eyebrow: 'Konumuna göre', title: 'Size Yakın Berberler'),
+      Row(children: [
+        Expanded(child: Text('$_radiusKm km içinde', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700))),
+        Text(origin == null ? 'Kayıtlı adres' : 'Cihaz konumu', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+      ]),
+      Slider(value: _radiusKm.toDouble(), min: 1, max: 50, divisions: 49,
+        label: '$_radiusKm km', activeColor: AppTheme.primary,
+        onChanged: (value) => setState(() => _radiusKm = value.round()),
+        onChangeEnd: (value) => setState(() => _requestedRadiusKm = value.round())),
+      TextButton.icon(
+        onPressed: location.status == DeviceLocationStatus.locating ? null : () {
+          final notifier = ref.read(providerListOriginProvider.notifier);
+          if (origin == null) { notifier.useDevice(); } else { notifier.useSavedAddress(); }
+        },
+        icon: const Icon(Icons.my_location_rounded, size: 16),
+        label: Text(location.status == DeviceLocationStatus.locating ? 'Konum alınıyor…' : origin == null ? 'Cihaz konumumu kullan' : 'Kayıtlı adresimi kullan')),
+      if (location.status == DeviceLocationStatus.denied || location.status == DeviceLocationStatus.unavailable)
+        const Text('Cihaz konumu alınamadı. Kayıtlı adresiniz kullanılabilir.', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+      nearby.when(
+        data: (providers) => providers.isEmpty
+          ? const Padding(padding: EdgeInsets.only(bottom: 18), child: Text('Bu mesafede hizmet veren bulunamadı.'))
+          : SizedBox(height: 174, child: ListView.separated(scrollDirection: Axis.horizontal,
+              itemCount: providers.length, separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (context, index) => _ProviderCard(provider: providers[index]))),
+        loading: () => const Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+        error: (_, _) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Yakındaki berberler için koordinatlı bir adres kaydedin veya cihaz konumuna izin verin.', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          TextButton(onPressed: () => ref.invalidate(nearbyHomeProvidersProvider), child: const Text('Tekrar dene')),
+        ]),
+      ),
+      const SizedBox(height: 20),
+    ]);
+  }
+}
+
 class _ProviderCard extends StatelessWidget {
   final Map<String, dynamic> provider;
   final double width;
@@ -345,9 +404,11 @@ class _ProviderCard extends StatelessWidget {
     final name = (provider['business_name'] ?? provider['name'] ?? 'Hizmet Veren').toString();
     final type = provider['provider_type'] == 'coiffeur' ? 'Kadın Kuaförü' : 'Erkek Berberi';
     final location = [provider['district'], provider['city']].where((e) => e != null && '$e'.isNotEmpty).join(', ');
-    final ratingCount = (provider['review_count'] as num?)?.toInt() ?? 0;
-    final ratingAvg = (provider['rating'] as num?)?.toDouble();
+    final isDemo = provider['is_demo'] == true;
+    final ratingCount = isDemo ? 0 : (provider['review_count'] as num?)?.toInt() ?? 0;
+    final ratingAvg = isDemo ? null : (provider['rating'] as num?)?.toDouble();
     final serviceCount = (provider['service_count'] as num?)?.toInt() ?? 0;
+    final distanceKm = (provider['distance_km'] as num?)?.toDouble();
     final avatar = provider['avatar_url']?.toString();
     final userId = (provider['user_id'] is num)
         ? (provider['user_id'] as num).toInt()
@@ -390,6 +451,7 @@ class _ProviderCard extends StatelessWidget {
                       Flexible(child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.textPrimary))),
                       if (isVerifiedMap(provider)) ...[const SizedBox(width: 4), const VerifiedTick(size: 15)],
+                      if (isDemo) ...[const SizedBox(width: 4), const DemoProfileTag()],
                     ],
                   ),
                   const SizedBox(height: 2),
@@ -421,6 +483,12 @@ class _ProviderCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text('$serviceCount hizmet',
                         style: const TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 11, color: AppTheme.slate400)),
+                  ],
+                  if (distanceKm != null) ...[
+                    const SizedBox(height: 4),
+                    Text('${distanceKm.toStringAsFixed(1)} km uzaklıkta',
+                        style: const TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 11,
+                            color: AppTheme.primary, fontWeight: FontWeight.w700)),
                   ],
                 ],
               ),

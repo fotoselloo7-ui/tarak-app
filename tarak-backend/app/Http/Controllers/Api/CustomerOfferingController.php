@@ -126,7 +126,8 @@ class CustomerOfferingController extends Controller
     public function providerOfferings(Request $request, int $providerUserId): JsonResponse
     {
         $profile = ProviderProfile::with(['user', 'documents'])->where('user_id', $providerUserId)->first();
-        if (!$profile || !$profile->isVerified()) {
+        $demoPreview = $profile && $profile->user?->is_demo && $profile->is_approved && $profile->user->status === 'active';
+        if (!$profile || (!$profile->isVerified() && !$demoPreview)) {
             return response()->json(['success' => false, 'message' => 'Hizmet veren bulunamadı.'], 404);
         }
 
@@ -135,7 +136,9 @@ class CustomerOfferingController extends Controller
             return $location;
         }
 
-        $availabilityFor = fn (int $duration) => $this->offerings->instantAvailability(
+        $availabilityFor = fn (int $duration) => $demoPreview
+            ? ['available' => false, 'reason' => 'Bu bir demo profildir; gerçek hizmet talebi oluşturulamaz.', 'distance_km' => null]
+            : $this->offerings->instantAvailability(
             $profile,
             $duration,
             $location['lat'],
@@ -173,6 +176,7 @@ class CustomerOfferingController extends Controller
             'success' => true,
             'data' => [
                 'provider' => $this->offerings->presentProvider($profile),
+                'preview_only' => (bool) $demoPreview,
                 'services' => $services,
                 'packages' => $packages,
             ],

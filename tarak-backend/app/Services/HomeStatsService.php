@@ -70,15 +70,16 @@ class HomeStatsService
         $landing = array_replace(SiteContentDefaults::landing(), $content['landing'] ?? []);
 
         $mode = ($landing['stats_mode'] ?? 'real') === 'manual' ? 'manual' : 'real';
-        $metrics = $this->metrics($this->includeDemo($landing));
+        $includeDemo = $this->includeDemo($landing);
+        $metrics = $this->metrics($includeDemo);
 
         $stored = $landing['stats'] ?? [];
-        $items = $this->buildItems($stored, $mode, $audience, $metrics);
+        $items = $this->buildItems($stored, $mode, $audience, $metrics, $includeDemo);
         // Only hand-typed rows left over from before the metrics existed: show the built-in measured rows
         // instead of an empty section. An admin who switched every row off (or removed them) keeps it hidden.
         $hasActiveRow = collect($stored)->contains(fn ($row) => is_array($row) && ($row['is_active'] ?? true) !== false);
         if ($items === [] && $mode === 'real' && $hasActiveRow) {
-            $items = $this->buildItems(SiteContentDefaults::landing()['stats'], 'real', $audience, $metrics);
+            $items = $this->buildItems(SiteContentDefaults::landing()['stats'], 'real', $audience, $metrics, $includeDemo);
         }
 
         return ['mode' => $mode, 'items' => $items];
@@ -89,7 +90,7 @@ class HomeStatsService
      * @param  array<string, int|float|null>  $metrics
      * @return list<array<string, mixed>>
      */
-    private function buildItems(array $stored, string $mode, string $audience, array $metrics): array
+    private function buildItems(array $stored, string $mode, string $audience, array $metrics, bool $includeDemo): array
     {
         $rows = collect($stored)
             ->filter(fn ($row) => is_array($row) && ($row['is_active'] ?? true) !== false)
@@ -123,9 +124,12 @@ class HomeStatsService
                 'key' => $metric ?? ('custom_' . $index),
                 'metric' => $metric,
                 'label' => $label,
-                'desc' => ($row['desc'] ?? null) ?: null,
+                'desc' => $includeDemo && $metric !== null
+                    ? trim((string) ($row['desc'] ?? '') . ' Demo veriler dahildir.')
+                    : (($row['desc'] ?? null) ?: null),
                 'value' => $value,
-                'is_fake' => $isFake,
+                'is_fake' => $isFake || ($includeDemo && $metric !== null),
+                'includes_demo' => $includeDemo && $metric !== null,
             ];
             if (count($items) >= self::MAX_ITEMS) {
                 break;
@@ -158,7 +162,8 @@ class HomeStatsService
 
         $reviews = DB::table('provider_reviews')
             ->join('users', 'users.id', '=', 'provider_reviews.provider_user_id')
-            ->when(!$includeDemo, fn ($q) => $q->where('users.is_demo', false));
+            ->join('users as review_customers', 'review_customers.id', '=', 'provider_reviews.customer_user_id')
+            ->when(!$includeDemo, fn ($q) => $q->where('users.is_demo', false)->where('review_customers.is_demo', false));
         $reviewCount = (clone $reviews)->count();
 
         return [

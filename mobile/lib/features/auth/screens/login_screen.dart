@@ -1,9 +1,12 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/network/api_exception.dart';
 import '../../shared/widgets/custom_button.dart';
 import '../../shared/widgets/custom_text_field.dart';
 import '../providers/auth_provider.dart';
+import '../services/social_identity_service.dart';
 import '../widgets/web_landing_widgets.dart';
 import 'register_screen.dart';
 
@@ -19,6 +22,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _loginController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _socialBusy = false;
+  String? _flowError;
 
   @override
   void dispose() {
@@ -40,6 +45,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (Navigator.of(context).canPop()) {
         Navigator.of(context).popUntil((route) => route.isFirst);
       }
+    }
+  }
+
+  Future<void> _socialLogin(String provider) async {
+    setState(() { _socialBusy = true; _flowError = null; });
+    try {
+      final credential = await SocialIdentityService(ref.read(apiClientProvider)).acquire(provider);
+      final success = await ref.read(authNotifierProvider.notifier).loginWithSocial(provider, credential.toJson());
+      if (success && mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    } on AppException catch (e) {
+      if (mounted) setState(() => _flowError = e.message);
+    } catch (_) {
+      if (mounted) setState(() => _flowError = 'Sağlayıcı ile giriş yapılamadı.');
+    } finally {
+      if (mounted) setState(() => _socialBusy = false);
     }
   }
 
@@ -129,7 +151,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   const SizedBox(height: 18),
 
                   // Error Banner
-                  if (authState.errorMessage != null) ...[
+                  if (authState.errorMessage != null || _flowError != null) ...[
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
@@ -144,7 +166,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              authState.errorMessage!,
+                              _flowError ?? authState.errorMessage!,
                               style: const TextStyle(
                                 fontFamily: AppTheme.fontFamily,
                                 color: Color(0xFF991B1B),
@@ -209,6 +231,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     isLoading: authState.isLoading,
                     onPressed: _submit,
                   ),
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    Expanded(child: OutlinedButton.icon(
+                      onPressed: _socialBusy ? null : () => _socialLogin('google'),
+                      icon: const Icon(Icons.account_circle_outlined, size: 18),
+                      label: const Text('Google ile giriş'),
+                    )),
+                    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) ...[
+                      const SizedBox(width: 8),
+                      Expanded(child: OutlinedButton.icon(
+                        onPressed: _socialBusy ? null : () => _socialLogin('apple'),
+                        icon: const Icon(Icons.apple, size: 18),
+                        label: const Text('Apple ile giriş'),
+                      )),
+                    ],
+                  ]),
                   const SizedBox(height: 24),
 
                   // Register divider and options

@@ -22,11 +22,15 @@ class ReviewController extends Controller
             return response()->json(['success' => false, 'message' => 'Hizmet veren bulunamadı.'], 404);
         }
 
-        $query = ProviderReview::query()->where('provider_user_id', $provider);
+        $query = ProviderReview::query()->where('provider_user_id', $provider)
+            ->whereHas('customer', fn ($customer) => $customer->where('is_demo', false));
+        if ($providerUser->is_demo) {
+            $query->whereRaw('1 = 0'); // Synthetic rows remain for admin purge; public summaries stay real.
+        }
         $count = (clone $query)->count();
         $average = $count > 0 ? round((float) (clone $query)->avg('rating'), 2) : 0.0;
 
-        $reviews = (clone $query)->with('customer:id,name')
+        $reviews = (clone $query)->with('customer:id,name,is_demo')
             ->latest()
             ->limit(30)
             ->get()
@@ -35,6 +39,7 @@ class ReviewController extends Controller
                 'rating' => $r->rating,
                 'comment' => \App\Support\CustomerNote::forDisplay($r->comment),
                 'customer_name' => $r->customer?->name ?? 'Müşteri',
+                'is_demo' => false,
                 'created_at' => $r->created_at?->toIso8601String(),
             ]);
 
@@ -43,6 +48,7 @@ class ReviewController extends Controller
             'data' => [
                 'average' => $average,
                 'count' => $count,
+                'is_demo' => (bool) $providerUser->is_demo,
                 'reviews' => $reviews,
             ],
         ]);
@@ -96,6 +102,9 @@ class ReviewController extends Controller
         if (! $providerUserId) {
             return response()->json(['success' => false, 'message' => 'Bu kayıt için hizmet veren bulunamadı.'], 422);
         }
+        if ($request->user()->is_demo || User::query()->whereKey($providerUserId)->where('is_demo', true)->exists()) {
+            return response()->json(['success' => false, 'message' => 'Demo hesaplar gerçek değerlendirme oluşturamaz.'], 422);
+        }
 
         $exists = ProviderReview::query()
             ->where('customer_user_id', $userId)
@@ -142,22 +151,24 @@ class ReviewController extends Controller
     {
         $reviews = ProviderReview::query()
             ->where('customer_user_id', $request->user()->id)
-            ->with(['provider:id,name', 'provider.providerProfile:id,user_id,business_name,provider_type,is_approved,identity_status', 'provider.providerProfile.documents:id,provider_profile_id,document_type,status'])
+            ->with(['provider:id,name,is_demo', 'provider.providerProfile:id,user_id,business_name,provider_type,is_approved,identity_status', 'provider.providerProfile.documents:id,provider_profile_id,document_type,status'])
             ->latest()
             ->limit(100)
             ->get()
-            ->map(function (ProviderReview $r) {
+            ->map(function (ProviderReview $r) use ($request) {
                 $profile = $r->provider?->providerProfile;
 
                 return [
                     'id' => $r->id,
                     'rating' => $r->rating,
                     'comment' => \App\Support\CustomerNote::forDisplay($r->comment),
+                    'is_demo' => (bool) ($request->user()->is_demo || $r->provider?->is_demo),
                     'created_at' => $r->created_at?->toIso8601String(),
                     'provider' => [
                         'user_id' => $r->provider_user_id,
                         'name' => $profile?->business_name ?: ($r->provider?->name ?? 'Hizmet Veren'),
                         'provider_type' => $profile?->provider_type,
+                        'is_demo' => (bool) ($r->provider?->is_demo ?? false),
                         'is_verified' => (bool) ($profile?->isVerified() ?? false),
                     ],
                     'resource' => $r->appointment_id

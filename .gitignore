@@ -17,6 +17,7 @@
 **/.dart_tool/
 **/build/
 **/.gradle/
+**/.kotlin/
 **/Pods/
 **/.symlinks/
 **/Flutter/ephemeral/
@@ -34,3 +35,8 @@
 **/*.aab
 **/*.ipa
 **/*.apk
+/.tools/
+/tarak-backend/database/database.sqlite
+/tarak-backend/storage/app/public/
+**/.phpunit*.cache
+**/*.sync-conflict-*

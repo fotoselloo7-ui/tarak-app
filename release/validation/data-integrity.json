@@ -1,0 +1,271 @@
+{
+  "verified_at": "2026-10-28T16:03:53+03:00",
+  "source_modified": false,
+  "tables": {
+    "admin_logs": {
+      "rows": 7,
+      "original_columns_unchanged": true
+    },
+    "appointment_alternative_slots": {
+      "rows": 4,
+      "original_columns_unchanged": true
+    },
+    "appointment_services": {
+      "rows": 20,
+      "original_columns_unchanged": true
+    },
+    "appointments": {
+      "rows": 12,
+      "original_columns_unchanged": true
+    },
+    "cache_locks": {
+      "rows": 0,
+      "original_columns_unchanged": true
+    },
+    "commission_reservations": {
+      "rows": 12,
+      "original_columns_unchanged": true
+    },
+    "content_reports": {
+      "rows": 0,
+      "original_columns_unchanged": true
+    },
+    "conversation_messages": {
+      "rows": 27,
+      "original_columns_unchanged": true
+    },
+    "conversations": {
+      "rows": 5,
+      "original_columns_unchanged": true
+    },
+    "customer_addresses": {
+      "rows": 7611,
+      "original_columns_unchanged": true
+    },
+    "customer_favorites": {
+      "rows": 0,
+      "original_columns_unchanged": true
+    },
+    "customer_profiles": {
+      "rows": 5101,
+      "original_columns_unchanged": true
+    },
+    "dispute_cases": {
+      "rows": 1,
+      "original_columns_unchanged": true
+    },
+    "failed_jobs": {
+      "rows": 0,
+      "original_columns_unchanged": true
+    },
+    "featured_orders": {
+      "rows": 0,
+      "original_columns_unchanged": true
+    },
+    "featured_packages": {
+      "rows": 8,
+      "original_columns_unchanged": true
+    },
+    "featured_placement_settings": {
+      "rows": 2,
+      "original_columns_unchanged": true
+    },
+    "featured_promotions": {
+      "rows": 38,
+      "original_columns_unchanged": true
+    },
+    "finance_settings": {
+      "rows": 298,
+      "original_columns_unchanged": true
+    },
+    "integration_events": {
+      "rows": 6,
+      "original_columns_unchanged": true
+    },
+    "integration_settings": {
+      "rows": 0,
+      "original_columns_unchanged": true
+    },
+    "job_batches": {
+      "rows": 0,
+      "original_columns_unchanged": true
+    },
+    "jobs": {
+      "rows": 0,
+      "original_columns_unchanged": true
+    },
+    "location_share_events": {
+      "rows": 18,
+      "original_columns_unchanged": true
+    },
+    "location_share_grants": {
+      "rows": 9,
+      "original_columns_unchanged": true
+    },
+    "newsletter_subscriptions": {
+      "rows": 1,
+      "original_columns_unchanged": true
+    },
+    "notification_ad_settings": {
+      "rows": 1,
+      "original_columns_unchanged": true
+    },
+    "notification_ads": {
+      "rows": 0,
+      "original_columns_unchanged": true
+    },
+    "password_reset_tokens": {
+      "rows": 0,
+      "original_columns_unchanged": true
+    },
+    "payment_gateway_attempts": {
+      "rows": 0,
+      "original_columns_unchanged": true
+    },
+    "payment_refunds": {
+      "rows": 0,
+      "original_columns_unchanged": true
+    },
+    "payout_transfers": {
+      "rows": 0,
+      "original_columns_unchanged": true
+    },
+    "personal_access_tokens": {
+      "rows": 109,
+      "original_columns_unchanged": true
+    },
+    "provider_closed_dates": {
+      "rows": 104,
+      "original_columns_unchanged": true
+    },
+    "provider_discounts": {
+      "rows": 0,
+      "original_columns_unchanged": true
+    },
+    "provider_documents": {
+      "rows": 101,
+      "original_columns_unchanged": true
+    },
+    "provider_package_items": {
+      "rows": 259,
+      "original_columns_unchanged": true
+    },
+    "provider_packages": {
+      "rows": 103,
+      "original_columns_unchanged": true
+    },
+    "provider_payout_accounts": {
+      "rows": 1,
+      "original_columns_unchanged": true
+    },
+    "provider_profiles": {
+      "rows": 101,
+      "original_columns_unchanged": true
+    },
+    "provider_reviews": {
+      "rows": 5052,
+      "original_columns_unchanged": true
+    },
+    "provider_schedule_breaks": {
+      "rows": 0,
+      "original_columns_unchanged": true
+    },
+    "provider_services": {
+      "rows": 605,
+      "original_columns_unchanged": true
+    },
+    "provider_weekly_schedules": {
+      "rows": 707,
+      "original_columns_unchanged": true
+    },
+    "push_delivery_attempts": {
+      "rows": 0,
+      "original_columns_unchanged": true
+    },
+    "push_devices": {
+      "rows": 0,
+      "original_columns_unchanged": true
+    },
+    "scheduler_heartbeats": {
+      "rows": 1,
+      "original_columns_unchanged": true
+    },
+    "service_categories": {
+      "rows": 2,
+      "original_columns_unchanged": true
+    },
+    "service_lifecycle_events": {
+      "rows": 53,
+      "original_columns_unchanged": true
+    },
+    "service_offers": {
+      "rows": 8,
+      "original_columns_unchanged": true
+    },
+    "service_payments": {
+      "rows": 1,
+      "original_columns_unchanged": true
+    },
+    "service_request_services": {
+      "rows": 20,
+      "original_columns_unchanged": true
+    },
+    "service_requests": {
+      "rows": 14,
+      "original_columns_unchanged": true
+    },
+    "service_start_verifications": {
+      "rows": 28,
+      "original_columns_unchanged": true
+    },
+    "services": {
+      "rows": 19,
+      "original_columns_unchanged": true
+    },
+    "sessions": {
+      "rows": 43,
+      "original_columns_unchanged": true
+    },
+    "site_contents": {
+      "rows": 1,
+      "original_columns_unchanged": true
+    },
+    "sms_messages": {
+      "rows": 1,
+      "original_columns_unchanged": true
+    },
+    "support_tickets": {
+      "rows": 1,
+      "original_columns_unchanged": true
+    },
+    "user_blocks": {
+      "rows": 0,
+      "original_columns_unchanged": true
+    },
+    "user_notifications": {
+      "rows": 98,
+      "original_columns_unchanged": true
+    },
+    "user_push_preferences": {
+      "rows": 2,
+      "original_columns_unchanged": true
+    },
+    "users": {
+      "rows": 5203,
+      "original_columns_unchanged": true
+    },
+    "wallet_transactions": {
+      "rows": 23,
+      "original_columns_unchanged": true
+    },
+    "wallets": {
+      "rows": 101,
+      "original_columns_unchanged": true
+    }
+  },
+  "excluded_runtime_tables": [
+    "cache",
+    "migrations"
+  ],
+  "all_business_rows_unchanged": true
+}
