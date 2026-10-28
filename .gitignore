@@ -36,5 +36,6 @@
 **/*.apk
 /.tools/
 /tarak-backend/database/database.sqlite
+/tarak-backend/storage/app/public/
 **/.phpunit*.cache
 **/*.sync-conflict-*

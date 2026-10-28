@@ -1,4 +1,4 @@
-param([ValidateRange(1, 65535)][int]$Port = 8010)
+param([ValidateRange(1, 65535)][int]$Port = 8010, [switch]$SeedPreview)
 
 $ErrorActionPreference = 'Stop'
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
@@ -55,33 +55,36 @@ if ($newEnvironment) {
     if ($LASTEXITCODE -ne 0) { throw 'Laravel APP_KEY generation failed.' }
 }
 
-$configLines = Get-Content $envFile
-if ($configLines -notcontains 'APP_ENV=local' -or $configLines -notcontains 'DB_CONNECTION=sqlite') {
-    throw 'Local launcher requires APP_ENV=local and DB_CONNECTION=sqlite in tarak-backend/.env; it will not connect to a remote database.'
-}
-if ($configLines | Where-Object { $_ -match '^DB_URL\s*=\s*[^\s#]+' }) {
-    throw 'Remove DB_URL from the local .env; this launcher only uses its local SQLite file.'
-}
+$connection = & php (Join-Path $PSScriptRoot 'assert-local-database.php')
+if ($LASTEXITCODE -ne 0) { throw 'Local database safety check failed.' }
+if ($SeedPreview -and $connection -ne 'sqlite') { throw 'Preview seeding is only allowed on isolated SQLite.' }
 
 # These values also override stale process-level variables. No local request
 # or migration may silently follow a production connection URL/config cache.
+foreach ($key in @('DB_HOST', 'DB_PORT', 'DB_DATABASE', 'DB_USERNAME', 'DB_PASSWORD', 'DB_SOCKET', 'APP_KEY')) {
+    Remove-Item -LiteralPath "Env:$key" -ErrorAction SilentlyContinue
+}
 $env:APP_ENV = 'local'
 $env:APP_URL = "http://localhost:$Port"
 $env:FRONTEND_URL = "http://localhost:$Port,http://127.0.0.1:$Port"
 $env:SANCTUM_STATEFUL_DOMAINS = "localhost:$Port,127.0.0.1:$Port"
-$env:DB_CONNECTION = 'sqlite'
-$env:DB_DATABASE = $dbFile
+$env:DB_CONNECTION = $connection
+if ($connection -eq 'sqlite') { $env:DB_DATABASE = $dbFile }
 $env:DB_URL = ''
 
 $newDatabase = -not (Test-Path $dbFile) -or (Get-Item $dbFile -ErrorAction SilentlyContinue).Length -eq 0
-if (-not (Test-Path $dbFile)) { New-Item -ItemType File -Path $dbFile | Out-Null }
+if ($connection -eq 'sqlite' -and -not (Test-Path $dbFile)) { New-Item -ItemType File -Path $dbFile | Out-Null }
 Push-Location $backend
 try {
     & php artisan config:clear --no-ansi
     if ($LASTEXITCODE -ne 0) { throw 'Laravel config cache could not be cleared.' }
     & php artisan migrate --force --no-ansi
     if ($LASTEXITCODE -ne 0) { throw 'Laravel migrations failed.' }
-    if ($newDatabase) {
+    if ($connection -eq 'sqlite' -and $newDatabase) {
+        & php artisan db:seed --class=ServiceCatalogSeeder --force --no-ansi
+        if ($LASTEXITCODE -ne 0) { throw 'Local service catalog setup failed.' }
+    }
+    if ($SeedPreview) {
         & php artisan local:seed-preview --no-ansi
         if ($LASTEXITCODE -ne 0) { throw 'Local catalog/demo setup failed.' }
     }
