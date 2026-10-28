@@ -302,7 +302,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authNotifierProvider);
 
+    final media = MediaQuery.of(context);
+    final bottomSafeSpace = media.viewInsets.bottom + media.padding.bottom + 40;
+
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: AppTheme.background,
       appBar: AppBar(
         title: Text(
@@ -326,7 +330,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: EdgeInsets.fromLTRB(20, 16, 20, bottomSafeSpace),
           child: Form(
             key: _formKey,
             child: Column(
