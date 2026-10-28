@@ -17,6 +17,7 @@
 **/.dart_tool/
 **/build/
 **/.gradle/
+**/.kotlin/
 **/Pods/
 **/.symlinks/
 **/Flutter/ephemeral/

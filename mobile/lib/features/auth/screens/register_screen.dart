@@ -1,9 +1,6 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/services.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/network/api_exception.dart';
 import '../../shared/screens/legal_screen.dart';
@@ -12,6 +9,7 @@ import '../../shared/widgets/custom_text_field.dart';
 import '../providers/auth_provider.dart';
 import '../services/social_identity_service.dart';
 import '../widgets/preauth_widgets.dart';
+import '../widgets/verification_code_dialog.dart';
 import '../widgets/web_landing_widgets.dart';
 import 'login_screen.dart';
 
@@ -36,8 +34,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _passwordConfirmController = TextEditingController();
   final _businessNameController = TextEditingController();
-  final _emailCodeController = TextEditingController();
-  final _smsCodeController = TextEditingController();
 
   String? _emailProof;
   String? _phoneProof;
@@ -53,7 +49,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   bool _smsBusy = false;
   DateTime? _emailResendAt;
   DateTime? _smsResendAt;
-  Timer? _cooldownTimer;
+  String? _emailCodeDestination;
+  String? _smsCodeDestination;
 
   late String _selectedRole;
   bool _obscurePassword = true;
@@ -92,9 +89,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     _passwordController.dispose();
     _passwordConfirmController.dispose();
     _businessNameController.dispose();
-    _emailCodeController.dispose();
-    _smsCodeController.dispose();
-    _cooldownTimer?.cancel();
     super.dispose();
   }
 
@@ -138,126 +132,88 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     }
   }
 
-  void _startCooldown(String channel, int seconds) {
-    setState(() {
-      if (channel == 'email') {
-        _emailResendAt = DateTime.now().add(Duration(seconds: seconds));
-      } else {
-        _smsResendAt = DateTime.now().add(Duration(seconds: seconds));
-      }
-    });
-    _cooldownTimer ??= Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-      setState(() {});
-      final now = DateTime.now();
-      if ((_emailResendAt == null || now.isAfter(_emailResendAt!)) &&
-          (_smsResendAt == null || now.isAfter(_smsResendAt!))) {
-        timer.cancel();
-        _cooldownTimer = null;
-      }
-    });
-  }
-
-  Future<void> _sendCode(String channel) async {
-    final value = (channel == 'email' ? _emailController : _phoneController).text.trim();
+  Future<DateTime> _sendCode(String channel) async {
+    final controller = channel == 'email' ? _emailController : _phoneController;
+    final value = controller.text.trim();
     if (value.isEmpty) {
-      setState(() => _flowError = channel == 'email' ? 'E-posta adresinizi girin.' : 'Telefon numaranızı girin.');
-      return;
+      throw AppException(message: channel == 'email' ? 'E-posta adresinizi girin.' : 'Telefon numaranızı girin.');
     }
     setState(() {
-      _flowError = null;
-      if (channel == 'email') {
-        _emailBusy = true;
-      } else {
-        _smsBusy = true;
-      }
+      if (channel == 'email') { _emailBusy = true; } else { _smsBusy = true; }
     });
     try {
       final response = await ref.read(apiClientProvider).post('/auth/verification/$channel/send',
           data: {channel == 'email' ? 'email' : 'phone': value});
       final data = response.data is Map ? response.data['data'] : null;
-      if (!mounted || value != (channel == 'email' ? _emailController : _phoneController).text.trim()) return;
+      if (!mounted || value != controller.text.trim()) {
+        throw const AppException(message: 'İletişim bilgisi değişti. Yeni bir kod isteyin.');
+      }
       final seconds = data is Map ? (data['resend_after_seconds'] as num?)?.toInt() ?? 60 : 60;
-      _startCooldown(channel, seconds);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(channel == 'email' ? 'E-posta kodu gönderildi.' : 'SMS kodu gönderildi.')));
-      }
-    } on AppException catch (e) {
-      if (mounted) {
-        setState(() => _flowError = e.message);
-      }
+      final deadline = DateTime.now().add(Duration(seconds: seconds));
+      setState(() {
+        if (channel == 'email') {
+          _emailResendAt = deadline;
+          _emailCodeDestination = value;
+        } else {
+          _smsResendAt = deadline;
+          _smsCodeDestination = value;
+        }
+      });
+      return deadline;
+    } on AppException {
+      rethrow;
     } catch (_) {
-      if (mounted) {
-        setState(() => _flowError = 'Doğrulama kodu gönderilemedi.');
-      }
+      throw const AppException(message: 'Doğrulama kodu gönderilemedi.');
     } finally {
       if (mounted) {
         setState(() {
-        if (channel == 'email') {
-          _emailBusy = false;
-        } else {
-          _smsBusy = false;
-        }
+          if (channel == 'email') { _emailBusy = false; } else { _smsBusy = false; }
         });
       }
     }
   }
 
-  Future<void> _confirmCode(String channel) async {
-    final code = (channel == 'email' ? _emailCodeController : _smsCodeController).text.trim();
-    final value = (channel == 'email' ? _emailController : _phoneController).text.trim();
-    if (code.length != 6) {
-      setState(() => _flowError = 'Altı haneli doğrulama kodunu girin.');
-      return;
+  Future<void> _confirmCode(String channel, String code) async {
+    final controller = channel == 'email' ? _emailController : _phoneController;
+    final value = controller.text.trim();
+    final response = await ref.read(apiClientProvider).post('/auth/verification/$channel/confirm',
+        data: {channel == 'email' ? 'email' : 'phone': value, 'code': code});
+    final data = response.data is Map ? response.data['data'] : null;
+    final token = data is Map ? data['verification_token']?.toString() : null;
+    if (token == null || token.isEmpty) {
+      throw const AppException(message: 'Doğrulama yanıtı geçersiz.');
+    }
+    if (!mounted || value != controller.text.trim()) {
+      throw const AppException(message: 'İletişim bilgisi değişti. Yeni bir kod isteyin.');
     }
     setState(() {
-      _flowError = null;
-      if (channel == 'email') {
-        _emailBusy = true;
-      } else {
-        _smsBusy = true;
-      }
+      if (channel == 'email') { _emailProof = token; } else { _phoneProof = token; }
     });
+  }
+
+  Future<void> _openVerification(String channel) async {
+    setState(() => _flowError = null);
     try {
-      final response = await ref.read(apiClientProvider).post('/auth/verification/$channel/confirm',
-          data: {channel == 'email' ? 'email' : 'phone': value, 'code': code});
-      final data = response.data is Map ? response.data['data'] : null;
-      final token = data is Map ? data['verification_token']?.toString() : null;
-      if (token == null || token.isEmpty) {
-        throw const AppException(message: 'Doğrulama yanıtı geçersiz.');
+      final destination = (channel == 'email' ? _emailController : _phoneController).text.trim();
+      final sentTo = channel == 'email' ? _emailCodeDestination : _smsCodeDestination;
+      var deadline = channel == 'email' ? _emailResendAt : _smsResendAt;
+      if (sentTo != destination || deadline == null || !deadline.isAfter(DateTime.now())) {
+        deadline = await _sendCode(channel);
       }
-      if (!mounted || value != (channel == 'email' ? _emailController : _phoneController).text.trim()) return;
-      if (mounted) {
-        setState(() {
-          if (channel == 'email') {
-            _emailProof = token;
-          } else {
-            _phoneProof = token;
-          }
-        });
-      }
+      if (!mounted) return;
+      await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => VerificationCodeDialog(
+          channel: channel,
+          destination: destination,
+          resendAt: deadline!,
+          onConfirm: (code) => _confirmCode(channel, code),
+          onResend: () => _sendCode(channel),
+        ),
+      );
     } on AppException catch (e) {
-      if (mounted) {
-        setState(() => _flowError = e.message);
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _flowError = 'Kod doğrulanamadı.');
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-        if (channel == 'email') {
-          _emailBusy = false;
-        } else {
-          _smsBusy = false;
-        }
-        });
-      }
+      if (mounted) setState(() => _flowError = e.message);
     }
   }
 
@@ -293,37 +249,30 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     }
   }
 
-  Widget _verificationControls(String channel) {
-    final isEmail = channel == 'email';
-    final proof = isEmail ? _emailProof : _phoneProof;
-    final hasSocialProof = isEmail && _hasVerifiedSocialEmail;
-    final busy = isEmail ? _emailBusy : _smsBusy;
-    final deadline = isEmail ? _emailResendAt : _smsResendAt;
-    final seconds = deadline == null ? 0 : deadline.difference(DateTime.now()).inSeconds.clamp(0, 60);
-    if (proof != null || hasSocialProof) {
-      return const Padding(
-        padding: EdgeInsets.only(top: 6),
-        child: Text('Doğrulandı', style: TextStyle(color: Color(0xFF16803D), fontSize: 12, fontWeight: FontWeight.w700)),
+  Widget _verificationAction(String channel) {
+    final verified = channel == 'email' ? _emailProof != null || _hasVerifiedSocialEmail : _phoneProof != null;
+    final busy = channel == 'email' ? _emailBusy : _smsBusy;
+    if (verified) {
+      return const Tooltip(
+        message: 'Doğrulandı',
+        child: Icon(Icons.check_circle_rounded, color: Color(0xFF16803D), size: 22),
       );
     }
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      TextButton.icon(
-        onPressed: busy || seconds > 0 ? null : () => _sendCode(channel),
-        icon: const Icon(Icons.mark_email_read_outlined, size: 17),
-        label: Text(seconds > 0 ? 'Yeniden gönder ($seconds sn)' : isEmail ? 'E-posta kodu gönder' : 'SMS kodu gönder'),
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: TextButton(
+        onPressed: busy ? null : () => _openVerification(channel),
+        style: TextButton.styleFrom(
+          foregroundColor: AppTheme.primary,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          minimumSize: const Size(48, 48),
+          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
+        child: busy
+            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+            : const Text('Kod gönder'),
       ),
-      Row(children: [
-        Expanded(child: TextField(
-          controller: isEmail ? _emailCodeController : _smsCodeController,
-          keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
-          decoration: InputDecoration(labelText: '6 haneli kod', isDense: true,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
-        )),
-        const SizedBox(width: 8),
-        TextButton(onPressed: busy ? null : () => _confirmCode(channel), child: const Text('Doğrula')),
-      ]),
-    ]);
+    );
   }
 
   @override
@@ -507,6 +456,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   label: 'E-posta Adresi',
                   hint: 'ornek@mail.com',
                   keyboardType: TextInputType.emailAddress,
+                  suffixIcon: _verificationAction('email'),
                   prefixIcon: const Icon(Icons.email_outlined,
                       size: 18, color: AppTheme.slate400),
                   validator: (v) {
@@ -517,7 +467,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     return null;
                   },
                 ),
-                _verificationControls('email'),
                 const SizedBox(height: 16),
 
                 // Phone
@@ -526,6 +475,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   label: 'Telefon Numarası',
                   hint: '05XXXXXXXXX',
                   keyboardType: TextInputType.phone,
+                  suffixIcon: _verificationAction('sms'),
                   prefixIcon: const Icon(Icons.phone_outlined,
                       size: 18, color: AppTheme.slate400),
                   validator: (v) {
@@ -536,7 +486,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     return null;
                   },
                 ),
-                _verificationControls('sms'),
                 const SizedBox(height: 16),
 
                 // Password

@@ -35,6 +35,12 @@ Başlatıcı PHP/Composer bağımlılıklarını ve eksik migration'ları hazır
 
 ## Gerekli gerçek servis ayarları
 
+### Mobil kayıt formu sadeleştirmesi
+
+E-posta ve telefon alanlarının sağında yalnız `Kod gönder` eylemi bulunur. Başarılı kod gönderiminden sonra küçük doğrulama penceresi açılır; kod girişi, hata mesajı, yeniden gönderme sayacı ve doğrulama burada yapılır. Formdaki ayrı kod giriş satırları kaldırıldı. Pencere kapatılıp bekleme süresi içinde yeniden açılırsa aynı iletişim bilgisi için gereksiz yeni kod gönderilmez; iletişim bilgisi değişirse önceki kodun bekleme durumu yeni bilgiye taşınmaz.
+
+Bu düzenleme için Flutter analizi temiz ve mevcut kayıt/giriş testlerinden 32 test geçti. Temiz debug APK Pixel 4a'ya başarıyla yüklendi ve uygulamanın önde olduğu ADB ile doğrulandı. Pencere üzerinden otomatik görsel kontrol, masaüstü erişim onayı zaman aşımına uğradığı için tamamlanamadı. Aşağıdaki release AAB sonucu bu son arayüz düzenlemesinden önceki pakete aittir; mağaza öncesinde güncel kaynaktan yeniden release derlemesi alınmalıdır.
+
 | Entegrasyon | Ayar |
 |---|---|
 | Google web/mobile | Backend `GOOGLE_WEB_CLIENT_ID`, gerekirse `GOOGLE_ANDROID_CLIENT_ID`, `GOOGLE_IOS_CLIENT_ID`; mobile build `GOOGLE_WEB_CLIENT_ID`, iOS için `GOOGLE_CLIENT_ID` |
