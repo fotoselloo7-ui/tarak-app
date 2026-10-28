@@ -13,17 +13,54 @@ async function api(path) {
 async function loadMaps() {
   const { browser_key: key, map_id: mapId } = await api('/api/geo/config');
   if (!key) throw new Error('Google Maps tarayıcı anahtarı yapılandırılmadı.');
-  if (window.google?.maps) return { maps: window.google.maps, mapId };
+
+  const ensureLibraries = async () => {
+    const maps = window.google?.maps;
+    if (!maps) throw new Error('Google Maps yüklenemedi.');
+    if (typeof maps.importLibrary === 'function') {
+      await Promise.all([
+        maps.importLibrary('maps'),
+        maps.importLibrary('marker'),
+      ]);
+    }
+    if (typeof maps.Map !== 'function') {
+      throw new Error('Google Maps harita kütüphanesi yüklenemedi.');
+    }
+    return maps;
+  };
+
+  if (window.google?.maps) {
+    return { maps: await ensureLibraries(), mapId };
+  }
+
   if (!mapsPromise) {
     mapsPromise = new Promise((resolve, reject) => {
+      const callbackName = '__tarakGoogleMapsReady';
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&language=tr&region=TR&loading=async`;
+
+      window[callbackName] = async () => {
+        try {
+          resolve(await ensureLibraries());
+        } catch (error) {
+          reject(error);
+        } finally {
+          delete window[callbackName];
+        }
+      };
+
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&language=tr&region=TR&loading=async&v=weekly&callback=${callbackName}`;
       script.async = true;
-      script.onload = () => window.google?.maps ? resolve(window.google.maps) : reject(new Error('Google Maps yüklenemedi.'));
-      script.onerror = () => reject(new Error('Google Maps yüklenemedi. API anahtarı ve ağ bağlantısını kontrol edin.'));
+      script.onerror = () => {
+        delete window[callbackName];
+        reject(new Error('Google Maps yüklenemedi. API anahtarı ve ağ bağlantısını kontrol edin.'));
+      };
       document.head.appendChild(script);
-    }).catch(error => { mapsPromise = null; throw error; });
+    }).catch(error => {
+      mapsPromise = null;
+      throw error;
+    });
   }
+
   return { maps: await mapsPromise, mapId };
 }
 
