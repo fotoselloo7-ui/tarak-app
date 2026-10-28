@@ -78,8 +78,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authNotifierProvider);
     final canPop = Navigator.of(context).canPop();
+    final media = MediaQuery.of(context);
+    final bottomSafeSpace = media.viewInsets.bottom + media.padding.bottom + 32;
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: AppTheme.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -95,7 +98,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         child: Center(
           child: SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: EdgeInsets.fromLTRB(24, 12, 24, bottomSafeSpace),
             child: Form(
               key: _formKey,
               child: Column(
