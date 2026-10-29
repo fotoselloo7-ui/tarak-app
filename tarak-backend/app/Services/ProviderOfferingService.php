@@ -8,6 +8,7 @@ use App\Models\ProviderReview;
 use App\Models\ProviderService;
 use App\Models\ServiceRequest;
 use Illuminate\Validation\ValidationException;
+use App\Support\MediaUrl;
 
 class ProviderOfferingService
 {
@@ -180,9 +181,9 @@ class ProviderOfferingService
             'user_id' => (string) $profile->user_id,
             'name' => $user?->name,
             'business_name' => $this->providerDisplayName($profile),
-            'avatar_url' => $user?->avatar_url,
-            'cover_url' => $profile->cover_url,
-            'gallery' => $profile->gallery ?? [],
+            'avatar_url' => MediaUrl::resolve($user?->avatar_url),
+            'cover_url' => MediaUrl::resolve($profile->cover_url),
+            'gallery' => array_values(array_filter(array_map(fn ($url) => MediaUrl::resolve($url), $profile->gallery ?? []))),
             'provider_type' => $profile->provider_type,
             'title' => $profile->title,
             'bio' => $profile->bio,
