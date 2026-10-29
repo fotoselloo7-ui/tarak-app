@@ -195,6 +195,10 @@ class CustomerProfileController extends Controller
             'district.required' => 'İlçe seçimi zorunludur.',
         ]);
 
+        // Ensure an address entered manually is usable by nearby-provider search.
+        // The result is an approximate position until the customer chooses a map pin.
+        $validated = $this->resolveAddressCoordinates($validated);
+
         $address = DB::transaction(function () use ($profile, $validated) {
             $isFirst = !$profile->addresses()->exists();
             $shouldBeDefault = $isFirst || !empty($validated['is_default']);
@@ -270,6 +274,27 @@ class CustomerProfileController extends Controller
             'is_default' => ['nullable', 'boolean'],
         ]);
 
+        // An edited city/district must never inherit coordinates from the old
+        // saved address. Resolve the new region or store null until mapped.
+        $locationFields = ['province', 'district', 'neighborhood', 'street', 'building_no'];
+        $locationChanged = false;
+        foreach ($locationFields as $field) {
+            if (array_key_exists($field, $validated) && ($validated[$field] ?? null) !== ($address->{$field} ?? null)) {
+                $locationChanged = true;
+                break;
+            }
+        }
+        if ($locationChanged) {
+            if (!isset($validated['latitude'], $validated['longitude'])) {
+                $combined = array_merge($address->only($locationFields), $validated);
+                $combined['latitude'] = null;
+                $combined['longitude'] = null;
+                $resolved = $this->resolveAddressCoordinates($combined);
+                $validated['latitude'] = $resolved['latitude'] ?? null;
+                $validated['longitude'] = $resolved['longitude'] ?? null;
+            }
+        }
+
         DB::transaction(function () use ($profile, $address, $validated) {
             if (!empty($validated['is_default'])) {
                 $profile->addresses()->where('id', '!=', $address->id)->update(['is_default' => false]);
@@ -322,4 +347,35 @@ class CustomerProfileController extends Controller
             'message' => 'Adres başarıyla silindi.',
         ]);
     }
+    /**
+     * Use approximate geocoded coordinates for manual address forms.
+     * Explicit map-pin coordinates always take precedence.
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
+    private function resolveAddressCoordinates(array $data): array
+    {
+        if (isset($data['latitude'], $data['longitude'])) return $data;
+        if (empty($data['province']) || empty($data['district'])) return $data;
+        $terms = array_filter([
+            $data['street'] ?? null,
+            $data['neighborhood'] ?? null,
+            $data['district'],
+            $data['province'],
+            'Türkiye',
+        ], fn ($part) => is_string($part) && trim($part) !== '');
+        $geocoder = app(\\App\\Services\\GoogleGeocodingService::class);
+        $result = $geocoder->search(implode(', ', $terms));
+
+        // Street-level searches often fail for incomplete manually typed addresses.
+        if (($result['status'] ?? null) !== 'OK') {
+            $result = $geocoder->search($data['district'] . ', ' . $data['province'] . ', Türkiye');
+        }
+        if (($result['status'] ?? null) === 'OK') {
+            $data['latitude'] = $result['data']['latitude'];
+            $data['longitude'] = $result['data']['longitude'];
+        }
+        return $data;
+    }
+
 }
