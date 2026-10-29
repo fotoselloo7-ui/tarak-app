@@ -364,7 +364,7 @@ class CustomerProfileController extends Controller
             $data['province'],
             'Türkiye',
         ], fn ($part) => is_string($part) && trim($part) !== '');
-        $geocoder = app(\\App\\Services\\GoogleGeocodingService::class);
+        $geocoder = app(\App\Services\GoogleGeocodingService::class);
         $result = $geocoder->search(implode(', ', $terms));
 
         // Street-level searches often fail for incomplete manually typed addresses.
