@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Support\MediaUrl;
 
 class ProviderProfileController extends Controller
 {
@@ -301,7 +302,7 @@ class ProviderProfileController extends Controller
         $extension = strtolower($file->getClientOriginalExtension() ?: $file->extension());
         $filename = (string) Str::uuid() . '.' . $extension;
         $path = $file->storeAs('provider-media/' . $profile->id . '/cover', $filename, 'public');
-        $url = Storage::disk('public')->url($path);
+        $url = MediaUrl::fromPublicPath($path);
 
         $oldPath = ProfileMediaController::managedPublicPath($profile->cover_url);
         $profile->update(['cover_url' => $url]);
@@ -367,7 +368,7 @@ class ProviderProfileController extends Controller
         $extension = strtolower($file->getClientOriginalExtension() ?: $file->extension());
         $filename = (string) Str::uuid() . '.' . $extension;
         $path = $file->storeAs('provider-media/' . $profile->id . '/gallery', $filename, 'public');
-        $url = Storage::disk('public')->url($path);
+        $url = MediaUrl::fromPublicPath($path);
 
         $gallery[] = $url;
         $profile->update(['gallery' => array_values($gallery)]);
@@ -397,14 +398,16 @@ class ProviderProfileController extends Controller
         ]);
 
         $gallery = $profile->gallery ?? [];
-        if (!in_array($validated['url'], $gallery, true)) {
+        $requested = MediaUrl::resolve($validated['url']);
+        $storedUrl = collect($gallery)->first(fn ($url) => $url === $validated['url'] || MediaUrl::resolve($url) === $requested);
+        if (!$storedUrl) {
             return response()->json(['success' => false, 'message' => 'Görsel bulunamadı.'], 404);
         }
 
-        $gallery = array_values(array_filter($gallery, fn ($u) => $u !== $validated['url']));
+        $gallery = array_values(array_filter($gallery, fn ($u) => $u !== $storedUrl));
         $profile->update(['gallery' => $gallery]);
 
-        $path = ProfileMediaController::managedPublicPath($validated['url']);
+        $path = ProfileMediaController::managedPublicPath($storedUrl);
         if ($path) {
             Storage::disk('public')->delete($path);
         }
