@@ -14,6 +14,33 @@ define('LARAVEL_START', microtime(true));
 
 $backend = dirname(__DIR__).'/tarak-backend';
 
+// cPanel-safe media fallback: serve managed public uploads even when storage:link
+// is unavailable. The is_demo seed marker is unrelated to media and remains in DB.
+$uriPath = rawurldecode((string) (parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/'));
+if (preg_match('#^/(?:api/media/|storage/)(avatars|provider-media)/(.+)$#', $uriPath, $m)) {
+    $relative = $m[1].'/'.ltrim(str_replace('\\\\', '/', $m[2]), '/');
+    if ($relative === '' || str_contains($relative, '..') || str_contains($relative, "\0")) {
+        http_response_code(404);
+        exit;
+    }
+
+    $mediaRoot = realpath($backend.'/storage/app/public');
+    $candidate = $mediaRoot ? realpath($mediaRoot.'/'.$relative) : false;
+
+    if (!$mediaRoot || !$candidate || !str_starts_with($candidate, $mediaRoot.DIRECTORY_SEPARATOR) || !is_file($candidate)) {
+        http_response_code(404);
+        exit;
+    }
+
+    $mime = function_exists('mime_content_type') ? mime_content_type($candidate) : false;
+    header('Content-Type: '.($mime ?: 'application/octet-stream'));
+    header('Content-Length: '.filesize($candidate));
+    header('Cache-Control: public, max-age=604800');
+    header('X-Content-Type-Options: nosniff');
+    readfile($candidate);
+    exit;
+}
+
 if (! is_file($backend.'/vendor/autoload.php')) {
     http_response_code(503);
     header('Content-Type: application/json; charset=utf-8');
