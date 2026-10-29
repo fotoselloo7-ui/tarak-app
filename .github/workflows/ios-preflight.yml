@@ -6,7 +6,7 @@ on:
       build_number:
         description: "iOS build number (must be higher than a previously uploaded build)"
         required: true
-        default: "5"
+        default: "6"
         type: string
   push:
     branches:
@@ -63,9 +63,12 @@ jobs:
           GOOGLE_IOS_CLIENT_ID: ${{ vars.GOOGLE_IOS_CLIENT_ID || secrets.GOOGLE_IOS_CLIENT_ID }}
           GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID || secrets.GOOGLE_WEB_CLIENT_ID || '977885914941-lts9n172clgr8p6glbi3gv1k2qn2fkvn.apps.googleusercontent.com' }}
         run: |
-          test -n "$GOOGLE_IOS_CLIENT_ID" || { echo "::error::GOOGLE_IOS_CLIENT_ID is missing. Create an iOS OAuth client for bundle app.tarak.mobile and add it as a repository variable or secret."; exit 1; }
           test -n "$GOOGLE_WEB_CLIENT_ID" || { echo "::error::GOOGLE_WEB_CLIENT_ID is missing"; exit 1; }
-          python3 tools/configure_ios_identity.py
+          if [ -n "$GOOGLE_IOS_CLIENT_ID" ]; then
+            python3 tools/configure_ios_identity.py
+          else
+            echo "::warning::GOOGLE_IOS_CLIENT_ID is not configured; unsigned compile preflight will continue, but Google Sign-In runtime is not verified."
+          fi
 
       - name: Build unsigned iOS app for verification
         env:
@@ -74,7 +77,7 @@ jobs:
         run: |
           flutter build ios --release --no-codesign \
             --build-name 1.1.1 \
-            --build-number "${{ inputs.build_number || '5' }}" \
+            --build-number "${{ inputs.build_number || '6' }}" \
             --dart-define=API_BASE_URL=https://tarak.app/api \
             --dart-define=REVERB_HOST=tarak.app \
             --dart-define=REVERB_APP_KEY=hhyfpgfv2dgv95yd78kz \
@@ -84,7 +87,7 @@ jobs:
       - name: Upload unsigned app (NOT an App Store IPA)
         uses: actions/upload-artifact@v4
         with:
-          name: tarak-ios-unsigned-${{ inputs.build_number || '5' }}
+          name: tarak-ios-unsigned-${{ inputs.build_number || '6' }}
           path: mobile/build/ios/iphoneos/Runner.app
           if-no-files-found: error
           retention-days: 7
