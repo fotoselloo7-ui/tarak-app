@@ -27,6 +27,20 @@ class AppException implements Exception {
         final statusCode = response?.statusCode;
         final data = response?.data;
 
+        // Laravel's default 429 body is "Too Many Attempts.".
+        // Handle rate limiting before generic server messages so users always
+        // get a clear localized message instead of the raw framework string.
+        if (statusCode == 429) {
+          final retryAfter = response?.headers.value('retry-after');
+          final seconds = int.tryParse(retryAfter ?? '');
+          return AppException(
+            message: seconds != null && seconds > 0
+                ? 'Çok fazla deneme yapıldı. $seconds saniye sonra tekrar deneyin.'
+                : 'Çok fazla deneme yapıldı. Lütfen kısa bir süre bekleyip tekrar deneyin.',
+            statusCode: 429,
+          );
+        }
+
         if (data is Map<String, dynamic>) {
           // Laravel validation errors (422)
           if (statusCode == 422 && data['errors'] is Map) {
