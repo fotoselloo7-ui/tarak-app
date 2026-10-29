@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Support\MediaUrl;
 
 /**
  * Canonical profile-media (avatar) capability shared by ALL authenticated
@@ -34,7 +35,7 @@ class ProfileMediaController extends Controller
         $extension = strtolower($file->getClientOriginalExtension() ?: $file->extension());
         $filename = (string) Str::uuid() . '.' . $extension;
         $path = $file->storeAs('avatars/' . $user->id, $filename, 'public');
-        $url = Storage::disk('public')->url($path);
+        $url = MediaUrl::fromPublicPath($path);
 
         $oldPath = self::managedPublicPath($user->avatar_url);
         $user->update(['avatar_url' => $url]);
@@ -79,19 +80,6 @@ class ProfileMediaController extends Controller
      */
     public static function managedPublicPath(?string $url): ?string
     {
-        if (!$url) {
-            return null;
-        }
-        $base = rtrim(Storage::disk('public')->url(''), '/') . '/';
-        if (!str_starts_with($url, $base)) {
-            return null;
-        }
-        $path = substr($url, strlen($base));
-        // Extra guard: only ever touch files under our own managed prefixes.
-        if (!str_starts_with($path, 'avatars/') && !str_starts_with($path, 'provider-media/')) {
-            return null;
-        }
-
-        return $path;
+        return MediaUrl::managedPublicPath($url);
     }
 }
