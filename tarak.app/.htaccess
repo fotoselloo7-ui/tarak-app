@@ -64,6 +64,11 @@ DirectoryIndex index.html
     # API, health check and PayTR return pages -> Laravel through the bridge index.php
     RewriteRule ^(api|up|payment-result)(/|$) index.php [L]
 
+    # If cPanel cannot create Laravel's public/storage symlink, let index.php safely
+    # stream managed avatar/provider-media uploads from tarak-backend/storage/app/public.
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^storage/(avatars|provider-media)/(.+)$ index.php [L]
+
     # real files and folders (index.html, assets/, brand/, storage/ symlink, ...) are served as they are
     RewriteCond %{REQUEST_FILENAME} -f [OR]
     RewriteCond %{REQUEST_FILENAME} -d
