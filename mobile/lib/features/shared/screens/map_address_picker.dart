@@ -212,14 +212,21 @@ class _MapAddressPickerState extends ConsumerState<MapAddressPicker> {
       if (mounted && sequence == _lookupSequence) {
         setState(() => _selection = MapAddressData.fromJson(data));
       }
-    } on AppException catch (e) {
+    } on AppException catch (_) {
       if (mounted && sequence == _lookupSequence) {
-        setState(() => _error = e.message);
+        // Even when reverse-geocoding is down, the map pin remains usable.
+        // The address form can be filled manually after returning the point.
+        setState(() {
+          _selection = MapAddressData(latitude: point.latitude, longitude: point.longitude);
+          _error = 'Konum işaretlendi. Adres bilgilerini sonraki ekranda elle doldurabilirsiniz.';
+        });
       }
     } catch (_) {
       if (mounted && sequence == _lookupSequence) {
-        setState(() => _error =
-            'Adres alanları otomatik doldurulamadı. Elle düzenleyebilirsiniz.');
+        setState(() {
+          _selection = MapAddressData(latitude: point.latitude, longitude: point.longitude);
+          _error = 'Konum işaretlendi. Adres bilgilerini sonraki ekranda elle doldurabilirsiniz.';
+        });
       }
     } finally {
       if (mounted && sequence == _lookupSequence) {
