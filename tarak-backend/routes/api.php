@@ -18,7 +18,7 @@ Route::get('/health/ready', [HealthController::class, 'ready']);
 // Public profile media. This deliberately serves only the managed public-disk
 // avatar/provider-media prefixes and works even when cPanel cannot create a web-root storage symlink.
 Route::get('/media/{path}', [App\Http\Controllers\Api\PublicMediaController::class, 'show'])
-    ->where('path', '.*')->middleware('throttle:240,1');
+    ->where('path', '.*')->middleware('throttle:240,1,public-media:');
 
 // Address lookup during existing customer/provider registration. Keep the server key private.
 Route::get('/geo/search', [App\Http\Controllers\Api\GeoController::class, 'search'])->middleware('throttle:20,1');
@@ -28,35 +28,35 @@ Route::get('/geo/config', [App\Http\Controllers\Api\GeoController::class, 'confi
 // Public auth bootstrap/config endpoints are read-only and are requested on page
 // render. Keep them outside the brute-force bucket so normal UI re-renders do
 // not consume login/register attempts.
-Route::prefix('auth')->middleware('throttle:120,1')->group(function () {
+Route::prefix('auth')->middleware('throttle:120,1,auth-bootstrap:')->group(function () {
     Route::get('/social/config', [App\Http\Controllers\Api\SocialAuthController::class, 'config']);
     Route::get('/verification/config', [App\Http\Controllers\Api\RegistrationVerificationController::class, 'config']);
-    Route::get('/social/nonce', [App\Http\Controllers\Api\SocialAuthController::class, 'nonce'])->middleware('throttle:60,1');
+    Route::get('/social/nonce', [App\Http\Controllers\Api\SocialAuthController::class, 'nonce'])->middleware('throttle:60,1,auth-nonce:');
 });
 
 // Public Auth Routes (Rate limited to protect against brute-force)
-Route::prefix('auth')->middleware('throttle:20,1')->group(function () {
+Route::prefix('auth')->middleware('throttle:20,1,auth-submit:')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);
-    Route::post('/password/forgot', [App\Http\Controllers\Api\PasswordResetController::class, 'forgot'])->middleware('throttle:5,1');
-    Route::post('/password/reset', [App\Http\Controllers\Api\PasswordResetController::class, 'reset'])->middleware('throttle:10,1');
+    Route::post('/password/forgot', [App\Http\Controllers\Api\PasswordResetController::class, 'forgot'])->middleware('throttle:5,1,auth-send:');
+    Route::post('/password/reset', [App\Http\Controllers\Api\PasswordResetController::class, 'reset'])->middleware('throttle:10,1,auth-sensitive:');
     Route::post('/social/{provider}/prefill', [App\Http\Controllers\Api\SocialAuthController::class, 'prefill'])
-        ->where('provider', 'google|apple')->middleware('throttle:10,1');
+        ->where('provider', 'google|apple')->middleware('throttle:10,1,auth-sensitive:');
     Route::post('/social/{provider}/login', [App\Http\Controllers\Api\SocialAuthController::class, 'login'])
-        ->where('provider', 'google|apple')->middleware('throttle:10,1');
+        ->where('provider', 'google|apple')->middleware('throttle:10,1,auth-sensitive:');
     Route::post('/verification/{channel}/send', [App\Http\Controllers\Api\RegistrationVerificationController::class, 'send'])
-        ->where('channel', 'email|sms')->middleware('throttle:5,1');
+        ->where('channel', 'email|sms')->middleware('throttle:5,1,auth-send:');
     Route::post('/verification/{channel}/confirm', [App\Http\Controllers\Api\RegistrationVerificationController::class, 'confirm'])
-        ->where('channel', 'email|sms')->middleware('throttle:10,1');
+        ->where('channel', 'email|sms')->middleware('throttle:10,1,auth-sensitive:');
 });
 
 // Authenticated Auth Routes
 Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
-    Route::post('/change-password', [AuthController::class, 'changePassword'])->middleware('throttle:10,1');
+    Route::post('/change-password', [AuthController::class, 'changePassword'])->middleware('throttle:10,1,auth-sensitive:');
     Route::post('/social/{provider}/link', [App\Http\Controllers\Api\SocialAuthController::class, 'link'])
-        ->where('provider', 'google|apple')->middleware('throttle:5,1');
+        ->where('provider', 'google|apple')->middleware('throttle:5,1,auth-send:');
 
     // Active session (Sanctum token) management — no raw tokens exposed.
     Route::get('/sessions', [App\Http\Controllers\Api\SessionController::class, 'index']);

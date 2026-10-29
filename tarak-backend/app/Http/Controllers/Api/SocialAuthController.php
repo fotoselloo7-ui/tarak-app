@@ -21,6 +21,7 @@ class SocialAuthController extends Controller
     {
         return response()->json(['success' => true, 'data' => [
             'google_client_id' => config('services.google.web_client_id') ?: null,
+            'google_ios_client_id' => config('services.google.ios_client_id') ?: null,
             'apple_client_id' => config('services.apple.service_id') ?: null,
             'apple_redirect_uri' => config('services.apple.redirect_uri') ?: null,
         ]])->header('Cache-Control', 'no-store');
@@ -62,50 +63,9 @@ class SocialAuthController extends Controller
     public function login(Request $request, string $provider): JsonResponse
     {
         $identity = $this->verifiedIdentity($request, $provider);
-        $link = DB::table('social_identities')->where('provider', $provider)
-            ->where('subject', $identity['subject'])->first();
-        $user = $link ? User::find($link->user_id) : null;
-
-        // First social login for an existing Tarak account: if Google/Apple
-        // gives us a verified e-mail that exactly matches an account, link it
-        // once and continue. This avoids forcing an existing user to sign in
-        // with a password merely to create the initial social-identity row.
-        if (!$user && $identity['email_verified'] && $identity['email']) {
-            $candidate = User::query()
-                ->whereRaw('LOWER(email) = ?', [mb_strtolower($identity['email'])])
-                ->first();
-
-            if ($candidate) {
-                $existingForUser = DB::table('social_identities')
-                    ->where('provider', $provider)
-                    ->where('user_id', $candidate->id)
-                    ->first();
-
-                if ($existingForUser && $existingForUser->subject !== $identity['subject']) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Bu Tarak hesabı farklı bir ' . ucfirst($provider) . ' hesabına bağlı.',
-                    ], 409);
-                }
-
-                try {
-                    DB::table('social_identities')->updateOrInsert(
-                        ['provider' => $provider, 'subject' => $identity['subject']],
-                        [
-                            'user_id' => $candidate->id,
-                            'email_at_link' => $identity['email'],
-                            'updated_at' => now(),
-                            'created_at' => now(),
-                        ],
-                    );
-                    $user = $candidate;
-                } catch (QueryException $exception) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Bu sağlayıcı hesabı başka bir kullanıcıya bağlı.',
-                    ], 409);
-                }
-            }
+        $user = $this->resolveLoginUser($provider, $identity);
+        if ($user instanceof JsonResponse) {
+            return $user;
         }
 
         if (!$user) {
@@ -126,6 +86,52 @@ class SocialAuthController extends Controller
             'token' => $user->createToken('Sosyal giriş')->plainTextToken,
             'token_type' => 'Bearer',
         ]]);
+    }
+
+    /** Never reassign a subject, including when the previous account was soft-deleted. */
+    private function resolveLoginUser(string $provider, array $identity): User|JsonResponse|null
+    {
+        $conflict = fn () => response()->json([
+            'success' => false, 'message' => 'Bu sağlayıcı hesabı farklı bir Tarak hesabına bağlı.',
+        ], 409);
+        try {
+            return DB::transaction(function () use ($provider, $identity, $conflict) {
+                $link = DB::table('social_identities')->where('provider', $provider)
+                    ->where('subject', $identity['subject'])->lockForUpdate()->first();
+                if ($link) {
+                    $user = User::find($link->user_id);
+                    if (!$user) return $conflict();
+                    if ($identity['email_verified'] && $identity['email'] && User::query()
+                        ->whereRaw('LOWER(email) = ?', [$identity['email']])->where('id', '!=', $user->id)->exists()) {
+                        return $conflict();
+                    }
+                    return $user;
+                }
+                if (!$identity['email_verified'] || !$identity['email']) return null;
+                $user = User::query()->whereRaw('LOWER(email) = ?', [$identity['email']])
+                    ->lockForUpdate()->first();
+                if (!$user) return null;
+                if ($user->status !== 'active') {
+                    return response()->json(['success' => false, 'message' => 'Hesabınız aktif değil.'], 403);
+                }
+                $existing = DB::table('social_identities')->where('provider', $provider)
+                    ->where('user_id', $user->id)->lockForUpdate()->first();
+                if ($existing && $existing->subject !== $identity['subject']) return $conflict();
+                if (!$existing) {
+                    // INSERT plus the two unique indexes protects concurrent first logins.
+                    // updateOrInsert could overwrite another account's link after a race.
+                    DB::table('social_identities')->insert([
+                        'provider' => $provider, 'subject' => $identity['subject'], 'user_id' => $user->id,
+                        'email_at_link' => $identity['email'], 'created_at' => now(), 'updated_at' => now(),
+                    ]);
+                }
+                if (!$user->email_verified_at) $user->update(['email_verified_at' => now()]);
+                return $user;
+            });
+        } catch (QueryException $exception) {
+            if (in_array((string) $exception->getCode(), ['23000', '23505'], true)) return $conflict();
+            throw $exception;
+        }
     }
 
     public function link(Request $request, string $provider): JsonResponse

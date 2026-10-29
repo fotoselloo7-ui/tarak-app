@@ -97,7 +97,9 @@ class SocialIdentityVerifier
             }
             if (($exchangedClaims['iss'] ?? null) !== 'https://appleid.apple.com'
                 || ($exchangedClaims['aud'] ?? null) !== $audience
-                || ($exchangedClaims['sub'] ?? null) !== $claims['sub']) {
+                || ($exchangedClaims['sub'] ?? null) !== $claims['sub']
+                || !isset($exchangedClaims['exp']) || !is_numeric($exchangedClaims['exp'])
+                || (int) $exchangedClaims['exp'] <= time()) {
                 throw ValidationException::withMessages(['authorization_code' => 'Apple yetkilendirme yanıtı kimlikle eşleşmiyor.']);
             }
         }
