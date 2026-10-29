@@ -35,4 +35,4 @@ plist["GoogleMapsApiKey"] = maps_key
 with plist_path.open("wb") as destination:
     plistlib.dump(plist, destination)
 
-print("iOS Google OAuth URL scheme and Maps key configured for this build")
+print("iOS Google OAuth URL scheme configured for this build")
