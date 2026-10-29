@@ -1,0 +1,35 @@
+name: Export cPanel Hotfix
+
+on:
+  push:
+    paths:
+      - ".github/workflows/export-cpanel-hotfix.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tarak-cpanel-hotfix
+          if-no-files-found: error
+          retention-days: 1
+          path: |
+            tarak-backend/app/Support/MediaUrl.php
+            tarak-backend/app/Http/Controllers/Api/PublicMediaController.php
+            tarak-backend/routes/api.php
+            tarak-backend/app/Http/Resources/UserResource.php
+            tarak-backend/app/Http/Resources/CustomerProfileResource.php
+            tarak-backend/app/Http/Resources/ProviderProfileResource.php
+            tarak-backend/app/Services/ProviderOfferingService.php
+            tarak-backend/app/Http/Controllers/Api/ProfileMediaController.php
+            tarak-backend/app/Http/Controllers/Api/ProviderProfileController.php
+            tarak-backend/app/Models/ProviderProfile.php
+            tarak-backend/app/Http/Controllers/CustomerAppointmentController.php
+            tarak-backend/app/Http/Controllers/Api/PublicProviderController.php
+            tarak.app/assets/LocationFields-CwjRJiSe.js
+            tarak.app/assets/CustomerDashboard-AVc8Kzdf.js
