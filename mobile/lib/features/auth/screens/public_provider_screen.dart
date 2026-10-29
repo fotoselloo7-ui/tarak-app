@@ -118,18 +118,42 @@ class _PublicProviderScreenState extends ConsumerState<PublicProviderScreen> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          CircleAvatar(
-                            radius: 32,
-                            backgroundColor: AppTheme.primaryLight,
-                            backgroundImage: (avatar != null && avatar.isNotEmpty) ? NetworkImage(avatar) : null,
-                            child: (avatar == null || avatar.isEmpty)
-                                ? Text(name.isNotEmpty ? name.substring(0, 1).toUpperCase() : '?',
-                                    style: const TextStyle(
-                                        fontFamily: AppTheme.fontFamily,
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.w800,
-                                        color: AppTheme.primary))
-                                : null,
+                          SizedBox(
+                            width: 64,
+                            height: 64,
+                            child: ClipOval(
+                              child: (avatar != null && avatar.isNotEmpty)
+                                  ? Image.network(
+                                      avatar,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, _, _) => Container(
+                                        color: AppTheme.primaryLight,
+                                        alignment: Alignment.center,
+                                        child: Text(
+                                          name.isNotEmpty ? name.substring(0, 1).toUpperCase() : '?',
+                                          style: const TextStyle(
+                                            fontFamily: AppTheme.fontFamily,
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.w800,
+                                            color: AppTheme.primary,
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                  : Container(
+                                      color: AppTheme.primaryLight,
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        name.isNotEmpty ? name.substring(0, 1).toUpperCase() : '?',
+                                        style: const TextStyle(
+                                          fontFamily: AppTheme.fontFamily,
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.w800,
+                                          color: AppTheme.primary,
+                                        ),
+                                      ),
+                                    ),
+                            ),
                           ),
                           const SizedBox(width: 14),
                           Expanded(
