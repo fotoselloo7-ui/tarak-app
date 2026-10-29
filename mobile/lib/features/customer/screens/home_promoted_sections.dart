@@ -271,9 +271,8 @@ class _SpotlightCard extends StatelessWidget {
             .map((e) => e?.toString() ?? '')
             .firstWhere((e) => e.startsWith('http'), orElse: () => '');
     final avatar = provider['avatar_url']?.toString() ?? '';
-    final isDemo = provider['is_demo'] == true;
-    final rating = isDemo ? null : (provider['rating'] as num?)?.toDouble();
-    final reviews = isDemo ? 0 : (provider['review_count'] as num?)?.toInt() ?? 0;
+    final rating = (provider['rating'] as num?)?.toDouble();
+    final reviews = (provider['review_count'] as num?)?.toInt() ?? 0;
     final city = (provider['city'] ?? '').toString();
 
     return PressableScale(
@@ -406,7 +405,7 @@ class _SpotlightCard extends StatelessWidget {
                   ProviderNameRow(
                     name: name,
                     verified: isVerifiedMap(provider),
-                    demo: isDemo,
+                    demo: false,
                     tickSize: 14,
                     style: const TextStyle(
                       fontFamily: AppTheme.fontFamily,
@@ -537,9 +536,8 @@ class _NewestCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = _name(provider);
     final avatar = provider['avatar_url']?.toString() ?? '';
-    final isDemo = provider['is_demo'] == true;
-    final rating = isDemo ? null : (provider['rating'] as num?)?.toDouble();
-    final reviews = isDemo ? 0 : (provider['review_count'] as num?)?.toInt() ?? 0;
+    final rating = (provider['rating'] as num?)?.toDouble();
+    final reviews = (provider['review_count'] as num?)?.toInt() ?? 0;
     final city = (provider['city'] ?? '').toString();
 
     return PressableScale(
@@ -615,7 +613,7 @@ class _NewestCard extends StatelessWidget {
                   ProviderNameRow(
                     name: name,
                     verified: isVerifiedMap(provider),
-                    demo: isDemo,
+                    demo: false,
                     tickSize: 14,
                     style: const TextStyle(
                       fontFamily: AppTheme.fontFamily,
