@@ -719,29 +719,44 @@ class AppAvatar extends StatelessWidget {
     this.backgroundColor,
   });
 
+  Widget _fallback() {
+    final initial = name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : 'B';
+    return Container(
+      color: backgroundColor ?? AppTheme.primaryLight,
+      alignment: Alignment.center,
+      child: Text(
+        initial,
+        style: TextStyle(
+          fontFamily: AppTheme.fontFamily,
+          fontSize: radius * 0.8,
+          fontWeight: FontWeight.w700,
+          color: AppTheme.primary,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final initial = name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : 'B';
-    final hasImage = imageUrl != null && imageUrl!.isNotEmpty;
+    final url = imageUrl?.trim();
+    final hasImage = url != null && url.isNotEmpty;
+    final diameter = radius * 2;
 
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        CircleAvatar(
-          radius: radius,
-          backgroundColor: backgroundColor ?? AppTheme.primaryLight,
-          backgroundImage: hasImage ? NetworkImage(imageUrl!) : null,
-          child: !hasImage
-              ? Text(
-                  initial,
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    fontSize: radius * 0.8,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.primary,
-                  ),
-                )
-              : null,
+        ClipOval(
+          child: SizedBox(
+            width: diameter,
+            height: diameter,
+            child: hasImage
+                ? Image.network(
+                    url,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => _fallback(),
+                  )
+                : _fallback(),
+          ),
         ),
         if (isVerified)
           Positioned(
