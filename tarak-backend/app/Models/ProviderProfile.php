@@ -141,8 +141,19 @@ class ProviderProfile extends Model
     }
 
     /**
-     * Profiles that may appear on public pages: approved, identity-verified and
-     * with at least one approved document (same rule as the public provider card).
+     * Profiles that may appear in the general provider directory. Approval and
+     * identity review are required; the blue verification tick is still reserved
+     * for profiles with an approved vocational document via isVerified().
+     */
+    public function scopeDiscoverable(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query
+            ->where('is_approved', true)
+            ->where('identity_status', 'APPROVED');
+    }
+
+    /**
+     * Profiles used by explicitly verified-only surfaces.
      */
     public function scopePubliclyListed(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
