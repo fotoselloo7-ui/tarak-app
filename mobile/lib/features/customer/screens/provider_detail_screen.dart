@@ -63,11 +63,6 @@ class _ProviderDetailScreenState extends ConsumerState<ProviderDetailScreen> {
           _reviews = rd['reviews'] is List ? rd['reviews'] as List : [];
         }
       } catch (_) {/* ignore */}
-      if (_provider?['is_demo'] == true) {
-        _ratingAvg = 0;
-        _ratingCount = 0;
-        _reviews = [];
-      }
       // Favourite state (best-effort).
       try {
         final favs = await api.get('/customer/favorites');
@@ -110,8 +105,7 @@ class _ProviderDetailScreenState extends ConsumerState<ProviderDetailScreen> {
     final name = _provider?['business_name'] ?? _provider?['name'] ?? widget.fallbackName ?? 'Hizmet Veren';
     final type = _provider?['provider_type'] == 'coiffeur' ? 'Kadın Kuaförü' : 'Erkek Berberi';
     final location = [_provider?['district'], _provider?['city']].where((e) => e != null && '$e'.isNotEmpty).join(', ');
-    final isDemo = _provider?['is_demo'] == true;
-    final isVerified = !isDemo && _provider?['is_verified'] == true;
+    final isVerified = _provider?['is_verified'] == true;
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -180,10 +174,6 @@ class _ProviderDetailScreenState extends ConsumerState<ProviderDetailScreen> {
                                     const SizedBox(width: 6),
                                     const VerifiedTick(size: 18),
                                   ],
-                                  if (isDemo) ...[
-                                    const SizedBox(width: 6),
-                                    const DemoProfileTag(),
-                                  ],
                                 ],
                               ),
                               const SizedBox(height: 3),
@@ -197,7 +187,7 @@ class _ProviderDetailScreenState extends ConsumerState<ProviderDetailScreen> {
                                 ]),
                               ],
                               const SizedBox(height: 6),
-                              !isDemo && _ratingCount > 0
+                              _ratingCount > 0
                                   ? TarakRatingLabel(
                                       value: _ratingAvg,
                                       count: _ratingCount,
@@ -275,12 +265,12 @@ class _ProviderDetailScreenState extends ConsumerState<ProviderDetailScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
-                        onPressed: isDemo ? null : () {
+                        onPressed: () {
                           ref.read(appointmentWizardProvider.notifier).reset();
                           Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateAppointmentScreen()));
                         },
                         icon: const Icon(Icons.calendar_month_rounded, size: 18),
-                        label: Text(isDemo ? 'Demo profil' : 'Randevu Al'),
+                        label: const Text('Randevu Al'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.primary, foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
