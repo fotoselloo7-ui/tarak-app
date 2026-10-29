@@ -84,7 +84,6 @@ jobs:
 
       - name: Build signed Tarak AAB
         env:
-          GOOGLE_ANDROID_CLIENT_ID: ${{ vars.GOOGLE_ANDROID_CLIENT_ID || secrets.GOOGLE_ANDROID_CLIENT_ID || '977885914941-ukdjf4bgi3v1vq0vk0ok958sil5211u8.apps.googleusercontent.com' }}
           GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID || secrets.GOOGLE_WEB_CLIENT_ID || '977885914941-lts9n172clgr8p6glbi3gv1k2qn2fkvn.apps.googleusercontent.com' }}
         run: |
           flutter build appbundle --release \
@@ -92,7 +91,6 @@ jobs:
             --dart-define=API_BASE_URL=https://tarak.app/api \
             --dart-define=REVERB_HOST=tarak.app \
             --dart-define=REVERB_APP_KEY=hhyfpgfv2dgv95yd78kz \
-            --dart-define=GOOGLE_CLIENT_ID="$GOOGLE_ANDROID_CLIENT_ID" \
             --dart-define=GOOGLE_WEB_CLIENT_ID="$GOOGLE_WEB_CLIENT_ID"
 
       - name: Verify output and non-debug signing
