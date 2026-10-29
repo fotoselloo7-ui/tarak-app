@@ -85,7 +85,6 @@ class CustomerAppointmentController extends Controller
             // Just the cards of the rotating slots: the clients ask again every `rotation_seconds`.
             $reviewTotals = \App\Models\ProviderReview::query()
                 ->whereIn('provider_user_id', $sponsored->pluck('user_id'))
-                ->whereHas('customer', fn ($customer) => $customer->where('is_demo', false))
                 ->selectRaw('provider_user_id, COUNT(*) as review_count, AVG(rating) as average_rating')
                 ->groupBy('provider_user_id')->get()->keyBy('provider_user_id');
 
@@ -174,10 +173,10 @@ class CustomerAppointmentController extends Controller
             'avatar_url' => MediaUrl::resolve($u?->avatar_url),
             'city' => $p->city,
             'district' => $p->district,
-            'rating' => !$isDemo && $reviews ? round((float) $reviews->average_rating, 2) : null,
-            'review_count' => !$isDemo && $reviews ? (int) $reviews->review_count : 0,
+            'rating' => $reviews ? round((float) $reviews->average_rating, 2) : null,
+            'review_count' => $reviews ? (int) $reviews->review_count : 0,
             'experience_years' => $p->experience_years,
-            'is_demo' => $isDemo,
+            'is_demo' => false,
             'is_approved' => (bool) $p->is_approved,
             'identity_status' => $p->identity_status,
             'is_verified' => $p->isVerified(),
