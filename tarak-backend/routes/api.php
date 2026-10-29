@@ -15,6 +15,11 @@ use Illuminate\Support\Facades\Route;
 Route::get('/health', [HealthController::class, 'index']);
 Route::get('/health/ready', [HealthController::class, 'ready']);
 
+// Public profile media. This deliberately serves only the managed public-disk
+// avatar/provider-media prefixes and works even when cPanel cannot create a web-root storage symlink.
+Route::get('/media/{path}', [App\Http\Controllers\Api\PublicMediaController::class, 'show'])
+    ->where('path', '.*')->middleware('throttle:240,1');
+
 // Address lookup during existing customer/provider registration. Keep the server key private.
 Route::get('/geo/search', [App\Http\Controllers\Api\GeoController::class, 'search'])->middleware('throttle:20,1');
 Route::get('/geo/reverse', [App\Http\Controllers\Api\GeoController::class, 'reverse'])->middleware('throttle:20,1');
