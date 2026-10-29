@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../auth/providers/auth_provider.dart';
-import '../models/customer_address.dart';
 import 'instant_request_provider.dart';
 
 /// Where the customer is, for the distance filter / "en yakın" sorting of the provider lists.
