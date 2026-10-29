@@ -22,11 +22,7 @@ class ReviewController extends Controller
             return response()->json(['success' => false, 'message' => 'Hizmet veren bulunamadı.'], 404);
         }
 
-        $query = ProviderReview::query()->where('provider_user_id', $provider)
-            ->whereHas('customer', fn ($customer) => $customer->where('is_demo', false));
-        if ($providerUser->is_demo) {
-            $query->whereRaw('1 = 0'); // Synthetic rows remain for admin purge; public summaries stay real.
-        }
+        $query = ProviderReview::query()->where('provider_user_id', $provider);
         $count = (clone $query)->count();
         $average = $count > 0 ? round((float) (clone $query)->avg('rating'), 2) : 0.0;
 
@@ -48,7 +44,7 @@ class ReviewController extends Controller
             'data' => [
                 'average' => $average,
                 'count' => $count,
-                'is_demo' => (bool) $providerUser->is_demo,
+                'is_demo' => false,
                 'reviews' => $reviews,
             ],
         ]);
@@ -101,9 +97,6 @@ class ReviewController extends Controller
 
         if (! $providerUserId) {
             return response()->json(['success' => false, 'message' => 'Bu kayıt için hizmet veren bulunamadı.'], 422);
-        }
-        if ($request->user()->is_demo || User::query()->whereKey($providerUserId)->where('is_demo', true)->exists()) {
-            return response()->json(['success' => false, 'message' => 'Demo hesaplar gerçek değerlendirme oluşturamaz.'], 422);
         }
 
         $exists = ProviderReview::query()
@@ -162,13 +155,13 @@ class ReviewController extends Controller
                     'id' => $r->id,
                     'rating' => $r->rating,
                     'comment' => \App\Support\CustomerNote::forDisplay($r->comment),
-                    'is_demo' => (bool) ($request->user()->is_demo || $r->provider?->is_demo),
+                    'is_demo' => false,
                     'created_at' => $r->created_at?->toIso8601String(),
                     'provider' => [
                         'user_id' => $r->provider_user_id,
                         'name' => $profile?->business_name ?: ($r->provider?->name ?? 'Hizmet Veren'),
                         'provider_type' => $profile?->provider_type,
-                        'is_demo' => (bool) ($r->provider?->is_demo ?? false),
+                        'is_demo' => false,
                         'is_verified' => (bool) ($profile?->isVerified() ?? false),
                     ],
                     'resource' => $r->appointment_id
