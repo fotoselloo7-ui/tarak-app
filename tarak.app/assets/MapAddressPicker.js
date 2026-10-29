@@ -1,7 +1,7 @@
 import { r as React, j as jsx } from './react-vendor-Dj04zrcb.js?v=20261028-integrations1';
 import { M as Modal } from './index-Bj5sn6If.js?v=20261028-integrations1';
 
-let mapsPromise;
+let mapLibrePromise;
 
 async function api(path) {
   const response = await fetch(path, { headers: { Accept: 'application/json' } });
@@ -10,58 +10,23 @@ async function api(path) {
   return body.data;
 }
 
-async function loadMaps() {
-  const { browser_key: key, map_id: mapId } = await api('/api/geo/config');
-  if (!key) throw new Error('Google Maps tarayıcı anahtarı yapılandırılmadı.');
-
-  const ensureLibraries = async () => {
-    const maps = window.google?.maps;
-    if (!maps) throw new Error('Google Maps yüklenemedi.');
-    if (typeof maps.importLibrary === 'function') {
-      await Promise.all([
-        maps.importLibrary('maps'),
-        maps.importLibrary('marker'),
-      ]);
-    }
-    if (typeof maps.Map !== 'function') {
-      throw new Error('Google Maps harita kütüphanesi yüklenemedi.');
-    }
-    return maps;
-  };
-
-  if (window.google?.maps) {
-    return { maps: await ensureLibraries(), mapId };
+async function loadMapLibre() {
+  if (!document.querySelector('link[data-tarak-maplibre]')) {
+    const css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.href = 'https://unpkg.com/maplibre-gl@6.16.0/dist/maplibre-gl.css';
+    css.dataset.tarakMaplibre = '1';
+    document.head.appendChild(css);
   }
 
-  if (!mapsPromise) {
-    mapsPromise = new Promise((resolve, reject) => {
-      const callbackName = '__tarakGoogleMapsReady';
-      const script = document.createElement('script');
-
-      window[callbackName] = async () => {
-        try {
-          resolve(await ensureLibraries());
-        } catch (error) {
-          reject(error);
-        } finally {
-          delete window[callbackName];
-        }
-      };
-
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&language=tr&region=TR&loading=async&v=weekly&callback=${callbackName}`;
-      script.async = true;
-      script.onerror = () => {
-        delete window[callbackName];
-        reject(new Error('Google Maps yüklenemedi. API anahtarı ve ağ bağlantısını kontrol edin.'));
-      };
-      document.head.appendChild(script);
-    }).catch(error => {
-      mapsPromise = null;
-      throw error;
-    });
+  if (!mapLibrePromise) {
+    mapLibrePromise = import('https://unpkg.com/maplibre-gl@6.16.0/dist/maplibre-gl.mjs')
+      .catch(error => {
+        mapLibrePromise = null;
+        throw error;
+      });
   }
-
-  return { maps: await mapsPromise, mapId };
+  return mapLibrePromise;
 }
 
 /** Existing address forms stay in charge of editing and saving the selected fields. */
@@ -77,11 +42,11 @@ export function MapAddressPicker({ onClose, onSelect, initialLatitude, initialLo
   const [ready, setReady] = React.useState(false);
 
   const place = React.useCallback((address) => {
-    const position = { lat: Number(address.latitude), lng: Number(address.longitude) };
-    if (!Number.isFinite(position.lat) || !Number.isFinite(position.lng)) return;
-    map.current?.panTo(position);
-    map.current?.setZoom(16);
-    marker.current?.setPosition(position);
+    const lat = Number(address.latitude);
+    const lng = Number(address.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    map.current?.easeTo({ center: [lng, lat], zoom: 16, duration: 350 });
+    marker.current?.setLngLat([lng, lat]);
     setSelected(address);
     setError('');
   }, []);
@@ -106,7 +71,10 @@ export function MapAddressPicker({ onClose, onSelect, initialLatitude, initialLo
 
   const search = React.useCallback(async (value) => {
     const trimmed = value.trim();
-    if (trimmed.length < 3) { setError('Aramak için en az 3 karakter yazın.'); return; }
+    if (trimmed.length < 3) {
+      setError('Aramak için en az 3 karakter yazın.');
+      return;
+    }
     const sequence = ++lookupSequence.current;
     setBusy(true);
     setError('');
@@ -123,36 +91,61 @@ export function MapAddressPicker({ onClose, onSelect, initialLatitude, initialLo
 
   React.useEffect(() => {
     let active = true;
-    const latitude = Number(initialLatitude), longitude = Number(initialLongitude);
+    const latitude = Number(initialLatitude);
+    const longitude = Number(initialLongitude);
     const hasPosition = Number.isFinite(latitude) && Number.isFinite(longitude)
       && initialLatitude !== null && initialLatitude !== undefined
       && initialLongitude !== null && initialLongitude !== undefined;
-    loadMaps().then(({ maps, mapId }) => {
+
+    loadMapLibre().then(maplibregl => {
       if (!active || !mapElement.current) return;
-      const center = hasPosition ? { lat: latitude, lng: longitude } : { lat: 41.0082, lng: 28.9784 };
-      map.current = new maps.Map(mapElement.current, {
-        center, zoom: hasPosition ? 16 : 10,
-        ...(mapId ? { mapId } : {}),
-        streetViewControl: true,
-        mapTypeControl: false,
+      const center = hasPosition ? [longitude, latitude] : [32.0, 39.0];
+
+      map.current = new maplibregl.Map({
+        container: mapElement.current,
+        style: 'https://tiles.openfreemap.org/styles/liberty',
+        center,
+        zoom: hasPosition ? 16 : 5.5,
+        attributionControl: true,
       });
-      marker.current = new maps.Marker({ map: map.current, position: center, draggable: true });
-      setReady(true);
-      map.current.addListener('click', event => {
-        const point = event.latLng;
-        marker.current?.setPosition(point);
-        reverse(point.lat(), point.lng());
+
+      map.current.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+
+      marker.current = new maplibregl.Marker({ draggable: true })
+        .setLngLat(center)
+        .addTo(map.current);
+
+      marker.current.on('dragend', () => {
+        const point = marker.current?.getLngLat();
+        if (point) reverse(point.lat, point.lng);
       });
-      marker.current.addListener('dragend', event => reverse(event.latLng.lat(), event.latLng.lng()));
-      if (initialQuery.trim().length >= 3) search(initialQuery);
-      else if (hasPosition) reverse(latitude, longitude);
-      else setBusy(false);
-    }).catch(reason => { if (active) { setError(reason.message); setBusy(false); } });
+
+      map.current.on('click', event => {
+        marker.current?.setLngLat(event.lngLat);
+        reverse(event.lngLat.lat, event.lngLat.lng);
+      });
+
+      map.current.once('load', () => {
+        if (!active) return;
+        setReady(true);
+        if (initialQuery.trim().length >= 3) search(initialQuery);
+        else if (hasPosition) reverse(latitude, longitude);
+        else setBusy(false);
+      });
+    }).catch(() => {
+      if (active) {
+        setError('Harita yüklenemedi. İnternet bağlantınızı kontrol edin.');
+        setBusy(false);
+      }
+    });
+
     return () => {
-      active = false; lookupSequence.current++;
-      window.google?.maps?.event?.clearInstanceListeners(marker.current);
-      window.google?.maps?.event?.clearInstanceListeners(map.current);
-      marker.current?.setMap(null);
+      active = false;
+      lookupSequence.current++;
+      marker.current?.remove();
+      map.current?.remove();
+      marker.current = null;
+      map.current = null;
     };
   }, []);
 
@@ -171,7 +164,7 @@ export function MapAddressPicker({ onClose, onSelect, initialLatitude, initialLo
         jsx.jsx('input', { value: query, disabled: !ready, onChange: event => setQuery(event.target.value), placeholder: 'Adres, mahalle veya sokak ara', 'aria-label': 'Adres ara', className: 'flex-1 min-w-0 rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF5722]' }),
         jsx.jsx('button', { type: 'submit', disabled: busy || !ready, className: 'rounded-xl bg-[#FF5722] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60', children: 'Ara' }),
       ] }),
-      jsx.jsx('div', { ref: mapElement, className: 'mx-4 rounded-xl bg-gray-100', style: {height: '45vh', minHeight: 260, maxHeight: 430}, 'aria-label': 'Sürüklenebilir konum haritası' }),
+      jsx.jsx('div', { ref: mapElement, className: 'mx-4 rounded-xl bg-gray-100 overflow-hidden', style: {height: '45vh', minHeight: 260, maxHeight: 430}, 'aria-label': 'Sürüklenebilir konum haritası' }),
       jsx.jsxs('div', { className: 'px-4 sm:px-5 py-3', children: [
         jsx.jsx('p', { className: 'text-xs text-gray-500', children: 'Haritaya dokunun veya pini sürükleyin. Eksik adres alanlarını formda düzenleyebilirsiniz.' }),
         busy && jsx.jsx('p', { role: 'status', className: 'mt-2 text-xs text-gray-600', children: 'Adres aranıyor…' }),
