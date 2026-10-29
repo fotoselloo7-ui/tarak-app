@@ -65,6 +65,31 @@ class User extends Authenticatable
         ];
     }
 
+    /**
+     * Seed/demo marker is an internal admin purge flag only.
+     * Customer/public surfaces must treat seeded accounts exactly like ordinary accounts.
+     * Database queries such as where('is_demo', true) are unaffected, so admin bulk purge still works.
+     */
+    public function getIsDemoAttribute(mixed $value): bool
+    {
+        $actual = filter_var($value, FILTER_VALIDATE_BOOL);
+
+        if (app()->runningInConsole()) {
+            return $actual;
+        }
+
+        try {
+            $request = request();
+            if ($request->is('api/admin/*') || $request->is('admin/*')) {
+                return $actual;
+            }
+        } catch (\Throwable) {
+            return $actual;
+        }
+
+        return false;
+    }
+
     public function customerProfile(): HasOne
     {
         return $this->hasOne(CustomerProfile::class);
