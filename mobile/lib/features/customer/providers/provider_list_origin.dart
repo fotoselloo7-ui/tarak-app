@@ -102,8 +102,13 @@ final listOriginProvider = Provider<ListOrigin?>((ref) {
   if (!isCustomer) return null;
   final addresses = ref.watch(customerAddressesProvider).value;
   if (addresses == null) return null;
-  final located = addresses.where((CustomerAddress a) => a.latitude != null && a.longitude != null).toList();
-  if (located.isEmpty) return null;
-  final chosen = located.firstWhere((a) => a.isDefault, orElse: () => located.first);
-  return ListOrigin(lat: chosen.latitude!, lng: chosen.longitude!);
+  // The default address has priority, including when it lacks coordinates.
+  // Falling back to an old address silently shows the wrong city (e.g. Alanya
+  // instead of a newly selected address in Şişli).
+  final defaults = addresses.where((a) => a.isDefault).toList();
+  final chosen = defaults.isNotEmpty
+      ? defaults.first
+      : addresses.where((a) => a.latitude != null && a.longitude != null).firstOrNull;
+  if (chosen?.latitude == null || chosen?.longitude == null) return null;
+  return ListOrigin(lat: chosen!.latitude!, lng: chosen.longitude!);
 });
