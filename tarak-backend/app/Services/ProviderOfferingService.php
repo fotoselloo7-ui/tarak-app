@@ -162,17 +162,12 @@ class ProviderOfferingService
     public function presentProvider(ProviderProfile $profile, ?array $reviewStats = null, ?bool $verified = null, ?int $discountPercent = null): array
     {
         $user = $profile->user;
-        $isDemo = (bool) ($user?->is_demo ?? false);
         if ($reviewStats === null) {
-            $reviews = ProviderReview::query()->where('provider_user_id', $profile->user_id)
-                ->whereHas('customer', fn ($query) => $query->where('is_demo', false));
+            $reviews = ProviderReview::query()->where('provider_user_id', $profile->user_id);
             $reviewStats = ['count' => (clone $reviews)->count(), 'avg' => null];
             if ($reviewStats['count'] > 0) {
                 $reviewStats['avg'] = (float) (clone $reviews)->avg('rating');
             }
-        }
-        if ($isDemo) {
-            $reviewStats = ['count' => 0, 'avg' => null];
         }
         $reviewCount = $reviewStats['count'];
 
@@ -190,8 +185,8 @@ class ProviderOfferingService
             'city' => $profile->city,
             'district' => $profile->district,
             'experience_years' => $profile->experience_years,
-            'is_demo' => $isDemo,
-            'is_verified' => !$isDemo && ($verified ?? $profile->isVerified()),
+            'is_demo' => false,
+            'is_verified' => $verified ?? $profile->isVerified(),
             'is_online' => (bool) $profile->is_online,
             'rating' => $reviewCount > 0 ? round((float) $reviewStats['avg'], 2) : null,
             'review_count' => $reviewCount,
