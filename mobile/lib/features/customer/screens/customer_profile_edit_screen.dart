@@ -10,6 +10,7 @@ import '../../auth/widgets/web_landing_widgets.dart' show trUpper;
 import '../../shared/widgets/geo_select_fields.dart';
 import '../../shared/screens/map_address_picker.dart';
 import '../providers/customer_profile_stats_provider.dart';
+import '../providers/provider_list_origin.dart';
 
 /// Full customer profile editor (`GET/PUT /customer/profile`, same fields as the web dialog):
 /// name, gender, birth date and the default address. E-mail and phone stay read-only.
@@ -179,6 +180,10 @@ class _CustomerProfileEditScreenState extends ConsumerState<CustomerProfileEditS
       await api.put('/customer/profile', data: payload);
       // Refresh the cached account (name in headers) and the counters / address line on the profile tab.
       await ref.read(authNotifierProvider.notifier).restoreSession();
+      // The home "nearby" section reads the cached customer address list.
+      // Refresh it immediately after the default address is rewritten so a
+      // city/address change never keeps using stale coordinates.
+      ref.invalidate(customerAddressesProvider);
       ref.invalidate(customerProfileStatsProvider);
       if (!mounted) return;
       Navigator.pop(context, true);
