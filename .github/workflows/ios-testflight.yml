@@ -6,7 +6,7 @@ on:
       build_number:
         description: 'New Tarak.app iOS build number (higher than previous uploads)'
         required: true
-        default: '5'
+        default: '6'
         type: string
 
 permissions:
@@ -52,6 +52,22 @@ jobs:
           test -n "$GOOGLE_WEB_CLIENT_ID" || { echo "::error::GOOGLE_WEB_CLIENT_ID is missing"; exit 1; }
           python3 tools/configure_ios_identity.py
 
+      - name: Check TestFlight signing and upload secrets
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_PASSWORD }}
+          PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          ASC_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          for required in CERTIFICATE_BASE64 CERTIFICATE_PASSWORD PROVISIONING_PROFILE_BASE64 ASC_KEY ASC_KEY_ID ASC_ISSUER_ID; do
+            if [ -z "${!required}" ]; then
+              echo "::error::Missing GitHub Actions secret: $required"
+              exit 1
+            fi
+          done
+
       - name: Install Apple signing assets
         env:
           CERTIFICATE_BASE64: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_BASE64 }}
@@ -65,8 +81,34 @@ jobs:
           KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
           KEYCHAIN_PASSWORD="$(openssl rand -hex 24)"
 
-          printf '%s' "$CERTIFICATE_BASE64" | base64 -D > "$CERT_PATH"
-          printf '%s' "$PROVISIONING_PROFILE_BASE64" | base64 -D > "$PROFILE_PATH"
+          # Validate each secret separately. Do not print encoded or decoded keys.
+          # Accept accidental CR/LF whitespace while rejecting CMD literals and
+          # truncated or invalid Base64 before trying to import the certificate.
+          python3 - <<'PY'
+          import base64
+          import binascii
+          import os
+          from pathlib import Path
+          temp = Path(os.environ['RUNNER_TEMP'])
+          for secret, name in [
+              ('CERTIFICATE_BASE64', 'distribution.p12'),
+              ('PROVISIONING_PROFILE_BASE64', 'profile.mobileprovision'),
+          ]:
+              encoded = ''.join(os.environ[secret].split())
+              try:
+                  decoded = base64.b64decode(encoded, validate=True)
+              except (ValueError, binascii.Error):
+                  raise SystemExit(f'::error::{secret} is not valid Base64. Re-upload it from the original binary file using the supplied PowerShell helper.')
+              if len(decoded) < 256:
+                  raise SystemExit(f'::error::{secret} decoded into an unexpectedly small file.')
+              (temp / name).write_bytes(decoded)
+              print(f'Validated {secret} ({len(decoded)} decoded bytes)')
+          PY
+
+          if ! openssl pkcs12 -in "$CERT_PATH" -passin env:CERTIFICATE_PASSWORD -info -noout >/dev/null 2>&1; then
+            echo "::error::The .p12 certificate cannot be opened. Check that the P12 password matches the local file."
+            exit 1
+          fi
 
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
@@ -166,7 +208,7 @@ jobs:
           GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID || secrets.GOOGLE_WEB_CLIENT_ID || '977885914941-lts9n172clgr8p6glbi3gv1k2qn2fkvn.apps.googleusercontent.com' }}
         run: |
           flutter build ios --release --no-codesign \
-            --build-name 1.1.1 --build-number "${{ inputs.build_number || '5' }}" \
+            --build-name 1.1.1 --build-number "${{ inputs.build_number || '6' }}" \
             --dart-define=API_BASE_URL=https://tarak.app/api \
             --dart-define=REVERB_HOST=tarak.app \
             --dart-define=REVERB_APP_KEY=hhyfpgfv2dgv95yd78kz \
@@ -280,7 +322,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: tarak-ios-testflight-${{ inputs.build_number || '5' }}
+          name: tarak-ios-testflight-${{ inputs.build_number || '6' }}
           path: ${{ runner.temp }}/export/*.ipa
           if-no-files-found: ignore
           retention-days: 7
