@@ -351,17 +351,19 @@ class _HomeNearbyProvidersSectionState extends ConsumerState<HomeNearbyProviders
   @override
   Widget build(BuildContext context) {
     final location = ref.watch(providerListOriginProvider);
-    final origin = location.device;
-    final nearby = ref.watch(nearbyHomeProvidersProvider((
-      latitude: origin?.lat,
-      longitude: origin?.lng,
+    // Follow the active saved address as well as the opted-in device position.
+    // Never ask the API without coordinates: its fallback could use an older address.
+    final origin = ref.watch(listOriginProvider);
+    final nearby = origin == null ? null : ref.watch(nearbyHomeProvidersProvider((
+      latitude: origin.lat,
+      longitude: origin.lng,
       radiusKm: _requestedRadiusKm,
     )));
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const SectionHeader(eyebrow: 'Konumuna göre', title: 'Size Yakın Berberler'),
       Row(children: [
         Expanded(child: Text('$_radiusKm km içinde', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700))),
-        Text(origin == null ? 'Kayıtlı adres' : 'Cihaz konumu', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+        Text(origin?.fromDevice == true ? 'Cihaz konumu' : 'Kayıtlı adres', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
       ]),
       Slider(value: _radiusKm.toDouble(), min: 1, max: 50, divisions: 49,
         label: '$_radiusKm km', activeColor: AppTheme.primary,
@@ -370,13 +372,20 @@ class _HomeNearbyProvidersSectionState extends ConsumerState<HomeNearbyProviders
       TextButton.icon(
         onPressed: location.status == DeviceLocationStatus.locating ? null : () {
           final notifier = ref.read(providerListOriginProvider.notifier);
-          if (origin == null) { notifier.useDevice(); } else { notifier.useSavedAddress(); }
+          if (location.device == null) { notifier.useDevice(); } else { notifier.useSavedAddress(); }
         },
         icon: const Icon(Icons.my_location_rounded, size: 16),
-        label: Text(location.status == DeviceLocationStatus.locating ? 'Konum alınıyor…' : origin == null ? 'Cihaz konumumu kullan' : 'Kayıtlı adresimi kullan')),
+        label: Text(location.status == DeviceLocationStatus.locating ? 'Konum alınıyor…' : location.device == null ? 'Cihaz konumumu kullan' : 'Kayıtlı adresimi kullan')),
       if (location.status == DeviceLocationStatus.denied || location.status == DeviceLocationStatus.unavailable)
         const Text('Cihaz konumu alınamadı. Kayıtlı adresiniz kullanılabilir.', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-      nearby.when(
+      if (origin == null)
+        const Padding(
+          padding: EdgeInsets.only(bottom: 18),
+          child: Text('Kayıtlı adresinizde haritadan bir konum seçin veya cihaz konumunu kullanın.',
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+        )
+      else
+      nearby!.when(
         data: (providers) => providers.isEmpty
           ? const Padding(padding: EdgeInsets.only(bottom: 18), child: Text('Bu mesafede hizmet veren bulunamadı.'))
           : SizedBox(height: 174, child: ListView.separated(scrollDirection: Axis.horizontal,
