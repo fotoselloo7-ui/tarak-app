@@ -37,7 +37,7 @@ class PublicProviderController extends Controller
     {
         $limit = max(1, min((int) $request->query('limit', 8), 20));
 
-        $profiles = $this->rankedQuery($this->typeFilter($request))
+        $profiles = $this->rankedQuery($this->typeFilter($request), true)
             ->orderByDesc('tarak_score')
             ->orderByDesc(DB::raw('COALESCE(rs.review_total, 0)'))
             ->orderBy('provider_profiles.id')
@@ -77,7 +77,7 @@ class PublicProviderController extends Controller
             return response()->json(['success' => true, 'sponsored' => $sponsoredCards(), 'meta' => ['has_origin' => $origin !== null] + $this->listingAds->meta()]);
         }
 
-        $query = $this->rankedQuery($filters['type'])
+        $query = $this->rankedQuery($filters['type'], false)
             ->when($minRating > 0, fn ($q) => $q->whereRaw('COALESCE(rs.review_avg, 0) >= ?', [$minRating]))
             ->when($minReviews > 0, fn ($q) => $q->whereRaw('COALESCE(rs.review_total, 0) >= ?', [$minReviews]))
             ->when($term !== '', fn ($q) => $q->where(function ($w) use ($term) {
@@ -184,7 +184,7 @@ class PublicProviderController extends Controller
      * Listable providers joined with their review stats and a Tarak score (rating
      * weighted by review count, so one lucky 5.0 can't outrank a proven 4.8).
      */
-    private function rankedQuery(?string $type): \Illuminate\Database\Eloquent\Builder
+    private function rankedQuery(?string $type, bool $verifiedOnly = false): \Illuminate\Database\Eloquent\Builder
     {
         $stats = DB::table('provider_reviews')
             ->join('users as review_customers', 'review_customers.id', '=', 'provider_reviews.customer_user_id')
@@ -196,8 +196,10 @@ class PublicProviderController extends Controller
             ->where('review_customers.is_demo', false)->avg('rating') ?: 4.0);
         $m = self::SCORE_PRIOR_REVIEWS;
 
-        return ProviderProfile::query()
-            ->publiclyListed()
+        $query = ProviderProfile::query();
+        $verifiedOnly ? $query->publiclyListed() : $query->discoverable();
+
+        return $query
             ->leftJoinSub($stats, 'rs', 'rs.provider_user_id', '=', 'provider_profiles.user_id')
             ->select('provider_profiles.*')
             ->selectRaw('((COALESCE(rs.review_total, 0) * COALESCE(rs.review_avg, 0)) + ? * ?) / (COALESCE(rs.review_total, 0) + ?) as tarak_score', [$m, $globalAvg, $m])
@@ -267,7 +269,7 @@ class PublicProviderController extends Controller
     public function show(int $provider): JsonResponse
     {
         $profile = ProviderProfile::query()
-            ->publiclyListed()
+            ->discoverable()
             ->with('user')
             ->where('user_id', $provider)
             ->first();
