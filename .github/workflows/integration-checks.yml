@@ -23,6 +23,10 @@ jobs:
           extensions: pdo_sqlite, mbstring, openssl
           tools: composer
       - run: composer install --no-interaction --prefer-dist --no-progress
+      - name: PHP syntax checks for geocoding and customer addresses
+        run: |
+          php -l app/Services/GoogleGeocodingService.php
+          php -l app/Http/Controllers/Api/CustomerProfileController.php
       - run: composer audit --locked --no-interaction
       - run: php artisan test
   mobile:
