@@ -439,14 +439,10 @@ class _ProviderCard extends StatelessWidget {
           // Centered: the card keeps a fixed height for large font scales, which used to leave a blank band at the bottom.
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            CircleAvatar(
+            AppAvatar(
+              imageUrl: avatar,
+              name: name,
               radius: 28,
-              backgroundColor: AppTheme.primaryLight,
-              backgroundImage: (avatar != null && avatar.isNotEmpty) ? NetworkImage(avatar) : null,
-              child: (avatar == null || avatar.isEmpty)
-                  ? Text(name.isNotEmpty ? name.substring(0, 1).toUpperCase() : '?',
-                      style: const TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 20, fontWeight: FontWeight.w800, color: AppTheme.primary))
-                  : null,
             ),
             const SizedBox(width: 10),
             Expanded(
