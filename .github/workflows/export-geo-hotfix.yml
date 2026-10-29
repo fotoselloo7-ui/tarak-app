@@ -1,0 +1,27 @@
+name: Export Tarak Geo Hotfix
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare Laravel backend hotfix
+        run: |
+          mkdir -p export/app/Services export/app/Http/Controllers/Api
+          cp tarak-backend/app/Services/GoogleGeocodingService.php export/app/Services/
+          cp tarak-backend/app/Http/Controllers/Api/CustomerProfileController.php export/app/Http/Controllers/Api/
+          php -l export/app/Services/GoogleGeocodingService.php
+          php -l export/app/Http/Controllers/Api/CustomerProfileController.php
+      - name: Downloadable Laravel hotfix
+        uses: actions/upload-artifact@v4
+        with:
+          name: tarak-geo-address-hotfix
+          path: export/
+          retention-days: 7
+          if-no-files-found: error
