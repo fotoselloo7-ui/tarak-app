@@ -68,12 +68,6 @@ return [
         'redirect_uri' => env('APPLE_REDIRECT_URI', ''),
     ],
 
-    'google_maps' => [
-        'server_key' => env('GOOGLE_MAPS_SERVER_KEY'),
-        'browser_key' => env('GOOGLE_MAPS_BROWSER_KEY'),
-        'map_id' => env('GOOGLE_MAPS_MAP_ID'),
-    ],
-
     'service_start' => [
         'ttl_minutes' => (int) env('SERVICE_START_CODE_TTL_MINUTES', 1440),
         'max_attempts' => (int) env('SERVICE_START_MAX_ATTEMPTS', 5),
