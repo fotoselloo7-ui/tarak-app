@@ -14,6 +14,7 @@ use App\Services\ListingAdService;
 use App\Services\ProviderAvailabilityService;
 use App\Services\ServiceLifecycleService;
 use App\Support\Geo;
+use App\Support\MediaUrl;
 use App\Support\ProviderListFilters;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -35,8 +36,7 @@ class CustomerAppointmentController extends Controller
     public function providers(Request $request): JsonResponse
     {
         $query = ProviderProfile::with(['user', 'services', 'documents'])
-            ->where('is_approved', true)
-            ->where('identity_status', 'APPROVED');
+            ->discoverable();
 
         if ($request->filled('provider_type')) {
             $query->where('provider_type', $request->query('provider_type'));
@@ -100,19 +100,18 @@ class CustomerAppointmentController extends Controller
 
         $allApproved = $query->get();
 
-        // Filter only those who are truly verified (have at least one approved vocational document)
-        $verifiedProviders = $allApproved->filter(function ($p) {
-            return $p->isVerified();
-        });
+        // Directory completeness and verification are separate: every approved
+        // identity-reviewed provider is visible; is_verified below controls the blue tick.
+        $directoryProviders = $allApproved;
 
         $reviewTotals = \App\Models\ProviderReview::query()
-            ->whereIn('provider_user_id', $verifiedProviders->pluck('user_id')->merge($sponsored->pluck('user_id')))
+            ->whereIn('provider_user_id', $directoryProviders->pluck('user_id')->merge($sponsored->pluck('user_id')))
             ->whereHas('customer', fn ($customer) => $customer->where('is_demo', false))
             ->selectRaw('provider_user_id, COUNT(*) as review_count, AVG(rating) as average_rating')
             ->groupBy('provider_user_id')->get()->keyBy('provider_user_id');
 
         // The list is not thinned: the clients hide the providers currently in the rotating slots.
-        $organic = $verifiedProviders;
+        $organic = $directoryProviders;
 
         if ($filters['term'] !== null) {
             $needle = mb_strtolower($filters['term']);
@@ -172,7 +171,7 @@ class CustomerAppointmentController extends Controller
             'provider_type' => $p->provider_type,
             'business_name' => $p->business_name ?: $u?->name,
             'name' => $u?->name,
-            'avatar_url' => $u?->avatar_url,
+            'avatar_url' => MediaUrl::resolve($u?->avatar_url),
             'city' => $p->city,
             'district' => $p->district,
             'rating' => !$isDemo && $reviews ? round((float) $reviews->average_rating, 2) : null,
@@ -183,8 +182,8 @@ class CustomerAppointmentController extends Controller
             'identity_status' => $isDemo ? 'DEMO' : $p->identity_status,
             'is_verified' => $p->isVerified(),
             // Presentation fields the web dashboard used to fetch with one extra request per provider.
-            'cover_url' => $p->cover_url,
-            'gallery' => $p->gallery ?? [],
+            'cover_url' => MediaUrl::resolve($p->cover_url),
+            'gallery' => array_values(array_filter(array_map(fn ($url) => MediaUrl::resolve($url), $p->gallery ?? []))),
             'bio' => $p->bio,
             'title' => $p->title,
             'is_online' => (bool) $p->is_online,
