@@ -140,18 +140,32 @@ class _ProviderDetailScreenState extends ConsumerState<ProviderDetailScreen> {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        CircleAvatar(
-                          radius: 32,
-                          backgroundColor: AppTheme.primaryLight,
-                          backgroundImage: (_provider?['avatar_url'] != null && '${_provider?['avatar_url']}'.isNotEmpty)
-                              ? NetworkImage('${_provider?['avatar_url']}')
-                              : null,
-                          child: (_provider?['avatar_url'] == null || '${_provider?['avatar_url']}'.isEmpty)
-                              ? Text(
-                                  name.toString().isNotEmpty ? name.toString().substring(0, 1).toUpperCase() : '?',
-                                  style: const TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 24, fontWeight: FontWeight.w800, color: AppTheme.primary),
-                                )
-                              : null,
+                        SizedBox(
+                          width: 64,
+                          height: 64,
+                          child: ClipOval(
+                            child: (_provider?['avatar_url'] != null && '${_provider?['avatar_url']}'.isNotEmpty)
+                                ? Image.network(
+                                    '${_provider?['avatar_url']}',
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, _, _) => Container(
+                                      color: AppTheme.primaryLight,
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        name.toString().isNotEmpty ? name.toString().substring(0, 1).toUpperCase() : '?',
+                                        style: const TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 24, fontWeight: FontWeight.w800, color: AppTheme.primary),
+                                      ),
+                                    ),
+                                  )
+                                : Container(
+                                    color: AppTheme.primaryLight,
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      name.toString().isNotEmpty ? name.toString().substring(0, 1).toUpperCase() : '?',
+                                      style: const TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 24, fontWeight: FontWeight.w800, color: AppTheme.primary),
+                                    ),
+                                  ),
+                          ),
                         ),
                         const SizedBox(width: 14),
                         Expanded(
