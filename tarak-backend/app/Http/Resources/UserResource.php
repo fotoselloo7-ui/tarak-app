@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use App\Support\MediaUrl;
 
 class UserResource extends JsonResource
 {
@@ -25,7 +26,7 @@ class UserResource extends JsonResource
             'gender' => $this->gender,
             'status' => $this->status,
             'is_demo' => (bool) $this->is_demo,
-            'avatar_url' => $this->avatar_url,
+            'avatar_url' => MediaUrl::resolve($this->avatar_url),
             'phone_verified_at' => $this->phone_verified_at?->toISOString(),
             'email_verified_at' => $this->email_verified_at?->toISOString(),
             'last_login_at' => $this->last_login_at?->toISOString(),
