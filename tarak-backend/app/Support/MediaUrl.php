@@ -73,6 +73,9 @@ class MediaUrl
             $path = substr($path, strlen('/storage/'));
         } elseif (str_starts_with($path, 'storage/')) {
             $path = substr($path, strlen('storage/'));
+        } elseif (str_starts_with($path, 'avatars/') || str_starts_with($path, 'provider-media/')) {
+            // Older mobile uploads stored the public disk path without /storage/.
+            // Normalize those known managed folders for every web/app avatar.
         } else {
             return null;
         }
