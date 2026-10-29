@@ -28,6 +28,14 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- Flutter tooling discovers the launch activity from the main
+                 manifest before variant manifests are merged. Keep this here;
+                 release removes only this intent-filter and launches through
+                 the selected icon alias below. -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
         </activity>
         <!-- ICON-ALIASES:BEGIN (tools/generate_app_icons.py üretir; elle düzenleme) -->
         <activity-alias
