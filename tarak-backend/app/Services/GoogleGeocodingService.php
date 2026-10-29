@@ -174,8 +174,10 @@ class GoogleGeocodingService
 
         $street = $this->firstString($properties, ['street', 'name']);
         $buildingNo = $this->firstString($properties, ['housenumber']);
-        $neighborhood = $this->firstString($properties, ['district', 'suburb', 'locality']);
-        $district = $this->firstString($properties, ['city', 'county', 'district']);
+        // Photon `city` may be İstanbul while `county` is Şişli.
+        // Keep province/city separate from the actual district.
+        $neighborhood = $this->firstString($properties, ['suburb', 'locality', 'neighbourhood']);
+        $district = $this->firstString($properties, ['county', 'district', 'city']);
         $province = $this->firstString($properties, ['state']);
 
         $parts = array_values(array_filter([
