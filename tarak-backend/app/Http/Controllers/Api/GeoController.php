@@ -11,24 +11,16 @@ class GeoController extends Controller
 {
     public function __construct(private GoogleGeocodingService $geocoding) {}
 
-    /** Public browser key is intentionally returned to the existing web registration form. */
+    /** Public map configuration; no API key is required. */
     public function config(): JsonResponse
     {
-        $key = trim((string) config('services.google_maps.browser_key'));
-        if ($key === '') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Google Maps tarayıcı anahtarı henüz yapılandırılmadı.',
-            ], 503);
-        }
-
         return response()->json([
             'success' => true,
             'data' => [
-                'browser_key' => $key,
-                'map_id' => config('services.google_maps.map_id'),
+                'provider' => 'openfreemap',
+                'style_url' => 'https://tiles.openfreemap.org/styles/liberty',
             ],
-        ]);
+        ])->header('Cache-Control', 'public, max-age=3600');
     }
 
     public function search(Request $request): JsonResponse
