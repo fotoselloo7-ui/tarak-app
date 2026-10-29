@@ -88,7 +88,7 @@ class GoogleGeocodingService
                 ->withHeaders(['User-Agent' => 'Tarak.app/1.1 (+https://tarak.app)'])
                 ->timeout(8)->get($url, $params);
             return $response->successful() && is_array($response->json()) ? $response->json() : null;
-        } catch (\\Throwable $e) {
+        } catch (\Throwable $e) {
             Log::warning('Photon geocoding unavailable', ['message' => $e->getMessage()]);
             return null;
         }
@@ -112,7 +112,7 @@ class GoogleGeocodingService
                 ])
                 ->timeout(8)->get($url, $params);
             return $response->successful() && is_array($response->json()) ? $response->json() : null;
-        } catch (\\Throwable $e) {
+        } catch (\Throwable $e) {
             Log::warning('Nominatim geocoding unavailable', ['message' => $e->getMessage()]);
             return null;
         }
