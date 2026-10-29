@@ -1,12 +1,35 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
     <application>
-        <activity
-            android:name=".MainActivity"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
-            </intent-filter>
-        </activity>
+        <!-- Flutter launches MainActivity from the main manifest. Aliases remain release-only launchers. -->
+        <activity-alias android:name=".IconAltin">
+            <intent-filter tools:node="removeAll"/>
+        </activity-alias>
+        <activity-alias android:name=".IconLacivert">
+            <intent-filter tools:node="removeAll"/>
+        </activity-alias>
+        <activity-alias android:name=".IconKrem">
+            <intent-filter tools:node="removeAll"/>
+        </activity-alias>
+        <activity-alias android:name=".IconTuruncu">
+            <intent-filter tools:node="removeAll"/>
+        </activity-alias>
+        <activity-alias android:name=".IconBordo">
+            <intent-filter tools:node="removeAll"/>
+        </activity-alias>
+        <activity-alias android:name=".IconZumrut">
+            <intent-filter tools:node="removeAll"/>
+        </activity-alias>
+        <activity-alias android:name=".IconMavi">
+            <intent-filter tools:node="removeAll"/>
+        </activity-alias>
+        <activity-alias android:name=".IconMor">
+            <intent-filter tools:node="removeAll"/>
+        </activity-alias>
+        <activity-alias android:name=".IconGul">
+            <intent-filter tools:node="removeAll"/>
+        </activity-alias>
+        <activity-alias android:name=".IconGrafit">
+            <intent-filter tools:node="removeAll"/>
+        </activity-alias>
     </application>
 </manifest>

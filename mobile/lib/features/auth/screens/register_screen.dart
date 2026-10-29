@@ -214,6 +214,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Future<void> _openVerification(String channel) async {
+    if (channel == 'email' ? _emailBusy : _smsBusy) return;
     setState(() => _flowError = null);
     try {
       final destination = (channel == 'email' ? _emailController : _phoneController).text.trim();
@@ -240,6 +241,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Future<void> _prefillSocial(String provider) async {
+    if (_socialBusy) return;
     setState(() { _socialBusy = true; _flowError = null; });
     try {
       final api = ref.read(apiClientProvider);
@@ -251,8 +253,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         throw const AppException(message: 'Sağlayıcı bilgileri alınamadı.');
       }
       if (!mounted) return;
-      final firstName = data['first_name']?.toString() ?? '';
-      final lastName = data['last_name']?.toString() ?? '';
+      final firstName = data['first_name']?.toString().isNotEmpty == true
+          ? data['first_name'].toString() : credential.firstName ?? '';
+      final lastName = data['last_name']?.toString().isNotEmpty == true
+          ? data['last_name'].toString() : credential.lastName ?? '';
       if (firstName.isNotEmpty) _firstNameController.text = firstName;
       if (lastName.isNotEmpty) _lastNameController.text = lastName;
       _emailController.text = data['email']?.toString() ?? '';

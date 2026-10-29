@@ -51,6 +51,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _socialLogin(String provider) async {
+    if (_socialBusy) return;
     setState(() { _socialBusy = true; _flowError = null; });
     try {
       final credential = await SocialIdentityService(ref.read(apiClientProvider)).acquire(provider);

@@ -120,7 +120,7 @@ class CustomerHomeTab extends ConsumerWidget {
                               ],
                             ),
                           ),
-                          AppAvatar(name: user?.name ?? 'Müşteri', radius: 22),
+                          AppAvatar(name: user?.name ?? 'Müşteri', imageUrl: user?.avatarUrl, radius: 22),
                         ],
                       ),
                     ),

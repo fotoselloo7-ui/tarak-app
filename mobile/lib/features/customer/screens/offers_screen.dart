@@ -163,6 +163,7 @@ class _OfferCardState extends ConsumerState<_OfferCard> {
             children: [
               AppAvatar(
                 name: prov?.displayName ?? 'Berber',
+                imageUrl: prov?.avatarUrl,
                 radius: 22,
               ),
               const SizedBox(width: 12),

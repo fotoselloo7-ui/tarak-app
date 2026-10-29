@@ -52,7 +52,7 @@ final servicesProvider =
 final customerAddressesProvider = FutureProvider<List<CustomerAddress>>((ref) async {
   final repo = ref.watch(instantRequestRepositoryProvider);
   return repo.fetchAddresses();
-});
+}, retry: (_, _) => null);
 
 // ── My Service Requests Provider ──────────────────────────────────────────────
 

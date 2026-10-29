@@ -29,6 +29,14 @@ class ConversationCard extends StatelessWidget {
     return '$day.$month';
   }
 
+  Widget _avatarFallback(String name) => CircleAvatar(
+    radius: 24,
+    backgroundColor: AppTheme.primaryLight,
+    child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
+      style: const TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 18,
+        fontWeight: FontWeight.w700, color: AppTheme.primary)),
+  );
+
   @override
   Widget build(BuildContext context) {
     final other = conversation.otherParty;
@@ -48,22 +56,15 @@ class ConversationCard extends StatelessWidget {
         child: Row(
           children: [
             // Avatar
-            CircleAvatar(
-              radius: 24,
-              backgroundColor: AppTheme.primaryLight,
-              backgroundImage:
-                  avatarUrl != null && avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
-              child: avatarUrl == null || avatarUrl.isEmpty
-                  ? Text(
-                      displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
-                      style: const TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.primary,
-                      ),
-                    )
-                  : null,
+            ClipOval(
+              child: SizedBox(
+                width: 48,
+                height: 48,
+                child: avatarUrl?.trim().isNotEmpty == true
+                    ? Image.network(avatarUrl!.trim(), fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => _avatarFallback(displayName))
+                    : _avatarFallback(displayName),
+              ),
             ),
             const SizedBox(width: 12),
 

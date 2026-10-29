@@ -6,6 +6,7 @@ import '../../auth/providers/auth_provider.dart';
 /// `/providers/featured` endpoint the web homepage falls back to).
 /// Non-autoDispose + guarded so it never leaves a pending timer in widget tests.
 final featuredProvidersProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  ref.watch(authNotifierProvider.select((s) => s.user?.avatarUrl));
   try {
     final ApiClient api = ref.read(apiClientProvider);
     final res = await api.get('/providers/featured', queryParameters: {'limit': 8});
@@ -22,6 +23,7 @@ final featuredProvidersProvider = FutureProvider<List<Map<String, dynamic>>>((re
 /// "Doğrulanmış Hizmet Verenler" for one type: `barber` (men) or `coiffeur` (women).
 /// The server ranks by Tarak puanı and limits the list.
 final verifiedProvidersByTypeProvider = FutureProvider.family<List<Map<String, dynamic>>, String>((ref, type) async {
+  ref.watch(authNotifierProvider.select((s) => s.user?.avatarUrl));
   try {
     final ApiClient api = ref.read(apiClientProvider);
     final res = await api.get('/providers/featured', queryParameters: {'limit': 8, 'type': type});
@@ -44,6 +46,7 @@ class SpotlightData {
 }
 
 final spotlightProvidersProvider = FutureProvider<SpotlightData>((ref) async {
+  ref.watch(authNotifierProvider.select((s) => s.user?.avatarUrl));
   try {
     final ApiClient api = ref.read(apiClientProvider);
     final res = await api.get('/providers/spotlight');
@@ -65,6 +68,7 @@ final spotlightProvidersProvider = FutureProvider<SpotlightData>((ref) async {
 
 /// "Yeni Katılan Profesyoneller": most recently approved providers.
 final newestProvidersProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  ref.watch(authNotifierProvider.select((s) => s.user?.avatarUrl));
   try {
     final ApiClient api = ref.read(apiClientProvider);
     final res = await api.get('/providers/newest', queryParameters: {'limit': 8});
@@ -238,6 +242,8 @@ final homeServicesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) as
 typedef NearbyHomeQuery = ({double? latitude, double? longitude, int radiusKm});
 
 final nearbyHomeProvidersProvider = FutureProvider.family<List<Map<String, dynamic>>, NearbyHomeQuery>((ref, query) async {
+  ref.watch(authNotifierProvider.select((s) => s.user?.id));
+  ref.watch(authNotifierProvider.select((s) => s.user?.avatarUrl));
   final res = await ref.read(apiClientProvider).get('/customer/providers/nearby', queryParameters: {
     if (query.latitude != null) 'lat': query.latitude,
     if (query.longitude != null) 'lng': query.longitude,

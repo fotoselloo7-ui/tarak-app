@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../shared/widgets/common_widgets.dart';
 import '../../../core/widgets/tarak_rating.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/widgets/verified_tick.dart';
@@ -53,9 +54,10 @@ class FavoritesScreen extends ConsumerWidget {
               return Card(
                 margin: EdgeInsets.zero,
                 child: ListTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: AppTheme.primaryLight,
-                    child: Icon(Icons.person_rounded, color: AppTheme.primary),
+                  leading: AppAvatar(
+                    radius: 20,
+                    imageUrl: r['avatar_url']?.toString(),
+                    name: '${r['business_name'] ?? r['name'] ?? 'Hizmet Veren'}',
                   ),
                   title: ProviderNameRow(
                       name: '${r['business_name'] ?? r['name'] ?? 'Hizmet Veren'}',

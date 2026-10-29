@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/common_widgets.dart';
 import '../models/provider_appointment_model.dart';
 import '../providers/provider_appointment_providers.dart';
 import '../repositories/provider_appointment_repository.dart';
@@ -232,15 +233,11 @@ class _ProviderAppointmentDetailScreenState
             const Divider(height: 20),
             Row(
               children: [
-                CircleAvatar(
+                AppAvatar(
                   radius: 22,
                   backgroundColor: const Color(0xFFE2E8F0),
-                  backgroundImage: customer?.avatarUrl != null
-                      ? NetworkImage(customer!.avatarUrl!)
-                      : null,
-                  child: customer?.avatarUrl == null
-                      ? const Icon(Icons.person, color: Color(0xFF64748B))
-                      : null,
+                  imageUrl: customer?.avatarUrl,
+                  name: customer?.name ?? 'Müşteri',
                 ),
                 const SizedBox(width: 12),
                 Expanded(
