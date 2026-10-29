@@ -117,6 +117,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                   child: Row(
                     children: [
                       AppAvatar(
+                        imageUrl: user.avatarUrl,
                         name: user.name,
                         radius: 30,
                       ),
