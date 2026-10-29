@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use App\Support\MediaUrl;
 
 class ProviderProfileResource extends JsonResource
 {
@@ -34,11 +35,11 @@ class ProviderProfileResource extends JsonResource
             'bio' => $this->bio,
             'title' => $this->title,
             // Canonical avatar lives on users.avatar_url (shared with customer).
-            'avatar_url' => $this->user?->avatar_url,
-            'cover_url' => $this->cover_url,
+            'avatar_url' => MediaUrl::resolve($this->user?->avatar_url),
+            'cover_url' => MediaUrl::resolve($this->cover_url),
             'cover_position_x' => (int) $this->cover_position_x,
             'cover_position_y' => (int) $this->cover_position_y,
-            'gallery' => $this->gallery ?? [],
+            'gallery' => array_values(array_filter(array_map(fn ($url) => MediaUrl::resolve($url), $this->gallery ?? []))),
             'commission_rate_override' => $this->commission_rate_override !== null ? (float) $this->commission_rate_override : null,
             'rejection_reason' => $this->rejection_reason,
             'reupload_reason' => $this->reupload_reason,
