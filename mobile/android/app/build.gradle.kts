@@ -47,9 +47,6 @@ android {
 
     defaultConfig {
         applicationId = "app.tarak.mobile"
-        // The Maps SDK key is injected by a Gradle property or CI secret.
-        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] =
-            providers.gradleProperty("GOOGLE_MAPS_ANDROID_API_KEY").orElse("").get()
         minSdk = flutter.minSdkVersion
         // Google Play: new apps / updates must target Android 16 (API 36) since 2026-08-31.
         targetSdk = 36
