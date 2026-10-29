@@ -66,10 +66,52 @@ class SocialAuthController extends Controller
             ->where('subject', $identity['subject'])->first();
         $user = $link ? User::find($link->user_id) : null;
 
+        // First social login for an existing Tarak account: if Google/Apple
+        // gives us a verified e-mail that exactly matches an account, link it
+        // once and continue. This avoids forcing an existing user to sign in
+        // with a password merely to create the initial social-identity row.
+        if (!$user && $identity['email_verified'] && $identity['email']) {
+            $candidate = User::query()
+                ->whereRaw('LOWER(email) = ?', [mb_strtolower($identity['email'])])
+                ->first();
+
+            if ($candidate) {
+                $existingForUser = DB::table('social_identities')
+                    ->where('provider', $provider)
+                    ->where('user_id', $candidate->id)
+                    ->first();
+
+                if ($existingForUser && $existingForUser->subject !== $identity['subject']) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Bu Tarak hesabı farklı bir ' . ucfirst($provider) . ' hesabına bağlı.',
+                    ], 409);
+                }
+
+                try {
+                    DB::table('social_identities')->updateOrInsert(
+                        ['provider' => $provider, 'subject' => $identity['subject']],
+                        [
+                            'user_id' => $candidate->id,
+                            'email_at_link' => $identity['email'],
+                            'updated_at' => now(),
+                            'created_at' => now(),
+                        ],
+                    );
+                    $user = $candidate;
+                } catch (QueryException $exception) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Bu sağlayıcı hesabı başka bir kullanıcıya bağlı.',
+                    ], 409);
+                }
+            }
+        }
+
         if (!$user) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu sağlayıcı hesabı mevcut bir Tarak hesabına bağlı değil. Önce kayıt olun veya şifrenizle giriş yapıp hesabınızı bağlayın.',
+                'message' => 'Bu e-posta ile kayıtlı bir Tarak hesabı bulunamadı. Önce Müşteri veya Hizmet Veren kaydı oluşturun.',
             ], 409);
         }
         if ($user->status !== 'active') {
