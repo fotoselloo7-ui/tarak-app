@@ -1,0 +1,52 @@
+name: Export Tarak Avatar Hotfix
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build cPanel-ready hotfix folders
+        run: |
+          set -euo pipefail
+          mkdir -p export/web/assets export/backend/app/Support export/backend/app/Http/Resources export/backend/app/Http/Controllers/Api
+          cp tarak.app/index.html export/web/index.html
+          cp tarak.app/assets/index-Bj5sn6If.js export/web/assets/
+          cp tarak-backend/app/Support/MediaUrl.php export/backend/app/Support/
+          cp tarak-backend/app/Http/Resources/UserResource.php export/backend/app/Http/Resources/
+          cp tarak-backend/app/Http/Resources/CustomerProfileResource.php export/backend/app/Http/Resources/
+          cp tarak-backend/app/Http/Resources/ProviderProfileResource.php export/backend/app/Http/Resources/
+          cp tarak-backend/app/Http/Controllers/Api/ProfileMediaController.php export/backend/app/Http/Controllers/Api/
+          cp tarak-backend/app/Http/Controllers/Api/PublicMediaController.php export/backend/app/Http/Controllers/Api/
+          php -l export/backend/app/Support/MediaUrl.php
+          php -l export/backend/app/Http/Resources/UserResource.php
+          node --check export/web/assets/index-Bj5sn6If.js
+          cat > export/README-DEPLOY.txt <<'EOF'
+          TARAK.APP - Profil Fotograf Senkronizasyonu
+
+          web/  -> mevcut tarak.app web kok klasorune
+          backend/ -> mevcut Laravel uygulamasi kok klasorune
+          Her iki klasordeki alt dizinleri KENDI ilgili uygulama koklerine
+          birlestirerek yukleyin. web/ veya backend/ klasorlerini tarak.app
+          anasayfasinda yeni klasor olarak birakmayin.
+
+          Once var olan dosyalari yedekleyin.
+          Profil fotografinin kaynagi: users.avatar_url.
+          Musteri ve hizmet veren avatar/kapak goruntuleri karistirilmamalidir.
+          Yalnizca bu dosyalar ile ilgili guncellemedir.
+          Canli veritabani ve profil fotograflari degistirilmez.
+          EOF
+
+      - name: Download Avatar Hotfix
+        uses: actions/upload-artifact@v4
+        with:
+          name: tarak-avatar-web-backend-hotfix
+          path: export/
+          if-no-files-found: error
+          retention-days: 7
