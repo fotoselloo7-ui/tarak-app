@@ -446,11 +446,12 @@ class _EditAddressSheetState extends ConsumerState<_EditAddressSheet> {
           initialQuery: query, initialLatitude: _latitude, initialLongitude: _longitude,
         )));
     if (result == null || !mounted) return;
-    _province.text = result.province;
-    _district.text = result.district;
-    _neighborhood.text = result.neighborhood;
-    _street.text = result.street;
-    _building.text = result.buildingNo;
+    // Keep manually entered city/district when reverse geocoding is offline.
+    if (result.province.isNotEmpty) _province.text = result.province;
+    if (result.district.isNotEmpty) _district.text = result.district;
+    if (result.neighborhood.isNotEmpty) _neighborhood.text = result.neighborhood;
+    if (result.street.isNotEmpty) _street.text = result.street;
+    if (result.buildingNo.isNotEmpty) _building.text = result.buildingNo;
     setState(() { _latitude = result.latitude; _longitude = result.longitude; });
   }
 
