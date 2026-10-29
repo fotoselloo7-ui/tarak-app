@@ -171,8 +171,6 @@ class ListingAdService
         $minRating = (float) ($context['min_rating'] ?? 0);
         if ($minRating > 0) {
             $query->whereIn('user_id', DB::table('provider_reviews')
-                ->join('users as review_customers', 'review_customers.id', '=', 'provider_reviews.customer_user_id')
-                ->where('review_customers.is_demo', false)
                 ->select('provider_user_id')
                 ->groupBy('provider_user_id')
                 ->havingRaw('AVG(rating) >= ?', [min($minRating, 5)]));
@@ -183,8 +181,6 @@ class ListingAdService
     private function ratingStats(array $userIds): array
     {
         return DB::table('provider_reviews')
-            ->join('users as review_customers', 'review_customers.id', '=', 'provider_reviews.customer_user_id')
-            ->where('review_customers.is_demo', false)
             ->whereIn('provider_user_id', $userIds)
             ->groupBy('provider_user_id')
             ->selectRaw('provider_user_id, COUNT(*) as c, AVG(rating) as a')
