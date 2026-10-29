@@ -6,7 +6,7 @@ on:
       build_number:
         description: "iOS build number (must be higher than a previously uploaded build)"
         required: true
-        default: "3"
+        default: "5"
         type: string
   push:
     branches:
@@ -58,10 +58,9 @@ jobs:
           grep -q "<string>app.tarak.mobile</string>" ios/Runner/GoogleService-Info.plist
           echo "Tarak iOS source configuration OK"
 
-      - name: Configure Google OAuth and Maps for iOS
+      - name: Configure Google OAuth for iOS
         env:
           GOOGLE_IOS_CLIENT_ID: ${{ vars.GOOGLE_IOS_CLIENT_ID || secrets.GOOGLE_IOS_CLIENT_ID }}
-          GOOGLE_MAPS_IOS_API_KEY: ${{ secrets.GOOGLE_MAPS_IOS_API_KEY }}
           GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID || secrets.GOOGLE_WEB_CLIENT_ID }}
         run: |
           test -n "$GOOGLE_WEB_CLIENT_ID" || { echo "::error::GOOGLE_WEB_CLIENT_ID is missing"; exit 1; }
@@ -74,18 +73,17 @@ jobs:
         run: |
           flutter build ios --release --no-codesign \
             --build-name 1.1.1 \
-            --build-number "${{ inputs.build_number || '3' }}" \
+            --build-number "${{ inputs.build_number || '5' }}" \
             --dart-define=API_BASE_URL=https://tarak.app/api \
             --dart-define=REVERB_HOST=tarak.app \
             --dart-define=REVERB_APP_KEY=hhyfpgfv2dgv95yd78kz \
             --dart-define=GOOGLE_CLIENT_ID="$GOOGLE_IOS_CLIENT_ID" \
-            --dart-define=GOOGLE_WEB_CLIENT_ID="$GOOGLE_WEB_CLIENT_ID" \
-            --dart-define=GOOGLE_MAPS_ENABLED=true
+            --dart-define=GOOGLE_WEB_CLIENT_ID="$GOOGLE_WEB_CLIENT_ID"
 
       - name: Upload unsigned app (NOT an App Store IPA)
         uses: actions/upload-artifact@v4
         with:
-          name: tarak-ios-unsigned-${{ inputs.build_number || '3' }}
+          name: tarak-ios-unsigned-${{ inputs.build_number || '5' }}
           path: mobile/build/ios/iphoneos/Runner.app
           if-no-files-found: error
           retention-days: 7
