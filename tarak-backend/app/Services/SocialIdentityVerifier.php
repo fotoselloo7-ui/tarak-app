@@ -29,31 +29,39 @@ class SocialIdentityVerifier
 
         $exchangedToken = null;
         if ($provider === 'apple') {
-            if (!$authorizationCode || empty($config['client_secret'])) {
-                throw ValidationException::withMessages(['provider' => 'Apple giriş kodu veya sunucu yapılandırması eksik.']);
-            }
             $untrusted = $this->untrustedPayload($idToken);
             $audience = $untrusted['aud'] ?? null;
             if (!is_string($audience) || !in_array($audience, $clientIds, true)) {
                 throw ValidationException::withMessages(['id_token' => 'Apple uygulama kimliği geçersiz.']);
             }
-            $body = [
-                'client_id' => $audience,
-                'client_secret' => $config['client_secret'],
-                'code' => $authorizationCode,
-                'grant_type' => 'authorization_code',
-            ];
-            if ($audience === ($config['service_id'] ?? null) && !empty($config['redirect_uri'])) {
-                $body['redirect_uri'] = $config['redirect_uri'];
-            }
-            try {
-                $response = Http::timeout(10)->asForm()->post('https://appleid.apple.com/auth/token', $body);
-                if (!$response->successful() || !is_string($response->json('id_token'))) {
-                    throw new \RuntimeException('Apple authorization code exchange failed');
+
+            // Web Sign in with Apple uses the Service ID and requires an
+            // authorization-code exchange. Native iOS uses the bundle ID as
+            // the token audience; its signed identity token + nonce are
+            // verified below, so it must not depend on a web Service-ID secret.
+            $isWebFlow = $audience === ($config['service_id'] ?? null);
+            if ($isWebFlow) {
+                if (!$authorizationCode || empty($config['client_secret'])) {
+                    throw ValidationException::withMessages(['provider' => 'Apple giriş kodu veya sunucu yapılandırması eksik.']);
                 }
-                $exchangedToken = $response->json('id_token');
-            } catch (\Throwable $exception) {
-                throw ValidationException::withMessages(['authorization_code' => 'Apple yetkilendirmesi doğrulanamadı. Yeniden deneyiniz.']);
+                $body = [
+                    'client_id' => $audience,
+                    'client_secret' => $config['client_secret'],
+                    'code' => $authorizationCode,
+                    'grant_type' => 'authorization_code',
+                ];
+                if (!empty($config['redirect_uri'])) {
+                    $body['redirect_uri'] = $config['redirect_uri'];
+                }
+                try {
+                    $response = Http::timeout(10)->asForm()->post('https://appleid.apple.com/auth/token', $body);
+                    if (!$response->successful() || !is_string($response->json('id_token'))) {
+                        throw new \RuntimeException('Apple authorization code exchange failed');
+                    }
+                    $exchangedToken = $response->json('id_token');
+                } catch (\Throwable $exception) {
+                    throw ValidationException::withMessages(['authorization_code' => 'Apple yetkilendirmesi doğrulanamadı. Yeniden deneyiniz.']);
+                }
             }
         }
 
