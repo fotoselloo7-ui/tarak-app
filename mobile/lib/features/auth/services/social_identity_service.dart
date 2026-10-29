@@ -46,26 +46,14 @@ class SocialIdentityService {
     final nonce = await _nonce();
     if (provider == 'google') {
       const clientId = String.fromEnvironment('GOOGLE_CLIENT_ID');
-      const serverClientId = String.fromEnvironment(
-        'GOOGLE_WEB_CLIENT_ID',
-        defaultValue: '977885914941-lts9n172clgr8p6glbi3gv1k2qn2fkvn.apps.googleusercontent.com',
-      );
-      if (!kIsWeb &&
-          defaultTargetPlatform == TargetPlatform.iOS &&
-          clientId.isEmpty) {
-        throw const AppException(
-          message: 'Google girişi iOS için henüz yapılandırılmadı.',
-        );
-      }
+      const serverClientId = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
       final signIn = GoogleSignIn.instance;
       // The Google SDK must be initialized exactly once. Native clients use
       // the verified ID token plus the backend's one-use request nonce; a
       // per-request SDK nonce cannot be changed after initialization.
       await (_googleInitialization ??= signIn.initialize(
-        clientId: (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS)
-            ? clientId
-            : null,
-        serverClientId: serverClientId,
+        clientId: clientId.isEmpty ? null : clientId,
+        serverClientId: serverClientId.isEmpty ? null : serverClientId,
       ));
       if (!signIn.supportsAuthenticate()) {
         throw const AppException(message: 'Google girişi bu cihazda kullanılamıyor.');
