@@ -187,13 +187,9 @@ class PublicProviderController extends Controller
     private function rankedQuery(?string $type, bool $verifiedOnly = false): \Illuminate\Database\Eloquent\Builder
     {
         $stats = DB::table('provider_reviews')
-            ->join('users as review_customers', 'review_customers.id', '=', 'provider_reviews.customer_user_id')
-            ->where('review_customers.is_demo', false)
             ->select('provider_user_id', DB::raw('COUNT(*) as review_total'), DB::raw('AVG(rating) as review_avg'))
             ->groupBy('provider_user_id');
-        $globalAvg = (float) (DB::table('provider_reviews')
-            ->join('users as review_customers', 'review_customers.id', '=', 'provider_reviews.customer_user_id')
-            ->where('review_customers.is_demo', false)->avg('rating') ?: 4.0);
+        $globalAvg = (float) (DB::table('provider_reviews')->avg('rating') ?: 4.0);
         $m = self::SCORE_PRIOR_REVIEWS;
 
         $query = ProviderProfile::query();
@@ -318,7 +314,6 @@ class PublicProviderController extends Controller
 
         $reviewStats = ProviderReview::query()
             ->whereIn('provider_user_id', $profiles->pluck('user_id'))
-            ->whereHas('customer', fn ($query) => $query->where('is_demo', false))
             ->groupBy('provider_user_id')
             ->selectRaw('provider_user_id, COUNT(*) as review_total, AVG(rating) as review_avg')
             ->get()
@@ -334,7 +329,7 @@ class PublicProviderController extends Controller
         $discounts = app(\App\Services\ProviderDiscountService::class)->percentsFor($profiles->pluck('user_id'));
 
         return $profiles->map(function (ProviderProfile $profile) use ($reviewStats, $serviceCounts, $origin, $discounts) {
-            $row = $profile->user?->is_demo ? null : $reviewStats->get($profile->user_id);
+            $row = $reviewStats->get($profile->user_id);
             $verified = $profile->isVerified();
 
             $card = $this->offerings->presentProvider($profile, [
