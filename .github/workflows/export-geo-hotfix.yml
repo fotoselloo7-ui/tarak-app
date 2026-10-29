@@ -2,6 +2,9 @@ name: Export Tarak Geo Hotfix
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/export-geo-hotfix.yml'
 
 permissions:
   contents: read
