@@ -53,11 +53,9 @@ class HomeStatsService
 
     private function includeDemo(array $landing): bool
     {
-        return match ($landing['stats_count_demo'] ?? 'auto') {
-            'yes' => true,
-            'no' => false,
-            default => !app()->isProduction(),
-        };
+        // Seed accounts are customer-facing production content; is_demo is retained
+        // only as an internal admin purge marker.
+        return true;
     }
 
     /**
@@ -124,12 +122,10 @@ class HomeStatsService
                 'key' => $metric ?? ('custom_' . $index),
                 'metric' => $metric,
                 'label' => $label,
-                'desc' => $includeDemo && $metric !== null
-                    ? trim((string) ($row['desc'] ?? '') . ' Demo veriler dahildir.')
-                    : (($row['desc'] ?? null) ?: null),
+                'desc' => (($row['desc'] ?? null) ?: null),
                 'value' => $value,
-                'is_fake' => $isFake || ($includeDemo && $metric !== null),
-                'includes_demo' => $includeDemo && $metric !== null,
+                'is_fake' => $isFake,
+                'includes_demo' => false,
             ];
             if (count($items) >= self::MAX_ITEMS) {
                 break;
