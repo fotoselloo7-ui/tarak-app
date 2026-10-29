@@ -27,8 +27,7 @@ class MediaUrl
             return $url;
         }
 
-        $base = rtrim((string) config('app.url'), '/');
-        return $base . '/' . ltrim($url, '/');
+        return self::baseUrl() . '/' . ltrim($url, '/');
     }
 
     public static function fromPublicPath(string $path): string
@@ -36,7 +35,24 @@ class MediaUrl
         $path = ltrim(str_replace('\\', '/', $path), '/');
         $encoded = implode('/', array_map('rawurlencode', explode('/', $path)));
 
-        return rtrim((string) config('app.url'), '/') . '/api/media/' . $encoded;
+        return self::baseUrl() . '/api/media/' . $encoded;
+    }
+
+    private static function baseUrl(): string
+    {
+        if (!app()->runningInConsole()) {
+            try {
+                $request = request();
+                $host = $request->getSchemeAndHttpHost();
+                if ($host !== '') {
+                    return rtrim($host, '/');
+                }
+            } catch (\Throwable) {
+                // Fall through to APP_URL for non-HTTP contexts.
+            }
+        }
+
+        return rtrim((string) config('app.url'), '/');
     }
 
     public static function managedPublicPath(?string $url): ?string
