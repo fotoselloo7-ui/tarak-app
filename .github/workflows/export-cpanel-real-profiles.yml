@@ -1,0 +1,40 @@
+name: Export cPanel Real Profiles Hotfix
+
+on:
+  push:
+    paths:
+      - ".github/workflows/export-cpanel-real-profiles.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tarak-cpanel-real-profiles
+          retention-days: 1
+          if-no-files-found: error
+          path: |
+            tarak-backend/app/Support/MediaUrl.php
+            tarak-backend/app/Http/Controllers/Api/PublicMediaController.php
+            tarak-backend/routes/api.php
+            tarak-backend/app/Http/Resources/UserResource.php
+            tarak-backend/app/Http/Resources/CustomerProfileResource.php
+            tarak-backend/app/Http/Resources/ProviderProfileResource.php
+            tarak-backend/app/Services/ProviderOfferingService.php
+            tarak-backend/app/Services/ListingAdService.php
+            tarak-backend/app/Services/HomeStatsService.php
+            tarak-backend/app/Http/Controllers/Api/ProfileMediaController.php
+            tarak-backend/app/Http/Controllers/Api/ProviderProfileController.php
+            tarak-backend/app/Models/ProviderProfile.php
+            tarak-backend/app/Http/Controllers/CustomerAppointmentController.php
+            tarak-backend/app/Http/Controllers/Api/PublicProviderController.php
+            tarak-backend/app/Http/Controllers/Api/ReviewController.php
+            tarak.app/assets/LocationFields-CwjRJiSe.js
+            tarak.app/assets/CustomerDashboard-AVc8Kzdf.js
+            tarak.app/assets/PublicProviderProfile--rPbmHay.js
+            tarak.app/assets/index-Bj5sn6If.js
