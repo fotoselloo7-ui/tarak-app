@@ -179,7 +179,7 @@ class CustomerAppointmentController extends Controller
             'experience_years' => $p->experience_years,
             'is_demo' => $isDemo,
             'is_approved' => (bool) $p->is_approved,
-            'identity_status' => $isDemo ? 'DEMO' : $p->identity_status,
+            'identity_status' => $p->identity_status,
             'is_verified' => $p->isVerified(),
             // Presentation fields the web dashboard used to fetch with one extra request per provider.
             'cover_url' => MediaUrl::resolve($p->cover_url),
