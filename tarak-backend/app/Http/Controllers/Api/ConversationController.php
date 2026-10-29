@@ -88,7 +88,7 @@ class ConversationController extends Controller
                 'other_party' => [
                     'id' => $conversation->customer?->id,
                     'name' => $conversation->customer?->name ?? 'Müşteri',
-                    'avatar_url' => $conversation->customer?->customerProfile?->avatar_url,
+                    'avatar_url' => $conversation->customer?->avatar_url,
                     'role' => $conversation->customer?->role,
                 ],
             ],

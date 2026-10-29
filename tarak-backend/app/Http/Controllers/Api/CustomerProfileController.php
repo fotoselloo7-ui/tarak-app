@@ -83,6 +83,9 @@ class CustomerProfileController extends Controller
             if (isset($validated['gender'])) {
                 $userUpdates['gender'] = $validated['gender'];
             }
+            if (array_key_exists('avatar_url', $validated)) {
+                $userUpdates['avatar_url'] = $validated['avatar_url'];
+            }
             if (!empty($userUpdates)) {
                 $user->update($userUpdates);
             }

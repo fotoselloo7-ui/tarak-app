@@ -90,6 +90,11 @@ class User extends Authenticatable
         return false;
     }
 
+    public function getAvatarUrlAttribute(?string $value): ?string
+    {
+        return \App\Support\MediaUrl::resolve($value);
+    }
+
     public function customerProfile(): HasOne
     {
         return $this->hasOne(CustomerProfile::class);

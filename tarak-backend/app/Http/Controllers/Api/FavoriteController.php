@@ -18,7 +18,7 @@ class FavoriteController extends Controller
     {
         $favorites = CustomerFavorite::query()
             ->where('customer_user_id', $request->user()->id)
-            ->with(['provider:id,name,is_demo', 'provider.providerProfile.documents'])
+            ->with(['provider:id,name,is_demo,avatar_url', 'provider.providerProfile.documents'])
             ->latest()
             ->get()
             ->map(function (CustomerFavorite $f) {
@@ -32,6 +32,7 @@ class FavoriteController extends Controller
                 return [
                     'provider_user_id' => $p?->id,
                     'name' => $p?->name,
+                    'avatar_url' => $p?->avatar_url,
                     'business_name' => $profile?->business_name,
                     'is_demo' => (bool) ($p?->is_demo ?? false),
                     'is_verified' => (bool) ($profile?->isVerified() ?? false),

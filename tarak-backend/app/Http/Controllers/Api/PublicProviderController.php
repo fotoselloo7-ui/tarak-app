@@ -155,8 +155,7 @@ class PublicProviderController extends Controller
             $profile = $request->user()->customerProfile;
             $address = null;
             if ($profile) {
-                $address = $profile->defaultAddress()->whereNotNull('latitude')->whereNotNull('longitude')->first()
-                    ?? $profile->addresses()->whereNotNull('latitude')->whereNotNull('longitude')->orderByDesc('is_default')->first();
+                $address = $profile->defaultAddress()->first();
             }
             $latitude = $address?->latitude !== null ? (float) $address->latitude : null;
             $longitude = $address?->longitude !== null ? (float) $address->longitude : null;

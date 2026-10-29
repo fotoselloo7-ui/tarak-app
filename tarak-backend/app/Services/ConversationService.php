@@ -132,9 +132,9 @@ class ConversationService
               ->orWhere('provider_user_id', $userId);
         })
         ->with([
-            'customer:id,name,role',
+            'customer:id,name,role,avatar_url',
             'customer.customerProfile:id,user_id,avatar_url',
-            'provider:id,name,role',
+            'provider:id,name,role,avatar_url',
             'provider.providerProfile:id,user_id,cover_url,is_approved,identity_status',
             'provider.providerProfile.documents:id,provider_profile_id,document_type,status',
             'messages' => function ($q) {
@@ -170,9 +170,7 @@ class ConversationService
                 ? $otherUser?->providerProfile
                 : $otherUser?->customerProfile;
 
-            $otherAvatar = $isCustomer
-                ? ($otherProfile?->cover_url ?? null)
-                : ($otherProfile?->avatar_url ?? null);
+            $otherAvatar = $otherUser?->avatar_url;
 
             $lastMsg = $conv->messages->first();
             $unreadCount = (int) ($conv->unread_messages_count ?? $conv->unreadCountForUser($userId));
