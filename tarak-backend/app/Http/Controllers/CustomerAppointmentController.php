@@ -105,7 +105,6 @@ class CustomerAppointmentController extends Controller
 
         $reviewTotals = \App\Models\ProviderReview::query()
             ->whereIn('provider_user_id', $directoryProviders->pluck('user_id')->merge($sponsored->pluck('user_id')))
-            ->whereHas('customer', fn ($customer) => $customer->where('is_demo', false))
             ->selectRaw('provider_user_id, COUNT(*) as review_count, AVG(rating) as average_rating')
             ->groupBy('provider_user_id')->get()->keyBy('provider_user_id');
 
@@ -161,7 +160,6 @@ class CustomerAppointmentController extends Controller
     private function presentListedProvider(ProviderProfile $p, $reviews, ?array $origin, array $discounts = []): array
     {
         $u = $p->user;
-        $isDemo = (bool) ($u?->is_demo ?? false);
         $discountPercent = (int) ($discounts[(int) $p->user_id] ?? 0);
 
         return [
