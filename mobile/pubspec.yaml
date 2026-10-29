@@ -52,7 +52,7 @@ dependencies:
   geolocator: ^14.1.2
   google_sign_in: ^7.2.0
   sign_in_with_apple: ^7.0.1
-  google_maps_flutter: ^2.19.0
+  maplibre_gl: ^0.27.1
 
 dev_dependencies:
   flutter_test:
