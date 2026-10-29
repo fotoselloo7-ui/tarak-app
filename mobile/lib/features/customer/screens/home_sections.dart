@@ -404,9 +404,8 @@ class _ProviderCard extends StatelessWidget {
     final name = (provider['business_name'] ?? provider['name'] ?? 'Hizmet Veren').toString();
     final type = provider['provider_type'] == 'coiffeur' ? 'Kadın Kuaförü' : 'Erkek Berberi';
     final location = [provider['district'], provider['city']].where((e) => e != null && '$e'.isNotEmpty).join(', ');
-    final isDemo = provider['is_demo'] == true;
-    final ratingCount = isDemo ? 0 : (provider['review_count'] as num?)?.toInt() ?? 0;
-    final ratingAvg = isDemo ? null : (provider['rating'] as num?)?.toDouble();
+    final ratingCount = (provider['review_count'] as num?)?.toInt() ?? 0;
+    final ratingAvg = (provider['rating'] as num?)?.toDouble();
     final serviceCount = (provider['service_count'] as num?)?.toInt() ?? 0;
     final distanceKm = (provider['distance_km'] as num?)?.toDouble();
     final avatar = provider['avatar_url']?.toString();
@@ -451,7 +450,6 @@ class _ProviderCard extends StatelessWidget {
                       Flexible(child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.textPrimary))),
                       if (isVerifiedMap(provider)) ...[const SizedBox(width: 4), const VerifiedTick(size: 15)],
-                      if (isDemo) ...[const SizedBox(width: 4), const DemoProfileTag()],
                     ],
                   ),
                   const SizedBox(height: 2),
