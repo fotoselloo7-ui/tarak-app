@@ -1,14 +1,6 @@
 import {r as React} from './react-vendor-Dj04zrcb.js?v=20261028-integrations1';
 
 const h = React.createElement;
-const googleButtonStyles = `
-.tarak-google-auth{min-height:52px;display:flex;align-items:center;justify-content:center;border-radius:999px;background:#fff;box-shadow:0 3px 10px #0f172a0d;transition:box-shadow .18s ease}
-.tarak-google-auth:focus-within{outline:2px solid #4285f4;outline-offset:3px}
-.tarak-google-auth>button{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:52px;padding:12px 16px;border:1px solid #747775;border-radius:999px;background:#fff;color:#1f1f1f;font:600 14px/20px Inter,Arial,sans-serif;letter-spacing:.1px}
-.tarak-google-auth>button:disabled{cursor:not-allowed;color:#747775}
-.tarak-google-auth>button img{width:20px;height:20px;flex:none}
-@media(prefers-reduced-motion:reduce){.tarak-google-auth{transition:none}}
-`;
 const scripts = new Map();
 function loadScript(src) {
   if (!scripts.has(src)) scripts.set(src, new Promise((resolve, reject) => {
@@ -65,7 +57,7 @@ export function SocialButtons({api, mode = 'prefill', onResult, onError, extraPa
           googleHost.current.replaceChildren();
           window.google.accounts.id.renderButton(googleHost.current, {
             type: 'standard', theme: 'outline', size: 'large', text: 'continue_with',
-            shape: 'pill', locale: 'tr', width: Math.max(200, Math.min(360, googleHost.current.clientWidth)),
+            shape: 'rectangular', locale: 'tr', width: Math.max(200, Math.min(360, googleHost.current.clientWidth)),
           });
         }).catch(error => { if (active) callback.current.onError(error.message); });
     }
@@ -100,7 +92,7 @@ export function SocialButtons({api, mode = 'prefill', onResult, onError, extraPa
           host.replaceChildren();
           window.google.accounts.id.renderButton(host, {
             type: 'standard', theme: 'outline', size: 'large', text: 'continue_with',
-            shape: 'pill', locale: 'tr',
+            shape: 'rectangular', locale: 'tr',
             width: Math.max(200, Math.min(360, host.clientWidth || 360)),
           });
         } catch (_) {}
@@ -131,11 +123,9 @@ export function SocialButtons({api, mode = 'prefill', onResult, onError, extraPa
   };
 
   return h('div', {className: 'space-y-3', style: {marginBottom: 20}},
-    h('style', null, googleButtonStyles),
     h('div', {style: {display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 12}},
-      h('div', {ref: googleHost, className: 'tarak-google-auth'}, !config?.google_client_id &&
-        h('button', {type: 'button', disabled: true},
-          h('img', {src: '/brand/google-g.png', alt: '', 'aria-hidden': true}), 'Google ile devam et')),
+      h('div', {ref: googleHost, style: {minHeight: 44}}, !config?.google_client_id &&
+        h('button', {type: 'button', disabled: true, className: 'w-full py-3 border border-gray-200 rounded-lg text-sm text-gray-500'}, 'Google ile devam et')),
       h('button', {type: 'button', onClick: signInApple, disabled: !apple || busy,
         style: {minHeight: 44, borderRadius: 8, background: '#111827', color: 'white', fontSize: 14, fontWeight: 600, opacity: !apple || busy ? .5 : 1}}, 'Apple ile devam et')),
     h('p', {className: 'text-xs text-gray-500', role: message ? 'status' : undefined},
