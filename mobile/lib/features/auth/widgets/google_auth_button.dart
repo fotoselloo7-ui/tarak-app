@@ -14,26 +14,10 @@ class GoogleAuthButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ElevatedButton(
+    // Use the app's OutlinedButton theme so Google matches the Apple button
+    // exactly: same height, border, radius, typography and disabled state.
+    return OutlinedButton(
       onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1F1F1F),
-        disabledBackgroundColor: Colors.white,
-        disabledForegroundColor: const Color(0xFF747775),
-        surfaceTintColor: Colors.transparent,
-        elevation: 2,
-        shadowColor: const Color(0x220F172A),
-        minimumSize: const Size(0, 52),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        side: const BorderSide(color: Color(0xFF747775)),
-        shape: const StadiumBorder(),
-        textStyle: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.1,
-        ),
-      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
@@ -55,7 +39,12 @@ class GoogleAuthButton extends StatelessWidget {
               excludeFromSemantics: true,
             ),
           const SizedBox(width: 10),
-          Flexible(child: Text(label, textAlign: TextAlign.center)),
+          Flexible(
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+            ),
+          ),
         ],
       ),
     );
