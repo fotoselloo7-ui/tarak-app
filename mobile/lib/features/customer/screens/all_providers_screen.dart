@@ -393,9 +393,8 @@ class _ProviderRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = (provider['business_name'] ?? provider['name'] ?? 'Hizmet Veren').toString();
     final avatar = provider['avatar_url']?.toString() ?? '';
-    final isDemo = provider['is_demo'] == true;
-    final rating = isDemo ? null : (provider['rating'] as num?)?.toDouble();
-    final reviews = isDemo ? 0 : (provider['review_count'] as num?)?.toInt() ?? 0;
+    final rating = (provider['rating'] as num?)?.toDouble();
+    final reviews = (provider['review_count'] as num?)?.toInt() ?? 0;
     final services = (provider['service_count'] as num?)?.toInt() ?? 0;
     final location = [provider['district'], provider['city']].where((e) => e != null && '$e'.isNotEmpty).join(', ');
     final role = provider['provider_type'] == 'coiffeur' ? 'Kadın Kuaförü' : 'Erkek Berberi';
@@ -431,7 +430,6 @@ class _ProviderRow extends StatelessWidget {
                     children: [
                       Flexible(child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.textPrimary))),
                       if (isVerifiedMap(provider)) ...[const SizedBox(width: 4), const VerifiedTick(size: 15)],
-                      if (isDemo) ...[const SizedBox(width: 4), const DemoProfileTag()],
                     ],
                   ),
                   Text(role, style: const TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 11, color: AppTheme.textSecondary)),
