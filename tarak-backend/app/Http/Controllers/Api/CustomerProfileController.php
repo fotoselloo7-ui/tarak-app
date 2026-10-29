@@ -357,20 +357,10 @@ class CustomerProfileController extends Controller
     {
         if (isset($data['latitude'], $data['longitude'])) return $data;
         if (empty($data['province']) || empty($data['district'])) return $data;
-        $terms = array_filter([
-            $data['street'] ?? null,
-            $data['neighborhood'] ?? null,
-            $data['district'],
-            $data['province'],
-            'Türkiye',
-        ], fn ($part) => is_string($part) && trim($part) !== '');
+        // Without a pin, prefer a reliably located district centre instead
+        // of guessing a street address or reusing coordinates from another city.
         $geocoder = app(\App\Services\GoogleGeocodingService::class);
-        $result = $geocoder->search(implode(', ', $terms));
-
-        // Street-level searches often fail for incomplete manually typed addresses.
-        if (($result['status'] ?? null) !== 'OK') {
-            $result = $geocoder->search($data['district'] . ', ' . $data['province'] . ', Türkiye');
-        }
+        $result = $geocoder->search($data['district'] . ', ' . $data['province'] . ', Türkiye');
         if (($result['status'] ?? null) === 'OK') {
             $data['latitude'] = $result['data']['latitude'];
             $data['longitude'] = $result['data']['longitude'];
