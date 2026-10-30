@@ -65,6 +65,7 @@ class PublicProviderController extends Controller
         $minRating = $filters['min_rating'];
         $origin = $filters['origin'];
         $maxDistance = $filters['max_distance_km'];
+        $isNearby = $request->attributes->has('nearby_radius_km');
         $sort = $filters['sort'] === 'relevance' ? 'rating' : $filters['sort'];
         if ($sort === 'distance' && !$origin) {
             $sort = 'rating';
@@ -73,7 +74,7 @@ class PublicProviderController extends Controller
         $sponsored = $this->listingAds->sponsored($filters);
         $sponsoredCards = fn () => $this->cards($sponsored, $origin)->map(fn (array $card) => $card + ['is_sponsored' => true, 'sponsored_label' => ListingAdService::LABEL])->values();
 
-        if ($request->boolean('sponsored_only')) {
+        if ($request->boolean('sponsored_only') && !$isNearby) {
             return response()->json(['success' => true, 'sponsored' => $sponsoredCards(), 'meta' => ['has_origin' => $origin !== null] + $this->listingAds->meta()]);
         }
 
@@ -87,6 +88,10 @@ class PublicProviderController extends Controller
                     ->orWhere('provider_profiles.district', 'like', $like)
                     ->orWhereHas('user', fn ($u) => $u->where('name', 'like', $like));
             }));
+
+        // Keep the same eligibility/search filters for the second query, without
+        // the first query's radius constraint or ordering.
+        $fallbackQuery = $isNearby ? clone $query : null;
 
         if ($origin) {
             [$distanceSql, $bindings] = Geo::sql($origin, 'provider_profiles.latitude', 'provider_profiles.longitude');
@@ -113,6 +118,50 @@ class PublicProviderController extends Controller
 
         $page = $query->paginate($perPage);
 
+        $fallbackAttempted = false;
+        $fallbackUsed = false;
+        $fallbackMessage = null;
+        // Only an actually empty radius result triggers expansion. A failed API
+        // query or an out-of-range page never turns into a location fallback.
+        if ($fallbackQuery && $origin && $maxDistance && $page->total() === 0) {
+            $fallbackAttempted = true;
+            $fallbackQuery->whereNotNull('provider_profiles.latitude')
+                ->whereNotNull('provider_profiles.longitude')
+                ->whereBetween('provider_profiles.latitude', [-90, 90])
+                ->whereBetween('provider_profiles.longitude', [-180, 180])
+                ->where(fn ($q) => $q->where('provider_profiles.latitude', '!=', 0)
+                    ->orWhere('provider_profiles.longitude', '!=', 0))
+                ->whereHas('user', fn ($q) => $q->where('role', 'PROVIDER')->where('status', 'active'))
+                ->selectRaw($distanceSql . ' as distance_km', $bindings)
+                ->orderBy('distance_km')->orderBy('provider_profiles.id');
+            $page = $fallbackQuery->paginate($perPage);
+            $fallbackUsed = $page->total() > 0;
+
+            // A distant advertiser cannot buy priority unless their own service
+            // radius actually reaches this same customer position.
+            $fallbackFilters = $filters;
+            $fallbackFilters['max_distance_km'] = null;
+            $fallbackFilters['require_service_radius'] = true;
+            $sponsored = $fallbackUsed ? $this->listingAds->sponsored($fallbackFilters) : collect();
+            $sponsored = $sponsored->sortBy(fn ($p) => Geo::distanceKm($origin[0], $origin[1], $p->latitude, $p->longitude))->values();
+            if ($fallbackUsed) {
+                $radiusLabel = (string) $request->attributes->get('nearby_radius_km');
+                $fallbackMessage = "{$radiusLabel} km içinde sonuç bulunamadı, en yakın diğer işletmeler gösteriliyor";
+            }
+        }
+
+        // Rebuild after expansion so this closure uses the eligible fallback ads.
+        $sponsoredCards = fn () => $this->cards($sponsored, $origin)->map(fn (array $card) => $card + ['is_sponsored' => true, 'sponsored_label' => ListingAdService::LABEL])->values();
+        $nearbyMeta = $isNearby ? [
+            'fallback_attempted' => $fallbackAttempted,
+            'fallback_used' => $fallbackUsed,
+            'fallback_message' => $fallbackMessage,
+        ] : [];
+        if ($request->boolean('sponsored_only')) {
+            return response()->json(['success' => true, 'sponsored' => $sponsoredCards(),
+                'meta' => ['has_origin' => $origin !== null] + $nearbyMeta + $this->listingAds->meta()]);
+        }
+
         return response()->json([
             'success' => true,
             'data' => $this->cards($page->getCollection(), $origin),
@@ -125,7 +174,7 @@ class PublicProviderController extends Controller
                 'has_origin' => $origin !== null,
                 'origin_source' => $request->attributes->get('nearby_origin_source'),
                 'radius_km' => $request->attributes->get('nearby_radius_km'),
-            ] + $this->listingAds->meta(),
+            ] + $nearbyMeta + $this->listingAds->meta(),
         ]);
     }
 

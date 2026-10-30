@@ -3,7 +3,7 @@
 // execute the main module twice (queried entry + unqueried chunk imports).
 import fs from 'node:fs';
 const root = new URL('../tarak.app/', import.meta.url);
-const version = '20261030-address-rules1';
+const version = '20261030-nearby-fallback1';
 let count = 0;
 for (const name of fs.readdirSync(new URL('assets/', root)).filter(name => name.endsWith('.js') && !name.includes('sync-conflict'))) {
   const file = new URL(`assets/${name}`, root);

@@ -96,7 +96,7 @@ test('the scheduled web form starts with saved addresses and cannot submit befor
 });
 
 test('all web modules parse and use one consistent cache version', () => {
-  const version = '20261030-address-rules1';
+  const version = '20261030-nearby-fallback1';
   for (const name of fs.readdirSync(new URL('assets/', root)).filter(name => name.endsWith('.js') && !name.includes('sync-conflict'))) {
     const file = new URL(`assets/${name}`, root);
     execFileSync(process.execPath, ['--check', file.pathname.replace(/^\/(\w:)/, '$1')], {stdio: 'pipe'});

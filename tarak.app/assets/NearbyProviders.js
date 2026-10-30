@@ -1,4 +1,4 @@
-import {r as React} from './react-vendor-Dj04zrcb.js?v=20261030-address-rules1';
+import {r as React} from './react-vendor-Dj04zrcb.js?v=20261030-nearby-fallback1';
 const h = React.createElement;
 
 export function NearbyProviders({api, renderCard, onEditAddress, gender = null, embedded = false}) {
@@ -26,7 +26,18 @@ export function NearbyProviders({api, renderCard, onEditAddress, gender = null, 
       if (origin) { params.set('lat', String(origin.lat)); params.set('lng', String(origin.lng)); }
       try {
         const result = await api.get(`/customer/providers/nearby?${params}`);
-        if (active) { setData(result.data); setMeta(result.meta); }
+        if (result?.success === false || !Array.isArray(result?.data)) {
+          throw new Error(result?.message || 'Yakındaki hizmet verenler yüklenemedi.');
+        }
+        const seen = new Set();
+        const providers = result.meta?.fallback_used
+          ? [...(result.sponsored || []), ...result.data].filter(provider => {
+              const id = String(provider.user_id ?? provider.id);
+              if (seen.has(id)) return false;
+              seen.add(id); return true;
+            })
+          : result.data;
+        if (active) { setData(providers); setMeta(result.meta); }
       } catch (failure) { if (active) { setError(failure.message); setData([]); setMeta(null); } }
       finally { if (active) setLoading(false); }
     }, 300);
@@ -54,7 +65,10 @@ export function NearbyProviders({api, renderCard, onEditAddress, gender = null, 
       error && h('div', {role: 'alert', className: 'p-4 rounded-xl bg-orange-50 text-sm text-gray-700'},
         error, ' ', h('button', {type: 'button', onClick: onEditAddress, className: 'font-semibold text-brand-orange underline'}, 'Adresimi düzenle')),
       loading && h('p', {role: 'status', className: 'text-sm text-gray-500 py-3'}, 'Yakındaki hizmet verenler yükleniyor…'),
-      !loading && !error && data.length === 0 && h('p', {className: 'text-sm text-gray-500 py-4'}, 'Seçtiğiniz mesafede konumu kayıtlı hizmet veren bulunamadı.'),
+      !loading && !error && meta?.fallback_used && data.length > 0 && h('p', {role: 'status', className: 'text-sm text-gray-500 py-3'},
+        meta.fallback_message || `${radius} km içinde sonuç bulunamadı, en yakın diğer işletmeler gösteriliyor`),
+      !loading && !error && data.length === 0 && h('p', {className: 'text-sm text-gray-500 py-4'},
+        meta?.fallback_attempted ? 'Konumu kayıtlı uygun hizmet veren bulunamadı.' : 'Seçtiğiniz mesafede konumu kayıtlı hizmet veren bulunamadı.'),
       h('div', {className: 'grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4', 'aria-busy': loading}, data.map(provider => h(React.Fragment, {key: provider.user_id}, renderCard(provider)))),
       meta?.last_page > 1 && h('div', {className: 'flex items-center justify-center gap-4 mt-4'},
         h('button', {type: 'button', disabled: page <= 1 || loading, onClick: () => setPage(value => value - 1), className: 'text-sm font-semibold text-brand-orange disabled:opacity-50'}, 'Önceki'),

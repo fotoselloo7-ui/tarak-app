@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/network/api_exception.dart';
 import '../../auth/providers/auth_provider.dart';
 
 /// Verified/featured providers for the customer home (real data, same
@@ -245,7 +246,20 @@ String? nearbyProviderType(String? gender) => switch (gender?.toLowerCase()) {
   'female' => 'coiffeur', 'male' => 'barber', _ => null,
 };
 
-final nearbyHomeProvidersProvider = FutureProvider.family<List<Map<String, dynamic>>, NearbyHomeQuery>((ref, query) async {
+class NearbyHomeResult extends Iterable<Map<String, dynamic>> {
+  final List<Map<String, dynamic>> providers;
+  final bool fallbackAttempted;
+  final String? fallbackMessage;
+  const NearbyHomeResult({required this.providers, this.fallbackAttempted = false, this.fallbackMessage});
+
+  @override
+  Iterator<Map<String, dynamic>> get iterator => providers.iterator;
+  @override
+  int get length => providers.length;
+  Map<String, dynamic> operator [](int index) => providers[index];
+}
+
+final nearbyHomeProvidersProvider = FutureProvider.family<NearbyHomeResult, NearbyHomeQuery>((ref, query) async {
   ref.watch(authNotifierProvider.select((s) => s.user?.id));
   ref.watch(authNotifierProvider.select((s) => s.user?.avatarUrl));
   final type = nearbyProviderType(ref.watch(authNotifierProvider.select((s) => s.user?.gender)));
@@ -256,7 +270,31 @@ final nearbyHomeProvidersProvider = FutureProvider.family<List<Map<String, dynam
     if (query.longitude != null) 'lng': query.longitude,
     'radius_km': query.radiusKm,
   });
-  final data = res.data is Map ? res.data['data'] : null;
-  if (data is! List) throw const FormatException('Yakındaki hizmet verenler yüklenemedi.');
-  return data.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
+  final body = res.data;
+  if (body is! Map) throw const FormatException('Yakındaki hizmet verenler yüklenemedi.');
+  if (body['success'] == false) {
+    throw AppException(message: body['message']?.toString() ?? 'Yakındaki hizmet verenler yüklenemedi.');
+  }
+  final data = body['data'];
+  if (data is! List) {
+    throw AppException(message: body['message']?.toString() ?? 'Yakındaki hizmet verenler yüklenemedi.');
+  }
+  final rawMeta = body['meta'];
+  final meta = rawMeta is Map ? rawMeta : const <String, dynamic>{};
+  final fallbackUsed = meta['fallback_used'] == true;
+  final rawSponsored = body['sponsored'];
+  final sponsored = fallbackUsed && rawSponsored is List ? rawSponsored : const [];
+  final seen = <String>{};
+  final providers = <Map<String, dynamic>>[];
+  for (final item in [...sponsored, ...data].whereType<Map>()) {
+    final id = '${item['user_id'] ?? item['id']}';
+    if (seen.add(id)) providers.add(Map<String, dynamic>.from(item));
+  }
+  return NearbyHomeResult(
+    providers: providers,
+    fallbackAttempted: meta['fallback_attempted'] == true,
+    fallbackMessage: fallbackUsed
+        ? meta['fallback_message']?.toString() ?? '${query.radiusKm} km içinde sonuç bulunamadı, en yakın diğer işletmeler gösteriliyor'
+        : null,
+  );
 }, retry: (_, _) => null);

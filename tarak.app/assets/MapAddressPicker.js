@@ -1,5 +1,5 @@
-import { r as React, j as jsx } from './react-vendor-Dj04zrcb.js?v=20261030-address-rules1';
-import { M as Modal } from './index-Bj5sn6If.js?v=20261030-address-rules1';
+import { r as React, j as jsx } from './react-vendor-Dj04zrcb.js?v=20261030-nearby-fallback1';
+import { M as Modal } from './index-Bj5sn6If.js?v=20261030-nearby-fallback1';
 
 let mapLibrePromise;
 

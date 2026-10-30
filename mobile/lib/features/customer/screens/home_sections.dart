@@ -396,11 +396,17 @@ class _HomeNearbyProvidersSectionState extends ConsumerState<HomeNearbyProviders
         )
       else
       nearby!.when(
-        data: (providers) => providers.isEmpty
-          ? const Padding(padding: EdgeInsets.only(bottom: 18), child: Text('Bu mesafede hizmet veren bulunamadı.'))
-          : SizedBox(height: 174, child: ListView.separated(scrollDirection: Axis.horizontal,
+        data: (providers) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          if (providers.fallbackMessage != null && providers.isNotEmpty)
+            Padding(padding: const EdgeInsets.only(bottom: 12), child: Text(providers.fallbackMessage!,
+                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary))),
+          if (providers.isEmpty)
+            Padding(padding: const EdgeInsets.only(bottom: 18), child: Text(providers.fallbackAttempted
+                ? 'Konumu kayıtlı uygun hizmet veren bulunamadı.' : 'Bu mesafede hizmet veren bulunamadı.'))
+          else SizedBox(height: 174, child: ListView.separated(scrollDirection: Axis.horizontal,
               itemCount: providers.length, separatorBuilder: (_, _) => const SizedBox(width: 12),
               itemBuilder: (context, index) => _ProviderCard(provider: providers[index]))),
+        ]),
         loading: () => const Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
         error: (error, _) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(error is AppException ? error.message : 'Yakındaki hizmet verenler yüklenemedi. Lütfen tekrar deneyin.', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),

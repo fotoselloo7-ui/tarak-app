@@ -1,4 +1,4 @@
-import {r as React} from './react-vendor-Dj04zrcb.js?v=20261030-address-rules1';
+import {r as React} from './react-vendor-Dj04zrcb.js?v=20261030-nearby-fallback1';
 
 const h = React.createElement;
 const scripts = new Map();

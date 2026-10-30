@@ -140,6 +140,12 @@ class ListingAdService
         $requireServiceRadius = !empty($context['require_service_radius']);
         if ($origin && ($max || $requireServiceRadius)) {
             $profiles = $profiles->filter(function (ProviderProfile $p) use ($origin, $max, $preview, $requireServiceRadius) {
+                if ($requireServiceRadius && ($p->user?->role !== 'PROVIDER' || $p->user?->status !== 'active'
+                    || $p->latitude === null || $p->longitude === null
+                    || abs((float) $p->latitude) > 90 || abs((float) $p->longitude) > 180
+                    || ((float) $p->latitude === 0.0 && (float) $p->longitude === 0.0))) {
+                    return false;
+                }
                 if ($preview !== null && $p->user_id === $preview) {
                     return true;
                 }
