@@ -116,3 +116,7 @@ Yeni Flutter testleri: aynı anda iki kayıt tek HTTP isteği çıkarır; normal
 Güncel kanıtlar: `.tools/registration-final-analyze.log`, `.tools/registration-final-flutter.log`, `.tools/registration-final-backend.log`, `.tools/registration-full-backend.log`, `.tools/registration-pixel9-run.log`. Üretimde yeni kullanıcı açılmadı, canlı SMTP/SMS teslimatı denenmedi.
 
 Kalan dağıtım dosyaları ve kayıt/medya bağımlılıkları bir araya getirildi: `.tools/tarak-backend-stability-registration-2026-10-30.zip`. Toplam 21 PHP dosyasının syntax, ZIP CRC ve kaynakla byte eşitliği doğrulandı. Paket 11 runtime değişikliği ile 10 mevcut kayıt/medya bağımlılığını içerir. Tam liste/kurulum `BACKEND_STABILITY_UPDATE_2026-10-30.md` içindedir. Önceki tek dosyalık Google giriş yaması bütün bu güncellemeleri kapsamıyordu. Bu paket otomatik dağıtılmadı.
+
+Son Pixel 9 kontrolü: kayıt düzeltmelerini içeren debug APK kuruldu; mevcut oturum yeniden açıldı ve canonical profil fotoğrafı ana sayfa başlığında gerçek cihazda görüldü. `flutter run` kurulum sonrası “The log reader stopped unexpectedly” bildirdi; çalışan process ve Dart VM servisi ADB ile doğrulandı. Yeni kayıt/SMTP/SMS canlı testine dönüşen bir işlem yapılmadı.
+
+Aynı production dart-define değerleriyle mevcut VM adresine yeniden attach başarılı oldu; debug bağlantısı geri kuruldu.
