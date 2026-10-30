@@ -138,6 +138,7 @@ class PublicProviderController extends Controller
     public function nearby(Request $request): JsonResponse
     {
         $validated = $request->validate([
+            'customer_address_id' => ['sometimes', 'integer', 'min:1'],
             'radius_km' => ['sometimes', 'numeric', 'between:1,50'],
             'lat' => ['required_with:lng', 'numeric', 'between:-90,90'],
             'lng' => ['required_with:lat', 'numeric', 'between:-180,180'],
@@ -148,17 +149,18 @@ class PublicProviderController extends Controller
 
         $radius = (float) ($validated['radius_km'] ?? 10);
         $source = 'device';
-        if (isset($validated['lat'], $validated['lng'])) {
+        if (!empty($validated['customer_address_id'])) {
+            $address = app(\App\Services\SavedCustomerLocation::class)->resolve($request->user(), (int) $validated['customer_address_id']);
+            $latitude = (float) $address->latitude;
+            $longitude = (float) $address->longitude;
+            $source = 'saved_address';
+        } elseif (isset($validated['lat'], $validated['lng'])) {
             $latitude = (float) $validated['lat'];
             $longitude = (float) $validated['lng'];
         } else {
-            $profile = $request->user()->customerProfile;
-            $address = null;
-            if ($profile) {
-                $address = $profile->defaultAddress()->first();
-            }
-            $latitude = $address?->latitude !== null ? (float) $address->latitude : null;
-            $longitude = $address?->longitude !== null ? (float) $address->longitude : null;
+            $address = app(\App\Services\SavedCustomerLocation::class)->resolve($request->user());
+            $latitude = (float) $address->latitude;
+            $longitude = (float) $address->longitude;
             $source = 'saved_address';
         }
 

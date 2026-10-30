@@ -402,7 +402,7 @@ class AppointmentWizardState {
     this.availableProviders = const [],
     this.sponsoredProviders = const [],
     this.rotationSeconds,
-    this.providerFilters = const ProviderListFilters(),
+    this.providerFilters = const ProviderListFilters(maxDistanceKm: 50, sort: ProviderSort.distance),
     this.isLoadingProviders = false,
     this.providersError,
     this.selectedProvider,
@@ -424,7 +424,7 @@ class AppointmentWizardState {
     this.errorMessage,
   });
 
-  bool get canProceedToProvider => selectedServices.isNotEmpty;
+  bool get canProceedToProvider => selectedAddress != null && selectedServices.isNotEmpty;
   bool get canProceedToDateTime => selectedProvider != null;
   bool get hasBookableSelection =>
       selectedPackage != null || selectedServices.isNotEmpty;
@@ -549,7 +549,7 @@ class AppointmentWizardNotifier extends Notifier<AppointmentWizardState> {
       slotConflict: false,
     );
 
-    if (list.isNotEmpty) loadProviders();
+    if (list.isNotEmpty && state.selectedAddress != null) loadProviders();
   }
 
   /// Search / stars / distance / sort of the provider step: the backend answers with the filtered list.
@@ -561,7 +561,7 @@ class AppointmentWizardNotifier extends Notifier<AppointmentWizardState> {
 
   /// Discovery for ALL selected services, decided by the backend (filters and list ads included).
   Future<void> loadProviders() async {
-    if (state.selectedServices.isEmpty) return;
+    if (state.selectedServices.isEmpty || state.selectedAddress == null) return;
     final req = ++_providersReq;
     state = state.copyWith(isLoadingProviders: true, clearProvidersError: true);
     try {
@@ -569,7 +569,7 @@ class AppointmentWizardNotifier extends Notifier<AppointmentWizardState> {
           .read(customerAppointmentRepositoryProvider)
           .fetchProviderList(
             serviceIds: state.selectedServices.map((s) => s.id).toList(),
-            filters: state.providerFilters.toQuery(ref.read(listOriginProvider)),
+            filters: _providerQuery(),
           );
       if (!ref.mounted || req != _providersReq) return;
       state = state.copyWith(
@@ -589,12 +589,13 @@ class AppointmentWizardNotifier extends Notifier<AppointmentWizardState> {
 
   /// The recommended set changes every few seconds: asks for just the cards again (same filters).
   Future<void> refreshRecommended() async {
-    if (state.selectedServices.isEmpty || state.isLoadingProviders) return;
+    if (state.selectedServices.isEmpty || state.selectedAddress == null || state.isLoadingProviders) return;
+    final generation = _providersReq;
     final result = await ref.read(customerAppointmentRepositoryProvider).fetchProviderList(
           serviceIds: state.selectedServices.map((s) => s.id).toList(),
-          filters: {...state.providerFilters.toQuery(ref.read(listOriginProvider)), 'sponsored_only': 1},
+          filters: {..._providerQuery(), 'sponsored_only': 1},
         );
-    if (!ref.mounted) return;
+    if (!ref.mounted || generation != _providersReq) return;
     state = state.copyWith(sponsoredProviders: result.sponsored, rotationSeconds: result.rotationSeconds);
   }
 
@@ -723,8 +724,26 @@ class AppointmentWizardNotifier extends Notifier<AppointmentWizardState> {
     );
   }
 
+  Map<String, dynamic> _providerQuery() {
+    final address = state.selectedAddress!;
+    final origin = address.latitude != null && address.longitude != null
+        ? ListOrigin(lat: address.latitude!, lng: address.longitude!) : null;
+    return {...state.providerFilters.toQuery(origin),
+      'customer_address_id': address.id,
+      'max_distance_km': state.providerFilters.maxDistanceKm > 0 ? state.providerFilters.maxDistanceKm : 50,
+      'sort': state.providerFilters.sort == ProviderSort.relevance ? 'distance' : state.providerFilters.sort.name};
+  }
+
   void selectAddress(CustomerAddress address) {
-    state = state.copyWith(selectedAddress: address, clearError: true);
+    if (state.selectedAddress?.id == address.id && state.selectedAddress?.latitude == address.latitude &&
+        state.selectedAddress?.longitude == address.longitude) { return; }
+    ++_providersReq;
+    ++_availabilityReq;
+    state = state.copyWith(selectedAddress: address, clearProvider: true, clearPackage: true,
+      providerPackages: const [], availableProviders: const [], sponsoredProviders: const [],
+      clearSlot: true, availableSlots: const [], clearEstimate: true,
+      isLoadingAvailability: false, isLoadingProviders: false, clearError: true);
+    if (state.selectedServices.isNotEmpty) loadProviders();
   }
 
   void setPaymentMethod(String method) {

@@ -14,6 +14,7 @@ class UserNotification extends Model
     protected $table = 'user_notifications';
 
     // Canonical Notification Types
+    public const TYPE_INSTANT_OPPORTUNITY = 'INSTANT_OPPORTUNITY';
     public const TYPE_OFFER_RECEIVED = 'OFFER_RECEIVED';
     public const TYPE_OFFER_ACCEPTED = 'OFFER_ACCEPTED';
     public const TYPE_INSTANT_ASSIGNED = 'INSTANT_ASSIGNED';

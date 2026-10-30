@@ -8,6 +8,8 @@ import '../../shared/screens/map_address_picker.dart';
 import '../models/customer_address.dart';
 import '../providers/customer_profile_stats_provider.dart';
 import '../providers/instant_request_provider.dart';
+import '../providers/home_content_providers.dart';
+import '../providers/provider_list_origin.dart';
 import 'address_selection_screen.dart';
 
 /// Saved address management for the customer profile.
@@ -28,6 +30,7 @@ class _MyAddressesScreenState extends ConsumerState<MyAddressesScreen> {
 
   void _refresh() {
     ref.invalidate(customerAddressesProvider);
+    ref.invalidate(nearbyHomeProvidersProvider);
     ref.invalidate(customerProfileStatsProvider);
   }
 
@@ -47,6 +50,7 @@ class _MyAddressesScreenState extends ConsumerState<MyAddressesScreen> {
       await ref
           .read(instantRequestRepositoryProvider)
           .updateAddress(address.id, {'is_default': true});
+      ref.read(providerListOriginProvider.notifier).useSavedAddress();
       _refresh();
       _toast('Varsayılan adres güncellendi.');
     } catch (_) {

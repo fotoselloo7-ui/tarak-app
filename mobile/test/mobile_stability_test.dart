@@ -94,6 +94,7 @@ void main() {
         latitude: origin.lat,
         longitude: origin.lng,
         radiusKm: 10,
+        customerAddressId: null,
       )).future,
     );
     expect(old.single['distance_km'], 1.2);
@@ -116,6 +117,7 @@ void main() {
         latitude: origin.lat,
         longitude: origin.lng,
         radiusKm: 10,
+        customerAddressId: null,
       )).future,
     );
     expect(adapter.requests.last, {

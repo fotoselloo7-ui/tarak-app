@@ -354,7 +354,7 @@ class CustomerHomeTab extends ConsumerWidget {
                         onSelect: () => Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const ServiceSelectionScreen(),
+                            builder: (_) => const CreateAppointmentScreen(),
                           ),
                         ),
                       ),

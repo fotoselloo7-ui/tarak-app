@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/tarak_rating.dart';
 import '../../../shared/widgets/provider_list_tools.dart';
-import '../../providers/provider_list_origin.dart';
 
 import '../../providers/instant_request_provider.dart';
 import '../../screens/address_selection_screen.dart';
@@ -31,10 +30,16 @@ class _CreateAppointmentScreenState
   /// Address created from this flow; selected once the refreshed list contains it.
   int? _pendingAddressId;
 
-  static const _dateStep = 2;
+  static const _dateStep = 3;
 
   /// The recommended cards of the provider step change every few seconds.
   final RecommendedTicker _ticker = RecommendedTicker();
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() { if (mounted) ref.read(appointmentWizardProvider.notifier).reset(); });
+  }
 
   @override
   void dispose() {
@@ -126,45 +131,17 @@ class _CreateAppointmentScreenState
     );
   }
 
-  String _getStepTitle(int step) {
-    switch (step) {
-      case 0:
-        return '1. Hizmet Seçimi';
-      case 1:
-        return '2. Hizmet Veren Seçimi';
-      case 2:
-        return '3. Tarih & Saat';
-      case 3:
-        return '4. Adres Seçimi';
-      case 4:
-        return '5. Ödeme Yöntemi';
-      case 5:
-        return '6. İncele ve Onayla';
-      default:
-        return 'Randevu Oluştur';
-    }
-  }
+  String _getStepTitle(int step) => switch (step) {
+    0 => '1. Adres Seçimi', 1 => '2. Hizmet Seçimi', 2 => '3. Hizmet Veren Seçimi',
+    3 => '4. Tarih & Saat', 4 => '5. Ödeme Yöntemi', 5 => '6. İncele ve Onayla', _ => 'Randevu Oluştur',
+  };
 
-  Widget _buildCurrentStepView(
-    AppointmentWizardState state,
-    AppointmentWizardNotifier notifier,
-  ) {
-    switch (_currentStep) {
-      case 0:
-        return _buildServiceSelectionStep(state, notifier);
-      case 1:
-        return _buildProviderSelectionStep(state, notifier);
-      case 2:
-        return _buildDateTimeStep(state, notifier);
-      case 3:
-        return _buildAddressStep(state, notifier);
-      case 4:
-        return _buildPaymentStep(state, notifier);
-      case 5:
-        return _buildReviewStep(state, notifier);
-      default:
-        return const SizedBox.shrink();
-    }
+  Widget _buildCurrentStepView(AppointmentWizardState state, AppointmentWizardNotifier notifier) {
+    return switch (_currentStep) {
+      0 => _buildAddressStep(state, notifier), 1 => _buildServiceSelectionStep(state, notifier),
+      2 => _buildProviderSelectionStep(state, notifier), 3 => _buildDateTimeStep(state, notifier),
+      4 => _buildPaymentStep(state, notifier), 5 => _buildReviewStep(state, notifier), _ => const SizedBox.shrink(),
+    };
   }
 
   // ── Step 1: Services ───────────────────────────────────────────────────────
@@ -239,15 +216,9 @@ class _CreateAppointmentScreenState
     AppointmentWizardState state,
     AppointmentWizardNotifier notifier,
   ) {
-    // The position arrives later (saved address loaded / device located): list again with distances.
-    ref.listen<ListOrigin?>(listOriginProvider, (previous, next) {
-      if (next == null || (previous?.lat == next.lat && previous?.lng == next.lng)) return;
-      notifier.loadProviders();
-    });
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (_currentStep == 1 && state.sponsoredProviders.isNotEmpty) {
+      if (_currentStep == 2 && state.sponsoredProviders.isNotEmpty) {
         _ticker.start(state.rotationSeconds, notifier.refreshRecommended);
       } else {
         _ticker.stop();
@@ -865,20 +836,6 @@ class _CreateAppointmentScreenState
           );
         }
 
-        // Pre-select default (or first) address if none selected yet
-        if (state.selectedAddress == null &&
-            _pendingAddressId == null &&
-            addresses.isNotEmpty) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            notifier.selectAddress(
-              addresses.firstWhere(
-                (a) => a.isDefault,
-                orElse: () => addresses.first,
-              ),
-            );
-          });
-        }
-
         return ListView.separated(
           padding: const EdgeInsets.all(16),
           itemCount: addresses.length + 1,
@@ -1288,24 +1245,12 @@ class _CreateAppointmentScreenState
   ) {
     bool canProceed = false;
     switch (_currentStep) {
-      case 0:
-        canProceed = state.canProceedToProvider;
-        break;
-      case 1:
-        canProceed = state.canProceedToDateTime;
-        break;
-      case 2:
-        canProceed = state.canProceedToAddress;
-        break;
-      case 3:
-        canProceed = state.canProceedToPayment;
-        break;
-      case 4:
-        canProceed = state.canReview;
-        break;
-      case 5:
-        canProceed = !state.isSubmitting;
-        break;
+      case 0: canProceed = state.selectedAddress != null; break;
+      case 1: canProceed = state.canProceedToProvider; break;
+      case 2: canProceed = state.canProceedToDateTime; break;
+      case 3: canProceed = state.canProceedToAddress; break;
+      case 4: canProceed = state.canReview; break;
+      case 5: canProceed = !state.isSubmitting; break;
     }
 
     return Container(

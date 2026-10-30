@@ -101,7 +101,7 @@ class CustomerProfileController extends Controller
 
             // If address provided, create or update default address
             if (!empty($validated['address'])) {
-                $addrData = $validated['address'];
+                $addrData = $this->resolveAddressCoordinates($validated['address']);
                 $defaultAddr = $profile->defaultAddress()->first();
                 if ($defaultAddr) {
                     $defaultAddr->update([

@@ -18,6 +18,7 @@ class GeoApiTest extends TestCase
     {
         parent::setUp();
         Cache::flush();
+        Http::preventStrayRequests();
     }
 
     public function test_geocoding_reports_upstream_unavailability_without_a_key_requirement(): void

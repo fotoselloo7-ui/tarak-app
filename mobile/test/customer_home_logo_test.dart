@@ -4,6 +4,7 @@ import 'package:app/core/network/api_client.dart';
 import 'package:app/core/services/secure_storage_service.dart';
 import 'package:app/core/widgets/brand_logo.dart';
 import 'package:app/features/shared/widgets/common_widgets.dart';
+import 'package:app/features/customer/screens/home_sections.dart';
 import 'package:app/features/auth/models/user_model.dart';
 import 'package:app/features/auth/providers/auth_provider.dart';
 import 'package:app/features/customer/appointments/models/customer_appointment_model.dart';
@@ -105,5 +106,9 @@ void main() {
     // The page scrolled, the toolbar (wordmark) did not move.
     expect(logo, findsOneWidget);
     expect(tester.getTopLeft(logo), before);
+    tester.widget<HomeFinalCta>(find.byType(HomeFinalCta)).onSelect();
+    await tester.pumpAndSettle();
+    expect(find.text('1. Adres Seçimi'), findsOneWidget);
+
   });
 }

@@ -481,6 +481,11 @@ class CreateRequestNotifier extends Notifier<CreateRequestState> {
   }
 
   Future<ServiceRequestModel?> submit() async {
+    if (state.isSubmitting) return null;
+    if (state.selectedAddressId == null) {
+      state = state.copyWith(errorMessage: 'Önce kayıtlı bir adres seçin.');
+      return null;
+    }
     if (!state.hasServices) {
       state = state.copyWith(errorMessage: 'Lütfen en az bir hizmet seçin.');
       return null;

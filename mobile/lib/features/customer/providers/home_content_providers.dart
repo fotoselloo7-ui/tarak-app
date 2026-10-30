@@ -239,12 +239,19 @@ final homeServicesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) as
 /// Uses the same server-side distance query as the web home. The API computes
 /// distance from the customer's actual profile coordinates and never sends
 /// provider coordinates to the client.
-typedef NearbyHomeQuery = ({double? latitude, double? longitude, int radiusKm});
+typedef NearbyHomeQuery = ({double? latitude, double? longitude, int radiusKm, int? customerAddressId});
+
+String? nearbyProviderType(String? gender) => switch (gender?.toLowerCase()) {
+  'female' => 'coiffeur', 'male' => 'barber', _ => null,
+};
 
 final nearbyHomeProvidersProvider = FutureProvider.family<List<Map<String, dynamic>>, NearbyHomeQuery>((ref, query) async {
   ref.watch(authNotifierProvider.select((s) => s.user?.id));
   ref.watch(authNotifierProvider.select((s) => s.user?.avatarUrl));
+  final type = nearbyProviderType(ref.watch(authNotifierProvider.select((s) => s.user?.gender)));
   final res = await ref.read(apiClientProvider).get('/customer/providers/nearby', queryParameters: {
+    if (query.customerAddressId != null) 'customer_address_id': query.customerAddressId,
+    'type': ?type,
     if (query.latitude != null) 'lat': query.latitude,
     if (query.longitude != null) 'lng': query.longitude,
     'radius_km': query.radiusKm,

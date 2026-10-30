@@ -474,6 +474,14 @@ void main() {
       final container = ProviderContainer();
       final notifier = container.read(appointmentWizardProvider.notifier);
 
+      notifier.selectAddress(
+        const CustomerAddress(
+          id: 5,
+          title: 'Ev',
+          province: 'İstanbul',
+          district: 'Kadıköy',
+        ),
+      );
       notifier.toggleService(const ServiceItem(id: 1, name: 'Saç Kesimi'));
       notifier.selectProvider(
         const ScheduledProviderModel(
@@ -484,14 +492,7 @@ void main() {
       );
       notifier.selectDate(DateTime(2026, 9, 25));
       notifier.selectSlot('14:30');
-      notifier.selectAddress(
-        const CustomerAddress(
-          id: 5,
-          title: 'Ev',
-          province: 'İstanbul',
-          district: 'Kadıköy',
-        ),
-      );
+
       notifier.setPaymentMethod('CASH');
 
       final state = container.read(appointmentWizardProvider);
@@ -538,10 +539,6 @@ void main() {
       );
 
       final notifier = container.read(appointmentWizardProvider.notifier);
-      notifier.toggleService(const ServiceItem(id: 1, name: 'Hizmet'));
-      notifier.selectProvider(const ScheduledProviderModel(id: 1, userId: 2));
-      notifier.selectDate(DateTime(2026, 9, 25));
-      notifier.selectSlot('10:00');
       notifier.selectAddress(
         const CustomerAddress(
           id: 1,
@@ -550,6 +547,11 @@ void main() {
           district: 'Kadıköy',
         ),
       );
+      notifier.toggleService(const ServiceItem(id: 1, name: 'Hizmet'));
+      notifier.selectProvider(const ScheduledProviderModel(id: 1, userId: 2));
+      notifier.selectDate(DateTime(2026, 9, 25));
+      notifier.selectSlot('10:00');
+
 
       // Submit concurrently
       final fut1 = notifier.submitAppointment();
@@ -593,10 +595,6 @@ void main() {
       );
 
       final notifier = container.read(appointmentWizardProvider.notifier);
-      notifier.toggleService(const ServiceItem(id: 1, name: 'Hizmet'));
-      notifier.selectProvider(const ScheduledProviderModel(id: 1, userId: 2));
-      notifier.selectDate(DateTime(2026, 9, 25));
-      notifier.selectSlot('10:00');
       notifier.selectAddress(
         const CustomerAddress(
           id: 1,
@@ -605,6 +603,11 @@ void main() {
           district: 'Kadıköy',
         ),
       );
+      notifier.toggleService(const ServiceItem(id: 1, name: 'Hizmet'));
+      notifier.selectProvider(const ScheduledProviderModel(id: 1, userId: 2));
+      notifier.selectDate(DateTime(2026, 9, 25));
+      notifier.selectSlot('10:00');
+
 
       final created = await notifier.submitAppointment();
       expect(created, isNotNull);

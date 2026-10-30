@@ -1,3 +1,5 @@
+import '../../auth/providers/auth_provider.dart';
+import '../providers/instant_request_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
@@ -352,15 +354,22 @@ class _HomeNearbyProvidersSectionState extends ConsumerState<HomeNearbyProviders
   Widget build(BuildContext context) {
     final location = ref.watch(providerListOriginProvider);
     // Follow the active saved address as well as the opted-in device position.
-    // Never ask the API without coordinates: its fallback could use an older address.
+    // Send the default address ID so coordinate-less saved addresses can be resolved safely.
     final origin = ref.watch(listOriginProvider);
-    final nearby = origin == null ? null : ref.watch(nearbyHomeProvidersProvider((
-      latitude: origin.lat,
-      longitude: origin.lng,
+    final addresses = ref.watch(customerAddressesProvider);
+    final saved = addresses.isLoading || addresses.hasError ? null : addresses.value?.where((a) => a.isDefault).firstOrNull;
+    final fromDevice = origin?.fromDevice == true;
+    final hasLocation = fromDevice || saved != null;
+    final type = nearbyProviderType(ref.watch(authNotifierProvider.select((s) => s.user?.gender)));
+    final title = type == 'barber' ? 'Size Yakın Berberler' : 'Size Yakın Kuaförler';
+    final nearby = !hasLocation ? null : ref.watch(nearbyHomeProvidersProvider((
+      latitude: origin?.lat,
+      longitude: origin?.lng,
+      customerAddressId: fromDevice ? null : saved?.id,
       radiusKm: _requestedRadiusKm,
     )));
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const SectionHeader(eyebrow: 'Konumuna göre', title: 'Size Yakın Berberler'),
+      SectionHeader(eyebrow: 'Konumuna göre', title: title),
       Row(children: [
         Expanded(child: Text('$_radiusKm km içinde', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700))),
         Text(origin?.fromDevice == true ? 'Cihaz konumu' : 'Kayıtlı adres', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
@@ -378,7 +387,7 @@ class _HomeNearbyProvidersSectionState extends ConsumerState<HomeNearbyProviders
         label: Text(location.status == DeviceLocationStatus.locating ? 'Konum alınıyor…' : location.device == null ? 'Cihaz konumumu kullan' : 'Kayıtlı adresimi kullan')),
       if (location.status == DeviceLocationStatus.denied || location.status == DeviceLocationStatus.unavailable)
         const Text('Cihaz konumu alınamadı. Kayıtlı adresiniz kullanılabilir.', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-      if (origin == null)
+      if (!hasLocation)
         const Padding(
           padding: EdgeInsets.only(bottom: 18),
           child: Text('Kayıtlı adresinizde haritadan bir konum seçin veya cihaz konumunu kullanın.',
@@ -393,7 +402,7 @@ class _HomeNearbyProvidersSectionState extends ConsumerState<HomeNearbyProviders
               itemBuilder: (context, index) => _ProviderCard(provider: providers[index]))),
         loading: () => const Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
         error: (_, _) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Yakındaki berberler için koordinatlı bir adres kaydedin veya cihaz konumuna izin verin.', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          const Text('Yakındaki hizmet verenler için koordinatlı bir adres kaydedin veya cihaz konumuna izin verin.', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           TextButton(onPressed: () => ref.invalidate(nearbyHomeProvidersProvider), child: const Text('Tekrar dene')),
         ]),
       ),
