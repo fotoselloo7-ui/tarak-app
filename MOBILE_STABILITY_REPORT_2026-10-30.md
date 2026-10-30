@@ -42,7 +42,7 @@ Test kanıtları yerel `.tools/` klasöründe: `pixel9-pubget.log`, `pixel9-fina
 |---|---|
 | 1. Launch | `Pixel_9`, emulator-5554 üzerinde debug APK derlendi/kuruldu; çalışan ana sayfa ve profil ekranı görüldü. ADB tek launcher MainActivity ve sürüm 1.1.1+6 doğruladı. |
 | 2. Google hesap seçimi | **Pixel 9’da gerçek Google “Choose an account” penceresi açıldı.** Hesap seçimi kullanıcıya bırakıldı; bir hesaba agent tarafından tıklanmadı. |
-| 3. Mevcut Google e-postasıyla doğrudan giriş | Backend testinde geçti; gerçek Google hesabıyla canlı uçtan uca yapılmadı. |
+| 3. Mevcut Google e-postasıyla doğrudan giriş | Yerel backend testinde geçti. Kullanıcının gerçek hesap seçiminden sonraki canlı deneme **başarısız**: canlı API eski “hesabı şifrenizle bağlayın” yanıtını döndürüyor. Güncel yerel controller bu metni üretmiyor. Canlı backend güncellenmeden başarı doğrulanamaz. |
 | 4. Google prefill ve OTP atlama | Backend testinde geçti; gerçek cihaz hesabıyla yapılmadı. |
 | 5. Avatar upload | İzole API testinde gerçek PNG dosyası yüklenip medya URL'si okundu; mevcut kalıcı profil fotoğrafı Pixel 9 profilinde görüldü. Canlı hesaba yeni fotoğraf yüklenmedi. |
 | 6. Aynı avatar yakın/favori/profil/mesaj kartında | Backend testinde aynı URL ve Flutter hata fallback testleri geçti; yeni fotoğrafla canlı kart uçtan uca yapılmadı. |
@@ -97,6 +97,10 @@ Backend regresyon testleri: `AppleIdentityTest.php`, `AuthRateLimitTest.php`, `A
 
 Yerel kod commit serisi: `c673d21` (auth/rate limit), `5a4084e` (backend avatar/default adres), `0d0e2a7` (mobil veri/yaşam döngüsü/native config).
 
-Gerçek hesap seçimi, computer-use becerisinin zorunlu okuttuğu `guidance.md` içindeki “Do not automate user authentication dialogs” kuralı nedeniyle kullanıcıya bırakıldı. Bu kural kod/test işlerinin bitirilmesini engellemedi; yalnız gerçek hesabın seçilmesi ve sonraki canlı giriş sonucu bekleniyor. iOS native cihaz doğrulaması ayrıca Windows ortamında yapılamadı.
+Gerçek hesap seçimi, computer-use becerisinin zorunlu okuttuğu `guidance.md` içindeki “Do not automate user authentication dialogs” kuralı nedeniyle kullanıcıya bırakıldı. Bu kural kod/test işlerinin bitirilmesini engellemedi; kullanıcı hesabı seçti ve hata bildirdi; ekran ile Android günlüğü incelenerek eski canlı backend yanıtı doğrulandı. iOS native cihaz doğrulaması ayrıca Windows ortamında yapılamadı.
 
 Teknik referanslar: [Google backend ID token doğrulaması](https://developers.google.com/identity/sign-in/android/backend-auth), [Apple kullanıcı doğrulaması](https://developer.apple.com/documentation/signinwithapple/verifying-a-user), yerelde kurulu `google_sign_in_ios-6.3.8/README.md` native GIDClientID/GIDServerClientID yapılandırması.
+
+## Gerçek Google denemesi sonrası bulgu
+
+Kullanıcı hesabı seçtikten sonra hata bildirdi. Android Google/CredentialManager günlüğünde kimlik alma işlemi başarılı; emülatör ekranındaki hata Tarak backend'inin eski bağlı-hesap mesajı. Güncel kaynakta bu mesajın bulunmadığı kontrol edildi. Bu denemede debug imzası veya Google audience reddi görülmedi; Google Cloud ayarları değiştirilmedi. Canlı dosya/sürüm veya PHP önbelleği güncel controller'ı çalıştırmıyor. Tek dosyalık dağıtım paketi `.tools/tarak-google-login-backend-fix-2026-10-30.zip`, yönergesi `GOOGLE_LOGIN_SERVER_UPDATE.md`. Paket byte eşitliği ve ZIP CRC kontrolünden geçti. Canlıya yüklenmedi.
