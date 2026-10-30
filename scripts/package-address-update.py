@@ -15,6 +15,7 @@ app/Http/Controllers/Api/PublicProviderController.php
 app/Http/Controllers/Api/SocialAuthController.php
 app/Http/Controllers/CustomerAppointmentController.php
 app/Models/User.php
+app/Models/ProviderProfile.php
 app/Models/UserNotification.php
 app/Services/ConversationService.php
 app/Services/SocialIdentityVerifier.php
@@ -79,7 +80,7 @@ output = ROOT / '.tools/tarak-address-opportunity-web-backend-2026-10-30.zip'
 output.parent.mkdir(exist_ok=True)
 with ZipFile(output, 'w', ZIP_DEFLATED) as archive:
     for name, path in sorted(files.items()):
-        archive.write(path, name)
+        archive.writestr(name, path.read_bytes())
     archive.writestr('KURULUM.md', readme.encode('utf-8'))
     archive.writestr('manifest.json', json.dumps(manifest, ensure_ascii=False, indent=2).encode('utf-8'))
 with ZipFile(output) as archive:
