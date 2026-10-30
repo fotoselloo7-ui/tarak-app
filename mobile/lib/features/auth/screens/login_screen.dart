@@ -6,7 +6,6 @@ import '../../../core/network/api_exception.dart';
 import '../../shared/widgets/custom_button.dart';
 import '../../shared/widgets/custom_text_field.dart';
 import '../providers/auth_provider.dart';
-import '../services/social_identity_service.dart';
 import '../widgets/web_landing_widgets.dart';
 import '../widgets/google_auth_button.dart';
 import 'register_screen.dart';
@@ -51,9 +50,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _socialLogin(String provider) async {
+    if (_socialBusy) return;
     setState(() { _socialBusy = true; _flowError = null; });
     try {
-      final credential = await SocialIdentityService(ref.read(apiClientProvider)).acquire(provider);
+      final credential = await ref.read(socialIdentityServiceProvider).acquire(provider);
       final success = await ref.read(authNotifierProvider.notifier).loginWithSocial(provider, credential.toJson());
       if (success && mounted && Navigator.of(context).canPop()) {
         Navigator.of(context).popUntil((route) => route.isFirst);

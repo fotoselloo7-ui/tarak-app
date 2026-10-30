@@ -7,7 +7,6 @@ import '../../shared/screens/legal_screen.dart';
 import '../../shared/widgets/custom_button.dart';
 import '../../shared/widgets/custom_text_field.dart';
 import '../providers/auth_provider.dart';
-import '../services/social_identity_service.dart';
 import '../widgets/preauth_widgets.dart';
 import '../widgets/google_auth_button.dart';
 import '../widgets/verification_code_dialog.dart';
@@ -113,6 +112,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Future<void> _submit() async {
+    if (_socialBusy || _emailBusy || _smsBusy || ref.read(authNotifierProvider).isLoading) return;
     if (!_formKey.currentState!.validate()) return;
     if (!_acceptTerms || !_acceptKvkk) {
       setState(() => _flowError = 'Kullanım koşulları ve KVKK onayı gereklidir.');
@@ -214,6 +214,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Future<void> _openVerification(String channel) async {
+    if (channel == 'email' ? _emailBusy : _smsBusy) return;
     setState(() => _flowError = null);
     try {
       final destination = (channel == 'email' ? _emailController : _phoneController).text.trim();
@@ -240,10 +241,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Future<void> _prefillSocial(String provider) async {
+    if (_socialBusy || ref.read(authNotifierProvider).isLoading) return;
     setState(() { _socialBusy = true; _flowError = null; });
     try {
       final api = ref.read(apiClientProvider);
-      final credential = await SocialIdentityService(api).acquire(provider);
+      final credential = await ref.read(socialIdentityServiceProvider).acquire(provider);
       final response = await api.post('/auth/social/$provider/prefill', data: credential.toJson());
       final body = response.data;
       final data = body is Map ? body['data'] : null;
@@ -251,8 +253,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         throw const AppException(message: 'Sağlayıcı bilgileri alınamadı.');
       }
       if (!mounted) return;
-      final firstName = data['first_name']?.toString() ?? '';
-      final lastName = data['last_name']?.toString() ?? '';
+      final firstName = data['first_name']?.toString().isNotEmpty == true
+          ? data['first_name'].toString() : credential.firstName ?? '';
+      final lastName = data['last_name']?.toString().isNotEmpty == true
+          ? data['last_name'].toString() : credential.lastName ?? '';
       if (firstName.isNotEmpty) _firstNameController.text = firstName;
       if (lastName.isNotEmpty) _lastNameController.text = lastName;
       _emailController.text = data['email']?.toString() ?? '';

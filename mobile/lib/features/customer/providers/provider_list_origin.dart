@@ -69,24 +69,35 @@ class ProviderListOriginState {
 final providerListOriginProvider = NotifierProvider<ProviderListOriginNotifier, ProviderListOriginState>(ProviderListOriginNotifier.new);
 
 class ProviderListOriginNotifier extends Notifier<ProviderListOriginState> {
-  @override
-  ProviderListOriginState build() => const ProviderListOriginState();
+  int _locationRequest = 0;
 
-  void useSavedAddress() => state = const ProviderListOriginState();
+  @override
+  ProviderListOriginState build() {
+    ref.watch(authNotifierProvider.select((s) => s.user?.id));
+    ++_locationRequest;
+    return const ProviderListOriginState();
+  }
+
+  void useSavedAddress() {
+    ++_locationRequest;
+    state = const ProviderListOriginState();
+  }
 
   /// "Konumumu kullan": asks for the permission (once) and remembers the position for every list.
   Future<void> useDevice() async {
     if (state.status == DeviceLocationStatus.locating) return;
+    final userId = ref.read(authNotifierProvider).user?.id;
+    final request = ++_locationRequest;
     state = ProviderListOriginState(device: state.device, status: DeviceLocationStatus.locating);
     try {
-      final origin = await ref.read(deviceLocatorProvider).locate();
-      if (!ref.mounted) return;
+      final origin = await ref.read(deviceLocatorProvider).locate().timeout(const Duration(seconds: 15));
+      if (!ref.mounted || request != _locationRequest || ref.read(authNotifierProvider).user?.id != userId) return;
       state = ProviderListOriginState(device: origin);
     } on DeviceLocationException catch (e) {
-      if (!ref.mounted) return;
+      if (!ref.mounted || request != _locationRequest || ref.read(authNotifierProvider).user?.id != userId) return;
       state = ProviderListOriginState(device: state.device, status: e.status);
     } catch (_) {
-      if (!ref.mounted) return;
+      if (!ref.mounted || request != _locationRequest || ref.read(authNotifierProvider).user?.id != userId) return;
       state = ProviderListOriginState(device: state.device, status: DeviceLocationStatus.unavailable);
     }
   }
@@ -99,15 +110,15 @@ final listOriginProvider = Provider<ListOrigin?>((ref) {
   if (device != null) return device;
   final isCustomer = ref.watch(authNotifierProvider.select((s) => s.isCustomer));
   if (!isCustomer) return null;
-  final addresses = ref.watch(customerAddressesProvider).value;
+  final addressState = ref.watch(customerAddressesProvider);
+  if (addressState.isLoading || addressState.hasError) return null;
+  final addresses = addressState.value;
   if (addresses == null) return null;
   // The default address has priority, including when it lacks coordinates.
   // Falling back to an old address silently shows the wrong city (e.g. Alanya
   // instead of a newly selected address in Şişli).
   final defaults = addresses.where((a) => a.isDefault).toList();
-  final chosen = defaults.isNotEmpty
-      ? defaults.first
-      : addresses.where((a) => a.latitude != null && a.longitude != null).firstOrNull;
+  final chosen = defaults.firstOrNull;
   if (chosen?.latitude == null || chosen?.longitude == null) return null;
   return ListOrigin(lat: chosen!.latitude!, lng: chosen.longitude!);
 });

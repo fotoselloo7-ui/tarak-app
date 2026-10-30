@@ -8,8 +8,7 @@
         android:label="@string/app_name"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
-        <!-- MainActivity has no launcher entry of its own: every selectable app icon is an <activity-alias> below
-             (exactly one enabled at a time; see lib/core/app_icon and tools/generate_app_icons.py). -->
+        <!-- MainActivity is the tooling/debug launcher; release uses one selectable activity-alias. -->
         <activity
             android:name=".MainActivity"
             android:label="@string/app_name"

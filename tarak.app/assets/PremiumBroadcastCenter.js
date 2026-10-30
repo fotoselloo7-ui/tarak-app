@@ -1,4 +1,4 @@
-import {r as React} from './react-vendor-Dj04zrcb.js?v=20261028-integrations1';
+import {r as React} from './react-vendor-Dj04zrcb.js?v=20261030-nearby-fallback1';
 
 /** Tarak admin-only announcement composer, mounted in Ads > Notification Ads. */
 const h=React.createElement;

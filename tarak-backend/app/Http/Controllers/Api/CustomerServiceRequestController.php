@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ServiceOfferResource;
 use App\Http\Resources\ServiceRequestResource;
-use App\Models\CustomerAddress;
 use App\Models\LocationShareGrant;
 use App\Models\Service;
 use App\Models\ServiceOffer;
@@ -60,12 +59,12 @@ class CustomerServiceRequestController extends Controller
             'service_ids' => 'required|array|min:1',
             'service_ids.*' => 'required|integer|exists:services,id',
             'category_id' => 'nullable|string|exists:service_categories,id',
-            'customer_address_id' => 'nullable|integer|exists:customer_addresses,id',
+            'customer_address_id' => 'required|integer|exists:customer_addresses,id',
             'approx_province' => 'nullable|string|max:100',
             'approx_district' => 'nullable|string|max:100',
             'approx_neighborhood' => 'nullable|string|max:150',
-            'private_latitude' => 'nullable|numeric',
-            'private_longitude' => 'nullable|numeric',
+            'private_latitude' => 'nullable|numeric|between:-90,90',
+            'private_longitude' => 'nullable|numeric|between:-180,180',
             'payment_method' => 'nullable|string|in:CASH,ONLINE',
             'customer_note' => 'nullable|string|max:1000',
             'duration_preference' => 'nullable|max:50',
@@ -97,17 +96,7 @@ class CustomerServiceRequestController extends Controller
         $locationText = null;
 
         if (!empty($validated['customer_address_id'])) {
-            $customerProfile = $user->customerProfile;
-            $savedAddress = CustomerAddress::where('id', $validated['customer_address_id'])
-                ->where('customer_profile_id', $customerProfile?->id)
-                ->first();
-
-            if (!$savedAddress) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Seçilen kayıtlı adres hesabınıza ait değil.',
-                ], 403);
-            }
+            $savedAddress = app(\App\Services\SavedCustomerLocation::class)->resolve($user, (int) $validated['customer_address_id']);
 
             // Extract privacy-safe regional snapshot and private coordinates
             $approxProvince = $savedAddress->province;
@@ -150,6 +139,7 @@ class CustomerServiceRequestController extends Controller
             ]);
 
             $record->services()->sync($validated['service_ids']);
+            app(\App\Services\InstantOpportunityNotifier::class)->notifyEligible($record);
 
             return $record;
         });
@@ -172,12 +162,12 @@ class CustomerServiceRequestController extends Controller
         $validated = $request->validate([
             'provider_service_id' => 'nullable|integer|required_without:provider_package_id|prohibits:provider_package_id',
             'provider_package_id' => 'nullable|integer|required_without:provider_service_id',
-            'customer_address_id' => 'nullable|integer|exists:customer_addresses,id',
+            'customer_address_id' => 'required|integer|exists:customer_addresses,id',
             'approx_province' => 'nullable|string|max:100',
             'approx_district' => 'nullable|string|max:100',
             'approx_neighborhood' => 'nullable|string|max:150',
-            'private_latitude' => 'nullable|numeric',
-            'private_longitude' => 'nullable|numeric',
+            'private_latitude' => 'nullable|numeric|between:-90,90',
+            'private_longitude' => 'nullable|numeric|between:-180,180',
             'payment_method' => 'nullable|string|in:CASH,ONLINE',
             'customer_note' => 'nullable|string|max:1000',
         ], [
@@ -262,7 +252,7 @@ class CustomerServiceRequestController extends Controller
         app(\App\Services\NotificationService::class)->notifyUser(
             $profile->user_id,
             \App\Models\UserNotification::TYPE_DIRECT_REQUEST_RECEIVED,
-            'Size Özel Hizmet Talebi',
+            'Yeni iş fırsatı',
             "Bir müşteri sizi doğrudan çağırdı: {$offering['snapshot']['title']}.",
             \App\Models\UserNotification::RESOURCE_INSTANT_REQUEST,
             $serviceRequest->id,
@@ -288,16 +278,7 @@ class CustomerServiceRequestController extends Controller
     private function resolveLocation($user, array $validated): array|JsonResponse
     {
         if (!empty($validated['customer_address_id'])) {
-            $savedAddress = CustomerAddress::where('id', $validated['customer_address_id'])
-                ->where('customer_profile_id', $user->customerProfile?->id)
-                ->first();
-
-            if (!$savedAddress) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Seçilen kayıtlı adres hesabınıza ait değil.',
-                ], 403);
-            }
+            $savedAddress = app(\App\Services\SavedCustomerLocation::class)->resolve($user, (int) $validated['customer_address_id']);
 
             return [
                 'approx_province' => $savedAddress->province,

@@ -31,6 +31,18 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
 
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException $e, Request $request) {
+            if ($request->is('api/*') || $request->expectsJson()) {
+                $headers = $e->getHeaders();
+                $seconds = max(1, (int) ($headers['Retry-After'] ?? 60));
+                return response()->json([
+                    'success' => false,
+                    'message' => "Çok fazla deneme yapıldı. {$seconds} saniye sonra tekrar deneyin.",
+                    'retry_after_seconds' => $seconds,
+                ], 429, $headers);
+            }
+        });
+
         // Production API Error Leak Prevention: Never leak SQL, file paths, env, or stack traces in production
         $exceptions->render(function (\Throwable $e, Request $request) {
             if (($request->is('api/*') || $request->expectsJson()) && !config('app.debug')) {

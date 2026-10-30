@@ -6,6 +6,7 @@ import 'package:app/features/auth/providers/auth_provider.dart';
 import 'package:app/features/customer/appointments/providers/customer_appointment_providers.dart';
 import 'package:app/features/customer/appointments/repositories/customer_appointment_repository.dart';
 import 'package:app/features/customer/models/service_item.dart';
+import 'package:app/features/customer/models/customer_address.dart';
 import 'package:app/features/customer/providers/instant_request_provider.dart';
 import 'package:app/features/customer/providers/provider_list_origin.dart';
 import 'package:app/features/offerings/repositories/offerings_repository.dart';
@@ -206,6 +207,7 @@ void main() {
       addTearDown(container.dispose);
 
       final notifier = container.read(appointmentWizardProvider.notifier);
+      notifier.selectAddress(const CustomerAddress(id: 1, latitude: 41, longitude: 29));
       notifier.toggleService(const ServiceItem(id: 5, name: 'Saç Kesimi'));
       await _settle();
       expect(seen.last['service_ids'], '5');
@@ -251,6 +253,7 @@ void main() {
       addTearDown(container.dispose);
 
       final notifier = container.read(appointmentWizardProvider.notifier);
+      notifier.selectAddress(const CustomerAddress(id: 1, latitude: 41, longitude: 29));
       notifier.toggleService(const ServiceItem(id: 5, name: 'Saç Kesimi'));
       await _settle();
       expect(container.read(appointmentWizardProvider).rotationSeconds, 20);

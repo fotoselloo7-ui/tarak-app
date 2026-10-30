@@ -43,6 +43,14 @@ class SendPushNotification implements ShouldQueue
             return;
         }
 
+        // Re-check the same eligibility after queue delays, cancellations or provider moves.
+        if ($notification->type === UserNotification::TYPE_INSTANT_OPPORTUNITY) {
+            $request = \App\Models\ServiceRequest::find($notification->resource_id);
+            $provider = $notification->user;
+            if (!$request || !$provider || !app(\App\Services\InstantMatchingService::class)
+                ->isProviderEligibleForRequest($provider, $request)['eligible']) return;
+        }
+
         // Verify recipient push preferences
         if (!UserPushPreference::isPushEnabledForUser($notification->user_id)) {
             return;

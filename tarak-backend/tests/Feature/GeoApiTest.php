@@ -18,58 +18,36 @@ class GeoApiTest extends TestCase
     {
         parent::setUp();
         Cache::flush();
+        Http::preventStrayRequests();
     }
 
-    public function test_geocoding_explains_missing_server_configuration(): void
+    public function test_geocoding_reports_upstream_unavailability_without_a_key_requirement(): void
     {
-        config()->set('services.google_maps.server_key', null);
-
+        Http::fake(['*' => Http::response([], 503)]);
         $this->getJson('/api/geo/search?q=Istanbul%20Kadikoy')
-            ->assertStatus(503)
-            ->assertJsonPath('success', false);
+            ->assertStatus(503)->assertJsonPath('success', false);
     }
 
-    public function test_browser_map_config_exposes_only_the_restricted_public_key(): void
+    public function test_browser_map_config_preserves_existing_openfreemap_without_exposing_keys(): void
     {
         config()->set('services.google_maps.server_key', 'private-server-secret');
-        config()->set('services.google_maps.browser_key', 'public-browser-key');
-        config()->set('services.google_maps.map_id', 'tarak-map');
-
-        $response = $this->getJson('/api/geo/config')
-            ->assertOk()
-            ->assertJsonPath('data.browser_key', 'public-browser-key')
-            ->assertJsonPath('data.map_id', 'tarak-map');
-
+        $response = $this->getJson('/api/geo/config')->assertOk()
+            ->assertJsonPath('data.provider', 'openfreemap')
+            ->assertJsonPath('data.style_url', 'https://tiles.openfreemap.org/styles/liberty');
         $this->assertStringNotContainsString('private-server-secret', $response->getContent());
     }
 
-    public function test_reverse_geocoding_maps_google_components_into_editable_address_fields(): void
+    public function test_reverse_geocoding_preserves_pin_and_maps_photon_address_fields(): void
     {
-        config()->set('services.google_maps.server_key', 'test-key');
-        Http::fake(['maps.googleapis.com/maps/api/geocode/json*' => Http::response([
-            'status' => 'OK',
-            'results' => [[
-                'geometry' => ['location' => ['lat' => 41.01, 'lng' => 29.02]],
-                'formatted_address' => '12 Moda Cd., Kadıköy, İstanbul',
-                'place_id' => 'test-place',
-                'address_components' => [
-                    ['long_name' => 'İstanbul', 'types' => ['administrative_area_level_1']],
-                    ['long_name' => 'Kadıköy', 'types' => ['administrative_area_level_2']],
-                    ['long_name' => 'Moda', 'types' => ['neighborhood']],
-                    ['long_name' => 'Moda Caddesi', 'types' => ['route']],
-                    ['long_name' => '12', 'types' => ['street_number']],
-                ],
-            ]],
-        ])]);
-
-        $this->getJson('/api/geo/reverse?lat=41.009&lng=29.019')
-            ->assertOk()
-            ->assertJsonPath('data.latitude', 41.009)
-            ->assertJsonPath('data.longitude', 29.019)
-            ->assertJsonPath('data.province', 'İstanbul')
-            ->assertJsonPath('data.district', 'Kadıköy')
-            ->assertJsonPath('data.neighborhood', 'Moda')
-            ->assertJsonPath('data.street', 'Moda Caddesi')
+        Http::fake(['photon.komoot.io/reverse*' => Http::response(['features' => [[
+            'geometry' => ['coordinates' => [29.02, 41.01]],
+            'properties' => ['state' => 'İstanbul', 'county' => 'Kadıköy', 'suburb' => 'Moda',
+                'street' => 'Moda Caddesi', 'housenumber' => '12', 'osm_id' => 'test-place'],
+        ]]])]);
+        $this->getJson('/api/geo/reverse?lat=41.009&lng=29.019')->assertOk()
+            ->assertJsonPath('data.latitude', 41.009)->assertJsonPath('data.longitude', 29.019)
+            ->assertJsonPath('data.province', 'İstanbul')->assertJsonPath('data.district', 'Kadıköy')
+            ->assertJsonPath('data.neighborhood', 'Moda')->assertJsonPath('data.street', 'Moda Caddesi')
             ->assertJsonPath('data.building_no', '12');
     }
 
@@ -127,6 +105,37 @@ class GeoApiTest extends TestCase
         ]);
 
         $this->putJson('/api/provider/profile', ['latitude' => 42])->assertStatus(422);
+    }
+
+    public function test_coordinate_less_default_never_falls_back_to_an_old_city(): void
+    {
+        $customer = $this->user(User::ROLE_CUSTOMER, 'default@example.test');
+        $profile = $customer->customerProfile()->create();
+        $profile->addresses()->create(['province' => 'Antalya', 'district' => 'Mahmutlar',
+            'latitude' => 36.485, 'longitude' => 32.100, 'is_default' => false]);
+        $profile->addresses()->create(['province' => 'İstanbul', 'district' => 'Şişli', 'is_default' => true]);
+        Sanctum::actingAs($customer);
+        $this->getJson('/api/customer/providers/nearby')->assertStatus(422);
+    }
+
+    public function test_editing_default_address_changes_nearby_origin_and_distances(): void
+    {
+        $customer = $this->user(User::ROLE_CUSTOMER, 'move@example.test');
+        $profile = $customer->customerProfile()->create();
+        $address = $profile->addresses()->create(['province' => 'Antalya', 'district' => 'Mahmutlar',
+            'latitude' => 36.485, 'longitude' => 32.100, 'is_default' => true]);
+        $old = $this->provider('old-city@example.test', 36.485, 32.100);
+        $new = $this->provider('new-city@example.test', 41.060, 28.987);
+        $unknown = $this->provider('unknown@example.test', 41.060, 28.987);
+        $unknown->providerProfile->update(['latitude' => null, 'longitude' => null]);
+        Sanctum::actingAs($customer);
+        $this->getJson('/api/customer/providers/nearby?radius_km=10')->assertOk()
+            ->assertJsonCount(1, 'data')->assertJsonPath('data.0.user_id', (string) $old->id);
+        $this->putJson('/api/customer/addresses/' . $address->id, ['province' => 'İstanbul', 'district' => 'Şişli',
+            'latitude' => 41.060, 'longitude' => 28.987])->assertOk();
+        $response = $this->getJson('/api/customer/providers/nearby?radius_km=10')->assertOk()
+            ->assertJsonCount(1, 'data')->assertJsonPath('data.0.user_id', (string) $new->id);
+        $this->assertLessThan(0.01, $response->json('data.0.distance_km'));
     }
 
     private function user(string $role, string $email): User

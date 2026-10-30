@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/common_widgets.dart';
 import '../models/provider_appointment_model.dart';
 import '../providers/provider_appointment_providers.dart';
 import 'provider_appointment_detail_screen.dart';
@@ -246,19 +247,11 @@ class _ProviderAppointmentsTabState
               // Customer name & approx location (NO phone, email, exact address)
               Row(
                 children: [
-                  CircleAvatar(
+                  AppAvatar(
                     radius: 16,
                     backgroundColor: const Color(0xFFE2E8F0),
-                    backgroundImage: appt.customer?.avatarUrl != null
-                        ? NetworkImage(appt.customer!.avatarUrl!)
-                        : null,
-                    child: appt.customer?.avatarUrl == null
-                        ? const Icon(
-                            Icons.person,
-                            size: 18,
-                            color: Color(0xFF64748B),
-                          )
-                        : null,
+                    imageUrl: appt.customer?.avatarUrl,
+                    name: appt.customer?.name ?? 'Müşteri',
                   ),
                   const SizedBox(width: 8),
                   Expanded(

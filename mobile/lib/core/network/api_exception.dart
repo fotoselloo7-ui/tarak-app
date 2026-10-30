@@ -31,6 +31,10 @@ class AppException implements Exception {
         // Handle rate limiting before generic server messages so users always
         // get a clear localized message instead of the raw framework string.
         if (statusCode == 429) {
+          final serverMessage = data is Map ? data['message']?.toString().trim() : null;
+          final isGeneric = serverMessage == null || serverMessage.isEmpty ||
+              RegExp(r'too[\s_-]*many|throttl', caseSensitive: false).hasMatch(serverMessage);
+          if (!isGeneric) return AppException(message: serverMessage, statusCode: 429);
           final retryAfter = response?.headers.value('retry-after');
           final seconds = int.tryParse(retryAfter ?? '');
           return AppException(

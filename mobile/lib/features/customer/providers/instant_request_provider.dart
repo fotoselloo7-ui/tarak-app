@@ -52,7 +52,7 @@ final servicesProvider =
 final customerAddressesProvider = FutureProvider<List<CustomerAddress>>((ref) async {
   final repo = ref.watch(instantRequestRepositoryProvider);
   return repo.fetchAddresses();
-});
+}, retry: (_, _) => null);
 
 // ── My Service Requests Provider ──────────────────────────────────────────────
 
@@ -481,6 +481,11 @@ class CreateRequestNotifier extends Notifier<CreateRequestState> {
   }
 
   Future<ServiceRequestModel?> submit() async {
+    if (state.isSubmitting) return null;
+    if (state.selectedAddressId == null) {
+      state = state.copyWith(errorMessage: 'Önce kayıtlı bir adres seçin.');
+      return null;
+    }
     if (!state.hasServices) {
       state = state.copyWith(errorMessage: 'Lütfen en az bir hizmet seçin.');
       return null;

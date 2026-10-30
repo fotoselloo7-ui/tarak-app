@@ -17,10 +17,10 @@ class InstantMatchingService
     public function isProviderEligibleForRequest(User $providerUser, ServiceRequest $request): array
     {
         // 1. Role must be PROVIDER
-        if ($providerUser->role !== User::ROLE_PROVIDER) {
+        if ($providerUser->role !== User::ROLE_PROVIDER || $providerUser->status !== 'active') {
             return [
                 'eligible' => false,
-                'reason' => 'Kullanıcı hizmet veren rolünde değil.',
+                'reason' => 'Hizmet veren hesabı aktif değil veya rolü uygun değil.',
                 'distance_km' => null,
                 'is_approximate_match' => false,
             ];
@@ -119,7 +119,7 @@ class InstantMatchingService
             }
         }
 
-        // 9. Service capability: Provider must offer at least one of the requested services actively
+        // 9. The provider must actively offer every requested service.
         $requestedServiceIds = $isDirect ? [] : $request->services()->pluck('services.id')->toArray();
         if (!empty($requestedServiceIds)) {
             $offeredServiceIds = $profile->services()
@@ -128,7 +128,7 @@ class InstantMatchingService
                 ->toArray();
 
             $matchingServices = array_intersect($requestedServiceIds, $offeredServiceIds);
-            if (empty($matchingServices)) {
+            if (count($matchingServices) !== count($requestedServiceIds)) {
                 return [
                     'eligible' => false,
                     'reason' => 'Hizmet veren talep edilen hizmetleri sunmuyor.',
@@ -182,25 +182,10 @@ class InstantMatchingService
             ];
         }
 
-        // Approximate Regional Match (No coordinates: DO NOT fabricate distance or fake ETA!)
-        $reqProv = mb_strtolower(trim($request->approx_province ?? ''));
-        $pCity = mb_strtolower(trim($profile->city ?? ''));
+        // Missing coordinates cannot prove that this provider serves this location.
+        return ['eligible' => false, 'reason' => 'Talebin veya hizmet verenin harita konumu eksik.',
+            'distance_km' => null, 'is_approximate_match' => false];
 
-        if ($reqProv !== '' && $pCity !== '' && !str_contains($reqProv, $pCity) && !str_contains($pCity, $reqProv)) {
-            return [
-                'eligible' => false,
-                'reason' => 'Hizmet veren ili ile talep ili uyuşmuyor.',
-                'distance_km' => null,
-                'is_approximate_match' => false,
-            ];
-        }
-
-        return [
-            'eligible' => true,
-            'reason' => null,
-            'distance_km' => null,
-            'is_approximate_match' => true,
-        ];
     }
 
     /**

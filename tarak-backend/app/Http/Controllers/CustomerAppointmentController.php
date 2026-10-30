@@ -35,6 +35,15 @@ class CustomerAppointmentController extends Controller
      */
     public function providers(Request $request): JsonResponse
     {
+        $selectedAddress = null;
+        if ($request->filled('customer_address_id')) {
+            $request->validate(['customer_address_id' => ['required', 'integer', 'min:1']]);
+            $selectedAddress = app(\App\Services\SavedCustomerLocation::class)->resolve($request->user(), (int) $request->query('customer_address_id'));
+            $request->query->set('lat', (string) $selectedAddress->latitude);
+            $request->query->set('lng', (string) $selectedAddress->longitude);
+            $request->query->set('sort', $request->query('sort', 'distance'));
+            $request->query->set('max_distance_km', (string) min(50, max(1, (float) $request->query('max_distance_km', 50))));
+        }
         $query = ProviderProfile::with(['user', 'services', 'documents'])
             ->discoverable();
 
@@ -78,7 +87,15 @@ class CustomerAppointmentController extends Controller
         $filters = ProviderListFilters::fromRequest($request, $type, $serviceIds);
         $origin = $filters['origin'];
 
+        // Reject ads outside this address's service area before drawing the paid slots.
+        $filters['require_service_radius'] = $selectedAddress !== null;
+
         $sponsored = $this->listingAds->sponsored($filters);
+        if ($selectedAddress) {
+            $withinRange = fn ($p) => ($d = Geo::distanceKm($origin[0], $origin[1], $p->latitude, $p->longitude)) !== null
+                && $d <= min((float) $filters['max_distance_km'], (float) ($p->service_radius_km ?: 15));
+            $sponsored = $sponsored->filter($withinRange)->sortBy(fn ($p) => Geo::distanceKm($origin[0], $origin[1], $p->latitude, $p->longitude));
+        }
         $sponsored = new EloquentCollection($sponsored->all());
         $sponsored->load(['services', 'documents']);
         if ($request->boolean('sponsored_only')) {
@@ -109,7 +126,7 @@ class CustomerAppointmentController extends Controller
             ->groupBy('provider_user_id')->get()->keyBy('provider_user_id');
 
         // The list is not thinned: the clients hide the providers currently in the rotating slots.
-        $organic = $directoryProviders;
+        $organic = $selectedAddress ? $directoryProviders->filter($withinRange) : $directoryProviders;
 
         if ($filters['term'] !== null) {
             $needle = mb_strtolower($filters['term']);
@@ -316,7 +333,7 @@ class CustomerAppointmentController extends Controller
             'service_ids.*' => 'required|integer',
             'date' => 'required|date_format:Y-m-d',
             'time' => 'required|date_format:H:i',
-            'customer_address_id' => 'nullable|integer',
+            'customer_address_id' => 'required|integer',
             'customer_note' => 'nullable|string|max:1000',
             'payment_method' => 'nullable|string|in:CASH,ONLINE,cash,online',
             // Optional fallback location if customer has no saved address
@@ -365,6 +382,14 @@ class CustomerAppointmentController extends Controller
                     'success' => false,
                     'message' => 'Seçilen adres size ait değil veya bulunamadı.',
                 ], 403);
+            }
+        }
+
+        if ($address) {
+            $address = app(\App\Services\SavedCustomerLocation::class)->resolve($customer, (int) $address->id);
+            $distance = Geo::distanceKm($address->latitude, $address->longitude, $profile->latitude, $profile->longitude);
+            if ($distance === null || $distance > (float) ($profile->service_radius_km ?: 15)) {
+                return response()->json(['success' => false, 'message' => 'Seçilen hizmet veren bu adresin hizmet alanı dışında. Adrese yakın bir hizmet veren seçin.'], 422);
             }
         }
 

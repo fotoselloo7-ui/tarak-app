@@ -4,6 +4,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/services/push_notification_service.dart';
 import '../../../core/services/secure_storage_service.dart';
 import '../models/auth_response.dart';
+import '../services/social_identity_service.dart';
 import '../models/user_model.dart';
 
 enum AuthStatus {
@@ -58,6 +59,10 @@ final apiClientProvider = Provider<ApiClient>((ref) {
       ref.read(authNotifierProvider.notifier).handleUnauthorized();
     },
   );
+});
+
+final socialIdentityServiceProvider = Provider<SocialIdentityService>((ref) {
+  return SocialIdentityService(ref.watch(apiClientProvider));
 });
 
 final pushNotificationServiceProvider = Provider<PushNotificationService>((ref) {
@@ -239,6 +244,7 @@ class AuthNotifier extends Notifier<AuthState> {
     required bool acceptKvkk,
     bool marketingConsent = false,
   }) async {
+    if (state.isLoading) return false;
     // Client-side guard: ADMIN cannot be registered
     final cleanRole = role.toUpperCase().trim();
     if (cleanRole != 'CUSTOMER' && cleanRole != 'PROVIDER') {

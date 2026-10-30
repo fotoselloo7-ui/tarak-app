@@ -50,6 +50,18 @@ class CustomerHomeTab extends ConsumerWidget {
         const <String, dynamic>{};
     bool sectionOn(String key) => isHomeSectionActive(sections, key);
 
+    Future<void> openAppointment() async {
+      ref.read(appointmentWizardProvider.notifier).reset();
+      await Navigator.push<void>(
+        context,
+        MaterialPageRoute<void>(builder: (_) => const CreateAppointmentScreen()),
+      );
+      if (!context.mounted) return;
+      // The appointment flow may have resolved an older address's coordinates.
+      ref.invalidate(customerAddressesProvider);
+      ref.invalidate(nearbyHomeProvidersProvider);
+    }
+
     return Scaffold(
       backgroundColor: AppTheme.background,
       body: RefreshIndicator(
@@ -61,6 +73,7 @@ class CustomerHomeTab extends ConsumerWidget {
           ref.invalidate(featuredProvidersProvider);
           ref.invalidate(spotlightProvidersProvider);
           ref.invalidate(newestProvidersProvider);
+          ref.invalidate(customerAddressesProvider);
           ref.invalidate(nearbyHomeProvidersProvider);
           ref.invalidate(homeStatsProvider);
           await Future.wait([
@@ -120,7 +133,7 @@ class CustomerHomeTab extends ConsumerWidget {
                               ],
                             ),
                           ),
-                          AppAvatar(name: user?.name ?? 'Müşteri', radius: 22),
+                          AppAvatar(name: user?.name ?? 'Müşteri', imageUrl: user?.avatarUrl, radius: 22),
                         ],
                       ),
                     ),
@@ -218,15 +231,7 @@ class CustomerHomeTab extends ConsumerWidget {
                       delay: const Duration(milliseconds: 60),
                       child: PressableScale(
                         key: const Key('home_scheduled_appointment_cta'),
-                        onTap: () {
-                          ref.read(appointmentWizardProvider.notifier).reset();
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const CreateAppointmentScreen(),
-                            ),
-                          );
-                        },
+                        onTap: openAppointment,
                         child: Container(
                           width: double.infinity,
                           padding: const EdgeInsets.all(18),
@@ -351,12 +356,7 @@ class CustomerHomeTab extends ConsumerWidget {
 
                     if (sectionOn('provider_cta'))
                       HomeFinalCta(
-                        onSelect: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const ServiceSelectionScreen(),
-                          ),
-                        ),
+                        onSelect: openAppointment,
                       ),
                     const SizedBox(height: 24),
                     if (sectionOn('app_download')) ...[
