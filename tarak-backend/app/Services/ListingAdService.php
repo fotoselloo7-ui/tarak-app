@@ -48,7 +48,8 @@ class ListingAdService
     /**
      * @param array{
      *   type?: ?string, service_ids?: array<int, int>, term?: ?string, min_rating?: float,
-     *   origin?: ?array{0: float, 1: float}, max_distance_km?: ?float, seed?: string, preview_provider_id?: ?int
+     *   origin?: ?array{0: float, 1: float}, max_distance_km?: ?float, seed?: string, preview_provider_id?: ?int,
+     *   require_service_radius?: bool
      * } $context
      * @return Collection<int, ProviderProfile> at most `slots` profiles, best draw first
      */
@@ -136,14 +137,18 @@ class ListingAdService
 
         $origin = $context['origin'] ?? null;
         $max = $context['max_distance_km'] ?? null;
-        if ($origin && $max) {
-            $profiles = $profiles->filter(function (ProviderProfile $p) use ($origin, $max, $preview) {
+        $requireServiceRadius = !empty($context['require_service_radius']);
+        if ($origin && ($max || $requireServiceRadius)) {
+            $profiles = $profiles->filter(function (ProviderProfile $p) use ($origin, $max, $preview, $requireServiceRadius) {
                 if ($preview !== null && $p->user_id === $preview) {
                     return true;
                 }
                 $km = Geo::distanceKm($origin[0], $origin[1], $p->latitude, $p->longitude);
+                $limit = $requireServiceRadius
+                    ? min($max ?? PHP_FLOAT_MAX, (float) ($p->service_radius_km ?: 15))
+                    : $max;
 
-                return $km !== null && $km <= $max;
+                return $km !== null && $km <= $limit;
             });
         }
 

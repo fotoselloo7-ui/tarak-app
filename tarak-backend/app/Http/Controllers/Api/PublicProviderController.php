@@ -92,9 +92,9 @@ class PublicProviderController extends Controller
             [$distanceSql, $bindings] = Geo::sql($origin, 'provider_profiles.latitude', 'provider_profiles.longitude');
             if ($maxDistance) {
                 $query->whereNotNull('provider_profiles.latitude')->whereNotNull('provider_profiles.longitude')
-                    // PDO binds PHP floats as strings on SQLite; cast the radius to a
-                    // number so SQLite compares distances numerically, like MySQL.
-                    ->whereRaw($distanceSql . ' <= CAST(? AS REAL)', [...$bindings, $maxDistance]);
+                    // Keep the radius numeric on SQLite using a cast also supported
+                    // by the production MySQL/MariaDB database.
+                    ->whereRaw($distanceSql . ' <= CAST(? AS DECIMAL(12,6))', [...$bindings, $maxDistance]);
             }
             if ($sort === 'distance') {
                 // Providers without coordinates sink to the end.

@@ -87,6 +87,9 @@ class CustomerAppointmentController extends Controller
         $filters = ProviderListFilters::fromRequest($request, $type, $serviceIds);
         $origin = $filters['origin'];
 
+        // Reject ads outside this address's service area before drawing the paid slots.
+        $filters['require_service_radius'] = $selectedAddress !== null;
+
         $sponsored = $this->listingAds->sponsored($filters);
         if ($selectedAddress) {
             $withinRange = fn ($p) => ($d = Geo::distanceKm($origin[0], $origin[1], $p->latitude, $p->longitude)) !== null

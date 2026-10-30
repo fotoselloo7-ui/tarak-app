@@ -3,6 +3,7 @@ import '../providers/instant_request_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/tarak_rating.dart';
 import '../../../core/widgets/service_icon.dart';
 import '../../../core/content/home_copy.dart';
@@ -363,8 +364,8 @@ class _HomeNearbyProvidersSectionState extends ConsumerState<HomeNearbyProviders
     final type = nearbyProviderType(ref.watch(authNotifierProvider.select((s) => s.user?.gender)));
     final title = type == 'barber' ? 'Size Yakın Berberler' : 'Size Yakın Kuaförler';
     final nearby = !hasLocation ? null : ref.watch(nearbyHomeProvidersProvider((
-      latitude: origin?.lat,
-      longitude: origin?.lng,
+      latitude: fromDevice ? origin?.lat : saved?.latitude,
+      longitude: fromDevice ? origin?.lng : saved?.longitude,
       customerAddressId: fromDevice ? null : saved?.id,
       radiusKm: _requestedRadiusKm,
     )));
@@ -401,9 +402,12 @@ class _HomeNearbyProvidersSectionState extends ConsumerState<HomeNearbyProviders
               itemCount: providers.length, separatorBuilder: (_, _) => const SizedBox(width: 12),
               itemBuilder: (context, index) => _ProviderCard(provider: providers[index]))),
         loading: () => const Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
-        error: (_, _) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Yakındaki hizmet verenler için koordinatlı bir adres kaydedin veya cihaz konumuna izin verin.', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-          TextButton(onPressed: () => ref.invalidate(nearbyHomeProvidersProvider), child: const Text('Tekrar dene')),
+        error: (error, _) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(error is AppException ? error.message : 'Yakındaki hizmet verenler yüklenemedi. Lütfen tekrar deneyin.', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          TextButton(onPressed: () {
+            ref.invalidate(customerAddressesProvider);
+            ref.invalidate(nearbyHomeProvidersProvider);
+          }, child: const Text('Tekrar dene')),
         ]),
       ),
       const SizedBox(height: 20),

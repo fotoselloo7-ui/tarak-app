@@ -69,28 +69,35 @@ class ProviderListOriginState {
 final providerListOriginProvider = NotifierProvider<ProviderListOriginNotifier, ProviderListOriginState>(ProviderListOriginNotifier.new);
 
 class ProviderListOriginNotifier extends Notifier<ProviderListOriginState> {
+  int _locationRequest = 0;
+
   @override
   ProviderListOriginState build() {
     ref.watch(authNotifierProvider.select((s) => s.user?.id));
+    ++_locationRequest;
     return const ProviderListOriginState();
   }
 
-  void useSavedAddress() => state = const ProviderListOriginState();
+  void useSavedAddress() {
+    ++_locationRequest;
+    state = const ProviderListOriginState();
+  }
 
   /// "Konumumu kullan": asks for the permission (once) and remembers the position for every list.
   Future<void> useDevice() async {
     if (state.status == DeviceLocationStatus.locating) return;
     final userId = ref.read(authNotifierProvider).user?.id;
+    final request = ++_locationRequest;
     state = ProviderListOriginState(device: state.device, status: DeviceLocationStatus.locating);
     try {
-      final origin = await ref.read(deviceLocatorProvider).locate();
-      if (!ref.mounted || ref.read(authNotifierProvider).user?.id != userId) return;
+      final origin = await ref.read(deviceLocatorProvider).locate().timeout(const Duration(seconds: 15));
+      if (!ref.mounted || request != _locationRequest || ref.read(authNotifierProvider).user?.id != userId) return;
       state = ProviderListOriginState(device: origin);
     } on DeviceLocationException catch (e) {
-      if (!ref.mounted || ref.read(authNotifierProvider).user?.id != userId) return;
+      if (!ref.mounted || request != _locationRequest || ref.read(authNotifierProvider).user?.id != userId) return;
       state = ProviderListOriginState(device: state.device, status: e.status);
     } catch (_) {
-      if (!ref.mounted || ref.read(authNotifierProvider).user?.id != userId) return;
+      if (!ref.mounted || request != _locationRequest || ref.read(authNotifierProvider).user?.id != userId) return;
       state = ProviderListOriginState(device: state.device, status: DeviceLocationStatus.unavailable);
     }
   }

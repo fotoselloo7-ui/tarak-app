@@ -19,8 +19,10 @@ class SavedCustomerLocation
             throw ValidationException::withMessages(['customer_address_id' => 'Önce varsayılan kayıtlı adresinizi seçin.']);
         }
         if (!$this->hasCoordinates($address)) {
-            $text = implode(', ', array_filter([$address->street, $address->building_no,
-                $address->neighborhood, $address->district, $address->province, 'Türkiye']));
+            // Legacy manual addresses have no pin. Use the same approximate
+            // district lookup as the profile address form, without a building
+            // number making an otherwise valid district lookup fail.
+            $text = implode(', ', array_filter([$address->district, $address->province, 'Türkiye']));
             $result = app(GoogleGeocodingService::class)->search($text);
             if (($result['status'] ?? null) === 'OK') {
                 $address->latitude = $result['data']['latitude'] ?? null;
