@@ -4,7 +4,7 @@
 Dal: `codex/mobile-stability-pixel9`
 Başlangıç: `aafbfb29751549f9abdac53e3a84c938f88d4136`
 
-Son kullanıcı talimatı gereği buton, tema, renk, ölçü ve ekran yerleşimleri değiştirilmedi. Avatar alanlarına eksik fotoğraf verisi bağlandı ve hata fallback'i eklendi. Sürüm **1.1.1+6** korundu. AAB, IPA/TestFlight veya mağaza yayını üretilmedi. Canlı backend'e dosya yüklenmedi. Gerçek `.env`, anahtarlar ve kullanıcı verileri commit edilmedi. Testler yalnız SQLite `:memory:` veritabanını kullandı; mevcut kullanıcı kayıtları silinmedi veya yeniden üretilmedi.
+Son kullanıcı talimatı gereği buton, tema, renk, ölçü ve ekran yerleşimleri değiştirilmedi. Avatar alanlarına eksik fotoğraf verisi bağlandı ve hata fallback'i eklendi. Sürüm **1.1.1+6** korundu. AAB, IPA/TestFlight veya mağaza yayını üretilmedi. Bu agent canlı backend'e dosya yüklemedi; kullanıcı daha sonra Google giriş sorununun çözüldüğünü doğruladı. Gerçek `.env`, anahtarlar ve kullanıcı verileri commit edilmedi. Testler yalnız SQLite `:memory:` veritabanını kullandı; mevcut kullanıcı kayıtları silinmedi veya yeniden üretilmedi.
 
 ## Kök nedenler ve düzeltmeler
 
@@ -23,9 +23,9 @@ Son kullanıcı talimatı gereği buton, tema, renk, ölçü ve ekran yerleşiml
 |---|---|
 | flutter pub get | Geçti |
 | flutter analyze | No issues found |
-| flutter test --no-pub | **448 geçti, 0 başarısız**; başlangıç 435 geçti / 5 başarısızdı |
-| İlgili backend auth/Apple/avatar/geo/rate-limit testleri | **27 geçti, 178 assertion** |
-| Tam backend test kümesi | **30 geçti, 3 başarısız**, 196 assertion |
+| flutter test --no-pub | **454 geçti, 0 başarısız**; başlangıç 435 geçti / 5 başarısızdı |
+| İlgili backend auth/Apple/avatar/geo/rate-limit testleri | **35 geçti, 226 assertion** |
+| Tam backend test kümesi | **38 geçti, 3 başarısız**, 244 assertion |
 | Değişen PHP dosyaları php -l | Geçti |
 | Kaynak UTF-8 / git diff --check | Geçti |
 | processDebugMainManifest + processReleaseMainManifest | BUILD SUCCESSFUL; her varyantta tek etkin launcher |
@@ -42,7 +42,7 @@ Test kanıtları yerel `.tools/` klasöründe: `pixel9-pubget.log`, `pixel9-fina
 |---|---|
 | 1. Launch | `Pixel_9`, emulator-5554 üzerinde debug APK derlendi/kuruldu; çalışan ana sayfa ve profil ekranı görüldü. ADB tek launcher MainActivity ve sürüm 1.1.1+6 doğruladı. |
 | 2. Google hesap seçimi | **Pixel 9’da gerçek Google “Choose an account” penceresi açıldı.** Hesap seçimi kullanıcıya bırakıldı; bir hesaba agent tarafından tıklanmadı. |
-| 3. Mevcut Google e-postasıyla doğrudan giriş | Yerel backend testinde geçti. Kullanıcının gerçek hesap seçiminden sonraki canlı deneme **başarısız**: canlı API eski “hesabı şifrenizle bağlayın” yanıtını döndürüyor. Güncel yerel controller bu metni üretmiyor. Canlı backend güncellenmeden başarı doğrulanamaz. |
+| 3. Mevcut Google e-postasıyla doğrudan giriş | İlk canlı denemede eski backend yanıtı görüldü; tek dosyalık yama verildi. **Kullanıcı sonraki mesajında giriş sorununun çözüldüğünü doğruladı.** Yerel güvenlik testleri de geçiyor. |
 | 4. Google prefill ve OTP atlama | Backend testinde geçti; gerçek cihaz hesabıyla yapılmadı. |
 | 5. Avatar upload | İzole API testinde gerçek PNG dosyası yüklenip medya URL'si okundu; mevcut kalıcı profil fotoğrafı Pixel 9 profilinde görüldü. Canlı hesaba yeni fotoğraf yüklenmedi. |
 | 6. Aynı avatar yakın/favori/profil/mesaj kartında | Backend testinde aynı URL ve Flutter hata fallback testleri geçti; yeni fotoğrafla canlı kart uçtan uca yapılmadı. |
@@ -104,3 +104,15 @@ Teknik referanslar: [Google backend ID token doğrulaması](https://developers.g
 ## Gerçek Google denemesi sonrası bulgu
 
 Kullanıcı hesabı seçtikten sonra hata bildirdi. Android Google/CredentialManager günlüğünde kimlik alma işlemi başarılı; emülatör ekranındaki hata Tarak backend'inin eski bağlı-hesap mesajı. Güncel kaynakta bu mesajın bulunmadığı kontrol edildi. Bu denemede debug imzası veya Google audience reddi görülmedi; Google Cloud ayarları değiştirilmedi. Canlı dosya/sürüm veya PHP önbelleği güncel controller'ı çalıştırmıyor. Tek dosyalık dağıtım paketi `.tools/tarak-google-login-backend-fix-2026-10-30.zip`, yönergesi `GOOGLE_LOGIN_SERVER_UPDATE.md`. Paket byte eşitliği ve ZIP CRC kontrolünden geçti. Canlıya yüklenmedi.
+
+## Kayıt kontrolü ve kalan altyapı paketi
+
+Kullanıcı “giriş sorunu çözüldü” diyerek devam edilmesini istedi. Kayıt tarafında buton çizilmeden aynı anda iki gönderim yapılabilmesi engellendi: AuthNotifier ve form handler'ı işlem sürerken ikinci kaydı başlatmaz; sosyal doldurma ve kayıt birbirinin aktif işlemini kesmez. Sosyal giriş servisi Riverpod üzerinden sağlanarak gerçek form davranışı widget testinde doğrulandı; üretimde aynı SDK servisi kullanılır. Görsel stiller ve yerleşimler değişmedi.
+
+Yeni backend RegistrationFlowTest: normal kod gönderme/doğrulama/kayıt/oturum geri okuma; hizmet verenin onay bekleyen profili ve sıfır bakiyesi; süresi dolmuş veya doğrulanmamış sosyal kanıt; farklı e-postaya kanıt taşıma; kanıtı tekrar kullanma; kullanım koşulları/KVKK/şifre eşleşmesi; telefon normalizasyonu ve SMS opsiyonu; hatalı/çift kayıtta yarım profil/token oluşmaması; yeniden kod gönderme bekleme süresi. Kodlar gerçek SMTP'ye gitmeden array mail transport'tan okunur.
+
+Yeni Flutter testleri: aynı anda iki kayıt tek HTTP isteği çıkarır; normal kayıt onay/OTP kanıtını gönderip oturumu saklar; sosyal hizmet veren kaydı ikinci e-posta OTP'si istemez; sunucu doğrulama mesajı korunur; form Google ad/soyad/e-postasını doldurur; doğrulanmış e-postayla submit yapılır; e-posta değişince kod doğrulama tekrar zorunludur. SDK ve HTTP yanıtları testte ikame edilmiştir; bu sonuç gerçek yeni Google hesabının canlı kaydı anlamına gelmez.
+
+Güncel kanıtlar: `.tools/registration-final-analyze.log`, `.tools/registration-final-flutter.log`, `.tools/registration-final-backend.log`, `.tools/registration-full-backend.log`, `.tools/registration-pixel9-run.log`. Üretimde yeni kullanıcı açılmadı, canlı SMTP/SMS teslimatı denenmedi.
+
+Kalan dağıtım dosyaları ve kayıt/medya bağımlılıkları bir araya getirildi: `.tools/tarak-backend-stability-registration-2026-10-30.zip`. Toplam 21 PHP dosyasının syntax, ZIP CRC ve kaynakla byte eşitliği doğrulandı. Paket 11 runtime değişikliği ile 10 mevcut kayıt/medya bağımlılığını içerir. Tam liste/kurulum `BACKEND_STABILITY_UPDATE_2026-10-30.md` içindedir. Önceki tek dosyalık Google giriş yaması bütün bu güncellemeleri kapsamıyordu. Bu paket otomatik dağıtılmadı.
