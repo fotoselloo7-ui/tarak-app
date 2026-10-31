@@ -61,6 +61,7 @@ return [
 
     'apple' => [
         'service_id' => env('APPLE_SERVICE_ID', ''),
+        'bundle_id' => env('APPLE_BUNDLE_ID', ''),
         'client_ids' => array_values(array_filter([
             env('APPLE_SERVICE_ID', ''),
             env('APPLE_BUNDLE_ID', ''),
