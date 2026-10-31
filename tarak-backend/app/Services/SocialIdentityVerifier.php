@@ -35,11 +35,19 @@ class SocialIdentityVerifier
                 throw ValidationException::withMessages(['id_token' => 'Apple uygulama kimliği geçersiz.']);
             }
 
-            // Web Sign in with Apple uses the Service ID and requires an
-            // authorization-code exchange. Native iOS uses the bundle ID as
-            // the token audience; its signed identity token + nonce are
-            // verified below, so it must not depend on a web Service-ID secret.
-            $isWebFlow = $audience === ($config['service_id'] ?? null);
+            // Native iOS identity tokens use the app bundle ID as audience.
+            // Web Sign in with Apple uses the Service ID. Prefer the explicit
+            // bundle match first so a bad/duplicated Service ID setting can
+            // never force a native token through the web code-exchange path.
+            $bundleId = trim((string) ($config['bundle_id'] ?? ''));
+            $serviceId = trim((string) ($config['service_id'] ?? ''));
+            $isNativeFlow = $bundleId !== '' && hash_equals($bundleId, $audience);
+            $isWebFlow = !$isNativeFlow && $serviceId !== '' && hash_equals($serviceId, $audience);
+
+            if (!$isNativeFlow && !$isWebFlow) {
+                throw ValidationException::withMessages(['id_token' => 'Apple uygulama kimliği geçersiz.']);
+            }
+
             if ($isWebFlow) {
                 if (!$authorizationCode || empty($config['client_secret'])) {
                     throw ValidationException::withMessages(['provider' => 'Apple giriş kodu veya sunucu yapılandırması eksik.']);
@@ -104,12 +112,21 @@ class SocialIdentityVerifier
             }
         }
 
-        $tokenNonce = $claims['nonce'] ?? null;
-        $expectedNonce = $provider === 'apple' ? hash('sha256', $nonce) : $nonce;
-        if (($provider === 'apple' && !is_string($tokenNonce))
-            || ($tokenNonce !== null && !hash_equals($expectedNonce, (string) $tokenNonce)
-                && !hash_equals($nonce, (string) $tokenNonce))) {
-            throw ValidationException::withMessages(['nonce' => 'Sağlayıcı oturum doğrulaması geçersiz.']);
+        // Apple AuthenticationServices accepts the request nonce and returns
+        // it in the signed identity token (normally SHA-256 hashed), so verify
+        // that claim. The google_sign_in authenticate() API used by the app
+        // does not receive our per-request backend nonce; iOS may still emit
+        // its own token nonce, which must not be compared to our server nonce.
+        // Google is still protected below by the server-issued one-use nonce
+        // and one-time ID-token replay guard.
+        if ($provider === 'apple') {
+            $tokenNonce = $claims['nonce'] ?? null;
+            $expectedNonce = hash('sha256', $nonce);
+            if (!is_string($tokenNonce)
+                || (!hash_equals($expectedNonce, $tokenNonce)
+                    && !hash_equals($nonce, $tokenNonce))) {
+                throw ValidationException::withMessages(['nonce' => 'Sağlayıcı oturum doğrulaması geçersiz.']);
+            }
         }
 
         if (!Cache::pull($this->nonceKey($nonce))) {
