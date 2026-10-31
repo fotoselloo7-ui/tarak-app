@@ -37,6 +37,42 @@ class SocialAuthController extends Controller
     public function prefill(Request $request, string $provider): JsonResponse
     {
         $identity = $this->verifiedIdentity($request, $provider);
+
+        // Apple only supplies fullName during the initial authorization.
+        // On later authorizations the verified subject/e-mail remain stable
+        // but givenName/familyName may be empty. Reuse names that Tarak
+        // previously captured for this same verified provider subject.
+        if ($provider === 'apple'
+            && trim((string) $identity['first_name']) === ''
+            && trim((string) $identity['last_name']) === '') {
+            $previous = DB::table('social_auth_attempts')
+                ->where('provider', 'apple')
+                ->where('subject', $identity['subject'])
+                ->where(function ($query) {
+                    $query->where('first_name', '!=', '')
+                        ->orWhere('last_name', '!=', '');
+                })
+                ->orderByDesc('id')
+                ->first();
+
+            if ($previous) {
+                $identity['first_name'] = (string) ($previous->first_name ?? '');
+                $identity['last_name'] = (string) ($previous->last_name ?? '');
+            } else {
+                $linked = DB::table('social_identities')
+                    ->where('provider', 'apple')
+                    ->where('subject', $identity['subject'])
+                    ->first();
+                if ($linked) {
+                    $user = User::find($linked->user_id);
+                    if ($user) {
+                        $identity['first_name'] = (string) ($user->first_name ?? '');
+                        $identity['last_name'] = (string) ($user->last_name ?? '');
+                    }
+                }
+            }
+        }
+
         $proof = bin2hex(random_bytes(32));
         DB::table('social_auth_attempts')->insert([
             'token_hash' => $this->proofHash($proof),
