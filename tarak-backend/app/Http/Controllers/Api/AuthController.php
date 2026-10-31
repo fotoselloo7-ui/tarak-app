@@ -52,10 +52,21 @@ class AuthController extends Controller
                 }
             }
 
-            $verifiedSocialEmail = $socialAttempt && $socialAttempt->email_verified
-                && !empty($validated['email'])
-                && hash_equals((string) $socialAttempt->email, (string) $validated['email']);
-            $emailVerified = (bool) $verifiedSocialEmail;
+            $socialAttemptEmail = $socialAttempt && $socialAttempt->email
+                ? strtolower(trim((string) $socialAttempt->email))
+                : null;
+            $requestEmail = !empty($validated['email'])
+                ? strtolower(trim((string) $validated['email']))
+                : null;
+            $socialEmailWasVerified = $socialAttempt
+                && in_array($socialAttempt->email_verified, [true, 1, '1', 'true'], true);
+
+            $verifiedSocialEmail = $socialEmailWasVerified
+                && $socialAttemptEmail !== null
+                && $requestEmail !== null
+                && hash_equals($socialAttemptEmail, $requestEmail);
+
+            $emailVerified = $verifiedSocialEmail;
             if (!empty($validated['email']) && !$verifiedSocialEmail && !$legacyNative) {
                 $this->verification->consume('email', $validated['email'], $validated['email_verification_token'] ?? null);
                 $emailVerified = true;
