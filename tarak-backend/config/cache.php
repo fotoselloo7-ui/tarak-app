@@ -17,6 +17,11 @@ return [
 
     'default' => env('CACHE_STORE', 'file'),
 
+    // Keep HTTP rate-limit counters off the database/SQLite store. On shared
+    // hosting a locked database-backed cache can turn ordinary register/login
+    // requests into HTTP 500 before they even reach the controller.
+    'limiter' => 'file',
+
     /*
     |--------------------------------------------------------------------------
     | Cache Stores
