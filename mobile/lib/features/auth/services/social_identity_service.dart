@@ -111,8 +111,22 @@ class SocialIdentityService {
           message: 'Google girişi bu cihazda kullanılamıyor.',
         );
       }
-      await signIn.signOut();
-      final account = await signIn.authenticate();
+
+      // Reuse a previously authenticated Google account when the platform can
+      // restore it without forcing the user through account selection again.
+      // Fall back to the normal interactive picker only when lightweight
+      // authentication is unavailable or cannot restore an account.
+      GoogleSignInAccount? account;
+      try {
+        final lightweight = signIn.attemptLightweightAuthentication();
+        if (lightweight != null) {
+          account = await lightweight;
+        }
+      } catch (_) {
+        account = null;
+      }
+      account ??= await signIn.authenticate();
+
       final token = account.authentication.idToken;
       if (token == null || token.isEmpty) {
         throw const AppException(
