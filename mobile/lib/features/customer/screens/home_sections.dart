@@ -627,7 +627,15 @@ class HomeServicesSection extends StatelessWidget {
   const HomeServicesSection({super.key, this.services = const [], this.onSelect, this.loading = false, this.onRetry});
   @override
   Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    const SectionHeader(eyebrow: 'Popüler Hizmetler', title: 'Mevcut Hizmetler'),
+    SectionHeader(
+      eyebrow: 'Popüler Hizmetler',
+      title: 'Mevcut Hizmetler',
+      actionText: 'Tüm Hizmetleri Gör',
+      onAction: onSelect ?? () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const ServiceSelectionScreen()),
+      ),
+    ),
     const SizedBox(height: 6),
     if (loading)
       const _HomeInlineStatus(text: 'Hizmetler yükleniyor…')
