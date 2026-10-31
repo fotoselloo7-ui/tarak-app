@@ -132,11 +132,11 @@ class SocialIdentityVerifier
         if (!Cache::pull($this->nonceKey($nonce))) {
             throw ValidationException::withMessages(['nonce' => 'Oturum isteğinin süresi doldu veya tekrar kullanıldı.']);
         }
-        $tokenTtl = max(1, (int) ($claims['exp'] ?? 0) - time());
-        if (!Cache::add('social_token_used:' . hash('sha256', $idToken), true, $tokenTtl)) {
-            throw ValidationException::withMessages(['id_token' => 'Bu sağlayıcı oturumu zaten kullanıldı. Yeniden giriş yapınız.']);
-        }
-
+        // Google may legitimately return the same still-valid ID token for the
+        // same account across consecutive native authentication attempts.
+        // Treating the token itself as single-use breaks first-time/repeat login.
+        // Replay protection here is provided by the server-issued one-use nonce;
+        // Apple additionally cryptographically binds that nonce into its token.
         $email = $claims['email'] ?? null;
         $email = is_string($email) && filter_var($email, FILTER_VALIDATE_EMAIL)
             ? strtolower(trim($email)) : null;
