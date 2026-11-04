@@ -15,6 +15,7 @@ class RegistrationFlowTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        config(['app.debug' => false]);
         $this->withHeader('X-Tarak-Client', 'mobile-secure-v2');
     }
 
@@ -68,6 +69,81 @@ class RegistrationFlowTest extends TestCase
         $this->assertDatabaseCount('registration_verifications', 0);
         $this->assertDatabaseCount('social_identities', 1);
         $this->assertNotNull(DB::table('social_auth_attempts')->first()->consumed_at);
+    }
+
+    public function test_provider_email_registration_creates_verified_account_pending_profile_zero_wallet_and_consent(): void
+    {
+        $proof = $this->emailProof();
+        $response = $this->postJson('/api/auth/register', $this->payload([
+            'role' => 'PROVIDER', 'business_name' => 'Test Salon', 'email_verification_token' => $proof,
+        ]))->assertCreated()->assertJsonPath('data.user.role', 'PROVIDER')
+            ->assertJsonPath('data.user.provider_profile.is_approved', false)
+            ->assertJsonPath('data.user.provider_profile.identity_status', 'PENDING');
+        $id = $response->json('data.user.id');
+        $this->assertNotNull(User::findOrFail($id)->email_verified_at);
+        $this->assertDatabaseHas('provider_profiles', ['user_id' => $id, 'business_name' => 'Test Salon']);
+        $this->assertDatabaseHas('wallets', ['user_id' => $id, 'balance' => 0, 'currency' => 'TRY']);
+        $this->assertDatabaseHas('registration_consents', ['user_id' => $id]);
+        $this->assertDatabaseCount('customer_profiles', 0);
+        $this->assertDatabaseCount('personal_access_tokens', 1);
+    }
+
+    public function test_google_prefill_endpoint_then_provider_registration_creates_the_same_verified_identity(): void
+    {
+        $this->mock(\App\Services\SocialIdentityVerifier::class, function ($mock) {
+            $mock->shouldReceive('verify')->once()->andReturn([
+                'subject' => 'new-google-provider', 'email' => 'new@example.test',
+                'email_verified' => true, 'first_name' => 'Ayşe', 'last_name' => 'Test',
+            ]);
+        });
+        $proof = $this->postJson('/api/auth/social/google/prefill', [
+            'id_token' => 'verified-by-test-provider', 'nonce' => str_repeat('c', 48),
+        ])->assertOk()->json('data.social_prefill_token');
+        $response = $this->postJson('/api/auth/register', $this->payload([
+            'role' => 'PROVIDER', 'business_name' => 'Test Salon', 'social_prefill_token' => $proof,
+        ]))->assertCreated()->assertJsonPath('data.user.role', 'PROVIDER');
+        $this->assertDatabaseHas('social_identities', [
+            'provider' => 'google', 'subject' => 'new-google-provider', 'user_id' => $response->json('data.user.id'),
+        ]);
+        $this->assertNotNull(User::findOrFail($response->json('data.user.id'))->email_verified_at);
+        $this->assertDatabaseCount('registration_verifications', 0);
+    }
+
+    public function test_missing_invalid_and_expired_email_proofs_return_422_without_partial_accounts(): void
+    {
+        $this->postJson('/api/auth/register', $this->payload())
+            ->assertUnprocessable()->assertJsonValidationErrors('email');
+        $this->postJson('/api/auth/register', $this->payload(['email_verification_token' => str_repeat('b', 64)]))
+            ->assertUnprocessable()->assertJsonValidationErrors('email');
+        $proof = $this->emailProof();
+        DB::table('registration_verifications')->update(['expires_at' => now()->subMinute()]);
+        $this->postJson('/api/auth/register', $this->payload(['email_verification_token' => $proof]))
+            ->assertUnprocessable()->assertJsonValidationErrors('email');
+        $this->assertDatabaseCount('users', 0);
+        $this->assertDatabaseCount('customer_profiles', 0);
+        $this->assertDatabaseCount('registration_consents', 0);
+        $this->assertDatabaseCount('personal_access_tokens', 0);
+        $this->assertNull(DB::table('registration_verifications')->first()->consumed_at);
+    }
+
+    public function test_modern_ios_headers_or_consent_fields_cannot_enter_legacy_registration(): void
+    {
+        // Current client: explicit marker remains secure even without consent fields.
+        $this->withHeader('User-Agent', 'Dart/3.13 (dart:io)');
+        $payload = $this->payload();
+        unset($payload['accept_terms'], $payload['accept_kvkk']);
+        $this->postJson('/api/auth/register', $payload)->assertUnprocessable()
+            ->assertJsonValidationErrors(['accept_terms', 'accept_kvkk']);
+
+        // Even if a proxy stripped the marker, the consent payload selects
+        // the secure flow for both Dart and native iOS-style User-Agents.
+        $this->withoutHeader('X-Tarak-Client');
+        foreach (['Dart/3.13 (dart:io)', 'Tarak/10 CFNetwork Darwin'] as $agent) {
+            $this->withHeader('User-Agent', $agent);
+            $this->postJson('/api/auth/register', $this->payload())
+                ->assertUnprocessable()->assertJsonValidationErrors('email');
+        }
+        $this->assertDatabaseCount('users', 0);
     }
 
     public function test_expired_or_unverified_social_proof_cannot_replace_email_verification(): void

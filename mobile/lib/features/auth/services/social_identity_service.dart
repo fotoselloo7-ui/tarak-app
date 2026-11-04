@@ -112,20 +112,19 @@ class SocialIdentityService {
         );
       }
 
-      // Reuse a previously authenticated Google account when the platform can
-      // restore it without forcing the user through account selection again.
-      // Fall back to the normal interactive picker only when lightweight
-      // authentication is unavailable or cannot restore an account.
-      GoogleSignInAccount? account;
+      // Both callers are explicit user actions. Clear the SDK's selected
+      // account before interactive authentication so a previous account is
+      // never silently restored instead of offering account selection.
+      final GoogleSignInAccount account;
       try {
-        final lightweight = signIn.attemptLightweightAuthentication();
-        if (lightweight != null) {
-          account = await lightweight;
+        await signIn.signOut();
+        account = await signIn.authenticate();
+      } on GoogleSignInException catch (error) {
+        if (error.code == GoogleSignInExceptionCode.canceled) {
+          throw const AppException(message: 'Google ile giriş iptal edildi.');
         }
-      } catch (_) {
-        account = null;
+        rethrow;
       }
-      account ??= await signIn.authenticate();
 
       final token = account.authentication.idToken;
       if (token == null || token.isEmpty) {

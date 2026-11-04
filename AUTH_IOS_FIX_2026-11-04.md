@@ -1,5 +1,7 @@
 # Auth ve iOS dil düzeltmesi — 4 Kasım 2026
 
+> Sonraki canlı teşhiste iki eski sunucu dosyası bulundu. Bu rapordaki üç dosyalık önceki paket kayıt 500 hatasını tek başına çözmez. Kesin exception, canlı şema kontrolü ve iki dosyalık tamamlayıcı paket için `FINAL_AUTH_DIAGNOSIS_2026-11-04.md` raporunu kullanın.
+
 ## 1. Kök neden ve yapılan düzeltme
 
 Giriş/kayıt istekleri `throttle:20,1,auth-submit:` ortak sayacına giriyordu. Google/Apple prefill ve login isteklerinde ayrıca `throttle:10,1,auth-sensitive:` vardı. Bu sayaçlar aynı IP'deki işlemleri birlikte saydığından bir işlemdeki hatalar sonraki giriş/kayıt işlemlerini de 429 ile engelleyebiliyordu. Düzeltme öncesi testte art arda yanlış şifre ve tekrar kayıt denemelerinde 429 yeniden üretildi.
