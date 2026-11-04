@@ -170,7 +170,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       if (!mounted || value != controller.text.trim()) {
         throw const AppException(message: 'İletişim bilgisi değişti. Yeni bir kod isteyin.');
       }
-      final seconds = data is Map ? (data['resend_after_seconds'] as num?)?.toInt() ?? 60 : 60;
+      final seconds = data is Map ? (data['resend_after_seconds'] as num?)?.toInt() ?? 180 : 180;
       final deadline = DateTime.now().add(Duration(seconds: seconds));
       setState(() {
         if (channel == 'email') {
@@ -220,7 +220,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       final destination = (channel == 'email' ? _emailController : _phoneController).text.trim();
       final sentTo = channel == 'email' ? _emailCodeDestination : _smsCodeDestination;
       var deadline = channel == 'email' ? _emailResendAt : _smsResendAt;
-      if (sentTo != destination || deadline == null || !deadline.isAfter(DateTime.now())) {
+      // Reopening the dialog should keep the code already sent. Once the
+      // cooldown ends the user can explicitly request a new code inside it.
+      if (sentTo != destination || deadline == null) {
         deadline = await _sendCode(channel);
       }
       if (!mounted) return;

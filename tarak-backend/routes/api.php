@@ -25,25 +25,24 @@ Route::get('/geo/search', [App\Http\Controllers\Api\GeoController::class, 'searc
 Route::get('/geo/reverse', [App\Http\Controllers\Api\GeoController::class, 'reverse'])->middleware('throttle:20,1');
 Route::get('/geo/config', [App\Http\Controllers\Api\GeoController::class, 'config'])->middleware('throttle:60,1');
 
-// Public auth bootstrap/config endpoints are read-only and are requested on page
-// render. Keep them outside the brute-force bucket so normal UI re-renders do
-// not consume login/register attempts.
-Route::prefix('auth')->middleware('throttle:120,1,auth-bootstrap:')->group(function () {
+// Auth setup and credential submissions must remain retryable. In particular,
+// nonce/config requests must not indirectly block Google/Apple retries.
+Route::prefix('auth')->group(function () {
     Route::get('/social/config', [App\Http\Controllers\Api\SocialAuthController::class, 'config']);
     Route::get('/verification/config', [App\Http\Controllers\Api\RegistrationVerificationController::class, 'config']);
-    Route::get('/social/nonce', [App\Http\Controllers\Api\SocialAuthController::class, 'nonce'])->middleware('throttle:60,1,auth-nonce:');
+    Route::get('/social/nonce', [App\Http\Controllers\Api\SocialAuthController::class, 'nonce']);
 });
 
-// Public Auth Routes (Rate limited to protect against brute-force)
-Route::prefix('auth')->middleware('throttle:20,1,auth-submit:')->group(function () {
+// Limit message sends and code guesses separately from login/registration.
+Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);
     Route::post('/password/forgot', [App\Http\Controllers\Api\PasswordResetController::class, 'forgot'])->middleware('throttle:5,1,auth-send:');
     Route::post('/password/reset', [App\Http\Controllers\Api\PasswordResetController::class, 'reset'])->middleware('throttle:10,1,auth-sensitive:');
     Route::post('/social/{provider}/prefill', [App\Http\Controllers\Api\SocialAuthController::class, 'prefill'])
-        ->where('provider', 'google|apple')->middleware('throttle:10,1,auth-sensitive:');
+        ->where('provider', 'google|apple');
     Route::post('/social/{provider}/login', [App\Http\Controllers\Api\SocialAuthController::class, 'login'])
-        ->where('provider', 'google|apple')->middleware('throttle:10,1,auth-sensitive:');
+        ->where('provider', 'google|apple');
     Route::post('/verification/{channel}/send', [App\Http\Controllers\Api\RegistrationVerificationController::class, 'send'])
         ->where('channel', 'email|sms')->middleware('throttle:5,1,auth-send:');
     Route::post('/verification/{channel}/confirm', [App\Http\Controllers\Api\RegistrationVerificationController::class, 'confirm'])

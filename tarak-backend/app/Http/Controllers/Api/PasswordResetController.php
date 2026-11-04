@@ -17,7 +17,7 @@ use Illuminate\Validation\ValidationException;
 class PasswordResetController extends Controller
 {
     private const CODE_TTL_MINUTES = 10;
-    private const RESEND_SECONDS = 60;
+    private const RESEND_SECONDS = 180;
     private const MAX_ATTEMPTS = 5;
 
     public function forgot(Request $request, MailSettingsApplier $mailSettings): JsonResponse

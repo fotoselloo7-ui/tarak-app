@@ -11,7 +11,7 @@ use Illuminate\Validation\ValidationException;
 class RegistrationVerificationService
 {
     private const TTL_MINUTES = 10;
-    private const RESEND_SECONDS = 60;
+    private const RESEND_SECONDS = 180;
     private const MAX_ATTEMPTS = 5;
 
     public function __construct(
@@ -58,7 +58,8 @@ class RegistrationVerificationService
             ->where('channel', $channel)->where('destination_hash', $destinationHash)->first();
 
         if ($existing && now()->lessThan($existing->resend_after)) {
-            throw ValidationException::withMessages(['destination' => 'Yeni kod istemek için 60 saniye bekleyiniz.']);
+            $remaining = max(1, (int) ceil(now()->diffInSeconds(\Carbon\Carbon::parse($existing->resend_after), false)));
+            throw ValidationException::withMessages(['destination' => "Yeni kod istemek için {$remaining} saniye bekleyiniz."]);
         }
 
         if ($channel === 'sms' && (!$this->sms->isEnabled() || !$this->sms->isEventEnabled('otp'))) {

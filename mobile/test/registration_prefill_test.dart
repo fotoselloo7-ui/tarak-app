@@ -19,6 +19,9 @@ class _Identity extends SocialIdentityService {
 }
 
 class _RegistrationApi implements HttpClientAdapter {
+  final int resendSeconds;
+  final bool smsEnabled;
+  _RegistrationApi({this.resendSeconds = 180, this.smsEnabled = false});
   final paths = <String>[];
   Map<String, dynamic>? registration;
   @override
@@ -33,8 +36,10 @@ class _RegistrationApi implements HttpClientAdapter {
       registration = Map<String, dynamic>.from(options.data as Map);
       body = {'message': 'Bu e-posta adresi zaten kullanımda.', 'errors': {'email': ['Bu e-posta adresi zaten kullanımda.']}};
       status = 422;
+    } else if (options.path.endsWith('/send')) {
+      body = {'data': {'resend_after_seconds': resendSeconds}};
     } else {
-      body = {'data': {'sms_enabled': false}};
+      body = {'data': {'sms_enabled': smsEnabled}};
     }
     return ResponseBody.fromString(jsonEncode(body), status,
       headers: {Headers.contentTypeHeader: [Headers.jsonContentType]});
@@ -44,20 +49,22 @@ class _RegistrationApi implements HttpClientAdapter {
 }
 
 void main() {
-  Future<_RegistrationApi> prefill(WidgetTester tester) async {
+  Future<_RegistrationApi> prefill(WidgetTester tester, {_RegistrationApi? adapter, bool social = true}) async {
     // The test Ahem font is wider than the production font; this checks form behavior.
     tester.view.physicalSize = const Size(800, 1200);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    final adapter = _RegistrationApi();
+    adapter ??= _RegistrationApi();
     final api = ApiClient(storage: SecureStorageService(), customDio: Dio()..httpClientAdapter = adapter);
     await tester.pumpWidget(ProviderScope(overrides: [
       apiClientProvider.overrideWithValue(api), socialIdentityServiceProvider.overrideWithValue(_Identity(api)),
     ], child: const MaterialApp(home: RegisterScreen())));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Google ile doldur'));
-    await tester.pumpAndSettle();
+    if (social) {
+      await tester.tap(find.text('Google ile doldur'));
+      await tester.pumpAndSettle();
+    }
     return adapter;
   }
 
@@ -104,4 +111,48 @@ void main() {
     expect(adapter.registration, isNull);
     expect(find.text('E-posta adresinizi doğrulayın.'), findsOneWidget);
   });
+
+  for (final channel in ['email', 'sms']) {
+    testWidgets('$channel resend waits three minutes while confirmation remains available', (tester) async {
+      await prefill(tester, adapter: _RegistrationApi(smsEnabled: true), social: false);
+      final index = channel == 'email' ? 2 : 3;
+      await tester.enterText(find.byType(TextFormField).at(index),
+          channel == 'email' ? 'new@example.test' : '05321234567');
+      final sendButton = find.text('Kod gönder').at(channel == 'email' ? 0 : 1);
+      await tester.ensureVisible(sendButton);
+      await tester.tap(sendButton);
+      await tester.pumpAndSettle();
+      final resend = find.ancestor(
+          of: find.textContaining(RegExp(r'Yeniden gönder \((17[89]|180) sn\)')),
+          matching: find.byType(TextButton));
+      expect(resend, findsOneWidget);
+      expect(tester.widget<TextButton>(resend).onPressed, isNull);
+      expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Doğrula')).onPressed, isNotNull);
+      await tester.tap(find.text('Vazgeç'));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('$channel reopening after cooldown keeps the code until explicit resend', (tester) async {
+      final adapter = await prefill(tester,
+          adapter: _RegistrationApi(resendSeconds: 0, smsEnabled: true), social: false);
+      final index = channel == 'email' ? 2 : 3;
+      await tester.enterText(find.byType(TextFormField).at(index),
+          channel == 'email' ? 'new@example.test' : '05321234567');
+      final sendButton = find.text('Kod gönder').at(channel == 'email' ? 0 : 1);
+      await tester.ensureVisible(sendButton);
+      await tester.tap(sendButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Vazgeç'));
+      await tester.pumpAndSettle();
+      await tester.tap(sendButton);
+      await tester.pumpAndSettle();
+      final path = '/auth/verification/$channel/send';
+      expect(adapter.paths.where((value) => value == path), hasLength(1));
+      await tester.tap(find.text('Kodu yeniden gönder'));
+      await tester.pumpAndSettle();
+      expect(adapter.paths.where((value) => value == path), hasLength(2));
+      await tester.tap(find.text('Vazgeç'));
+      await tester.pumpAndSettle();
+    });
+  }
 }

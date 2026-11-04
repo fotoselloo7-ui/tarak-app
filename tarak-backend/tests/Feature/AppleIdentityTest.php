@@ -30,7 +30,7 @@ class AppleIdentityTest extends TestCase
             'kty' => 'RSA', 'kid' => 'apple-test', 'alg' => 'RS256', 'use' => 'sig',
             'n' => $encode($rsa['n']), 'e' => $encode($rsa['e']),
         ]]])]);
-        config(['services.apple' => ['service_id' => 'app.tarak.web',
+        config(['services.apple' => ['service_id' => 'app.tarak.web', 'bundle_id' => 'app.tarak.mobile',
             'client_ids' => ['app.tarak.mobile', 'app.tarak.web'], 'client_secret' => '', 'redirect_uri' => '']]);
     }
 
