@@ -264,7 +264,12 @@ class AdminProviderApplicationController extends Controller
 
     /**
      * Review overall Provider Application (APPROVE, REJECT, REUPLOAD_REQUIRED).
-     * Enforces strict business rules before approving.
+     *
+     * Admin approval is intentionally independent from provider onboarding
+     * completion and active-service selection. Those are provider-side setup
+     * concerns and must never block an authorized admin decision.
+     *
+     * Identity / vocational document verification remains mandatory.
      */
     public function reviewApplication(Request $request, string|int $id): JsonResponse
     {
@@ -311,17 +316,16 @@ class AdminProviderApplicationController extends Controller
         }
 
         // =========================================================================
-        // APPROVE VALIDATION RULES (Strict Backend Verification)
+        // APPROVE VALIDATION RULES (Admin-controlled identity verification)
         // =========================================================================
         if ($action === 'APPROVE') {
             $errors = [];
 
-            // 1. profile_completed === true
-            if (!$profile->profile_completed) {
-                $errors[] = 'Hizmet verenin profil tamamlama (onboarding) süreci tamamlanmamış (profile_completed = false).';
-            }
+            // Admin approval MUST NOT depend on provider-side onboarding state,
+            // profile_completed, required profile fields, or active-service
+            // selection. A provider can complete/activate these later.
 
-            // 2. En az 1 mesleki belge mevcut
+            // 1. En az 1 mesleki belge mevcut
             $hasVocationalDoc = $profile->documents()
                 ->whereIn('document_type', [
                     ProviderDocument::TYPE_DIPLOMA,
@@ -334,27 +338,10 @@ class AdminProviderApplicationController extends Controller
                 $errors[] = 'Hizmet verene ait en az 1 mesleki yeterlilik belgesi (Diploma, Ustalık veya Kalfalık) yüklenmiş olmalıdır.';
             }
 
-            // 3. En az 1 mesleki belge APPROVED olmalı
+            // 2. En az 1 mesleki belge APPROVED olmalı
             $hasApprovedDoc = $profile->hasApprovedDocument();
             if (!$hasApprovedDoc) {
                 $errors[] = 'Hizmet verenin en az 1 mesleki belgesi yönetim tarafından onaylanmış (APPROVED) olmalıdır.';
-            }
-
-            // 4. Provider profile gerekli alanları dolu olmalı
-            $hasRequiredFields = !empty($profile->provider_type)
-                && !empty($profile->work_mode)
-                && $profile->service_radius_km > 0
-                && $profile->experience_years !== null
-                && (!empty($profile->city) || !empty($profile->address_detail));
-
-            if (!$hasRequiredFields) {
-                $errors[] = 'Hizmet veren profilindeki zorunlu alanlar (hizmet türü, çalışma şekli, hizmet yarıçapı, deneyim yılı, konum) eksiksiz doldurulmuş olmalıdır.';
-            }
-
-            // 5. En az 1 aktif hizmet seçili olmalı
-            $hasActiveService = $profile->providerServices()->where('is_active', true)->exists();
-            if (!$hasActiveService) {
-                $errors[] = 'Hizmet verene ait en az 1 aktif hizmet tanımlanmış olmalıdır.';
             }
 
             if (!empty($errors)) {
