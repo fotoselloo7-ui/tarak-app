@@ -17,7 +17,7 @@ final notificationUnreadCountProvider = FutureProvider.autoDispose<int>((ref) as
   final response = await ref.read(apiClientProvider).get('/notifications/unread-count');
   final data = response.data;
   final value = data is Map ? data['count'] : null;
-  if (value is num) return value.toInt().clamp(0, 99999);
+  if (value is num) return value.toInt().clamp(0, 99999).toInt();
   return int.tryParse(value?.toString() ?? '') ?? 0;
 });
 
@@ -25,9 +25,10 @@ Future<void> openNotificationCenter(BuildContext context, WidgetRef ref) async {
   final payload = await Navigator.of(context).push<Map<String, dynamic>>(
     MaterialPageRoute(builder: (_) => const NotificationCenterScreen()),
   );
-  // Refresh even when the user simply closes the inbox after marking items read.
+  // The shell may be disposed while this route is open (e.g. logout).
+  if (!context.mounted) return;
   ref.invalidate(notificationUnreadCountProvider);
-  if (context.mounted && payload != null) {
+  if (payload != null) {
     ref.read(pushNotificationServiceProvider).handleIncomingPayload(payload);
   }
 }
