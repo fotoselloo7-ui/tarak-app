@@ -1,12 +1,15 @@
 name: Tarak iOS TestFlight Beta — Push Fix
 
 on:
+  push:
+    branches:
+      - fix/push-notifications-and-unread-badge-20261120
   workflow_dispatch:
     inputs:
       build_number:
         description: 'New Tarak.app iOS build number (higher than previous uploads)'
         required: true
-        default: '12'
+        default: '21'
         type: string
 
 permissions:
@@ -211,7 +214,7 @@ jobs:
           GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID || secrets.GOOGLE_WEB_CLIENT_ID || '977885914941-lts9n172clgr8p6glbi3gv1k2qn2fkvn.apps.googleusercontent.com' }}
         run: |
           flutter build ios --release --no-codesign \
-            --build-name 1.1.2 --build-number "${{ inputs.build_number || '12' }}" \
+            --build-name 1.1.3 --build-number "${{ inputs.build_number || '21' }}" \
             --dart-define=API_BASE_URL=https://tarak.app/api \
             --dart-define=REVERB_HOST=tarak.app \
             --dart-define=REVERB_APP_KEY=hhyfpgfv2dgv95yd78kz \
@@ -230,6 +233,16 @@ jobs:
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/Runner.xcarchive" \
             archive
+
+      - name: Verify iOS version before Apple upload
+        run: |
+          set -euo pipefail
+          INFO_PLIST="$RUNNER_TEMP/Runner.xcarchive/Products/Applications/Runner.app/Info.plist"
+          BUILD_VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$INFO_PLIST")
+          BUILD_NUMBER=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$INFO_PLIST")
+          echo "Tarak Beta Version: $BUILD_VERSION ($BUILD_NUMBER)"
+          test "$BUILD_VERSION" = "1.1.3" || { echo "::error::Build version must be 1.1.3"; exit 1; }
+          test "$BUILD_NUMBER" = "21" || { echo "::error::Build number must be 21"; exit 1; }
 
       - name: Create Export Options
         run: |
@@ -325,7 +338,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: tarak-ios-testflight-beta-${{ inputs.build_number || '12' }}
+          name: tarak-ios-testflight-beta-${{ inputs.build_number || '21' }}
           path: ${{ runner.temp }}/export/*.ipa
           if-no-files-found: ignore
           retention-days: 7
