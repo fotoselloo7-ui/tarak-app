@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,25 +9,109 @@ import '../../auth/providers/auth_provider.dart';
 import '../../shared/widgets/common_widgets.dart';
 import '../../../core/widgets/verified_tick.dart';
 
+// Only the backend's unread count is displayed. This is separate from the
+// chat unread badge in the bottom navigation bar.
+final notificationUnreadCountProvider = FutureProvider.autoDispose<int>((ref) async {
+  final user = ref.watch(authNotifierProvider.select((state) => state.user));
+  if (user == null) return 0;
+  final response = await ref.read(apiClientProvider).get('/notifications/unread-count');
+  final data = response.data;
+  final value = data is Map ? data['count'] : null;
+  if (value is num) return value.toInt().clamp(0, 99999);
+  return int.tryParse(value?.toString() ?? '') ?? 0;
+});
+
 Future<void> openNotificationCenter(BuildContext context, WidgetRef ref) async {
   final payload = await Navigator.of(context).push<Map<String, dynamic>>(
     MaterialPageRoute(builder: (_) => const NotificationCenterScreen()),
   );
+  // Refresh even when the user simply closes the inbox after marking items read.
+  ref.invalidate(notificationUnreadCountProvider);
   if (context.mounted && payload != null) {
     ref.read(pushNotificationServiceProvider).handleIncomingPayload(payload);
   }
 }
 
-class NotificationCenterButton extends ConsumerWidget {
+class NotificationCenterButton extends ConsumerStatefulWidget {
   final Color? color;
 
   const NotificationCenterButton({super.key, this.color});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NotificationCenterButton> createState() =>
+      _NotificationCenterButtonState();
+}
+
+class _NotificationCenterButtonState extends ConsumerState<NotificationCenterButton>
+    with WidgetsBindingObserver {
+  StreamSubscription<dynamic>? _arrivalSubscription;
+  Timer? _refreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _arrivalSubscription = ref.read(pushNotificationServiceProvider)
+        .notificationArrivals.listen((_) => _refreshUnreadCount());
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 20),
+      (_) => _refreshUnreadCount(),
+    );
+  }
+
+  void _refreshUnreadCount() {
+    if (mounted) ref.invalidate(notificationUnreadCountProvider);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refreshUnreadCount();
+  }
+
+  @override
+  void dispose() {
+    _arrivalSubscription?.cancel();
+    _refreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final unreadCount = ref.watch(notificationUnreadCountProvider).asData?.value ?? 0;
     return IconButton(
       tooltip: 'Bildirimler',
-      icon: Icon(Icons.notifications_outlined, color: color),
+      icon: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Icon(Icons.notifications_outlined, color: widget.color),
+          if (unreadCount > 0)
+            Positioned(
+              right: -11,
+              top: -10,
+              child: Container(
+                key: const ValueKey('notification-unread-badge'),
+                constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade700,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  unreadCount > 99 ? '99+' : unreadCount.toString(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 10,
+                    height: 1.1,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
       onPressed: () => openNotificationCenter(context, ref),
     );
   }
@@ -124,6 +210,7 @@ class _NotificationCenterScreenState
         await ref
             .read(apiClientProvider)
             .post('/notifications/${item['id']}/read');
+        ref.invalidate(notificationUnreadCountProvider);
       }
       final metadata = item['metadata'];
       final payload = <String, dynamic>{
@@ -155,6 +242,7 @@ class _NotificationCenterScreenState
     setState(() => _markingAll = true);
     try {
       await ref.read(apiClientProvider).post('/notifications/read-all');
+      ref.invalidate(notificationUnreadCountProvider);
       await _load();
     } catch (error) {
       if (mounted) {
