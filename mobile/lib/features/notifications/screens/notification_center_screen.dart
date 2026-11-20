@@ -11,7 +11,7 @@ import '../../../core/widgets/verified_tick.dart';
 
 // Only the backend's unread count is displayed. This is separate from the
 // chat unread badge in the bottom navigation bar.
-final notificationUnreadCountProvider = FutureProvider.autoDispose<int>((ref) async {
+final notificationUnreadCountProvider = FutureProvider<int>((ref) async {
   final user = ref.watch(authNotifierProvider.select((state) => state.user));
   if (user == null) return 0;
   // A temporary network/API error must not create Riverpod's 200ms automatic
