@@ -14,11 +14,18 @@ import '../../../core/widgets/verified_tick.dart';
 final notificationUnreadCountProvider = FutureProvider.autoDispose<int>((ref) async {
   final user = ref.watch(authNotifierProvider.select((state) => state.user));
   if (user == null) return 0;
-  final response = await ref.read(apiClientProvider).get('/notifications/unread-count');
-  final data = response.data;
-  final value = data is Map ? data['count'] : null;
-  if (value is num) return value.toInt().clamp(0, 99999).toInt();
-  return int.tryParse(value?.toString() ?? '') ?? 0;
+  // A temporary network/API error must not create Riverpod's 200ms automatic
+  // retry timer, which can outlive this widget (and leaves test timers pending).
+  // The unread badge is shown only for a confirmed server count.
+  try {
+    final response = await ref.read(apiClientProvider).get('/notifications/unread-count');
+    final data = response.data;
+    final value = data is Map ? data['count'] : null;
+    if (value is num) return value.toInt().clamp(0, 99999).toInt();
+    return int.tryParse(value?.toString() ?? '') ?? 0;
+  } catch (_) {
+    return 0;
+  }
 });
 
 Future<void> openNotificationCenter(BuildContext context, WidgetRef ref) async {
