@@ -8,6 +8,10 @@
         android:label="@string/app_name"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- Must match FcmPushService and MainActivity's audible notification channel. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="berberimgelsin_notifications" />
         <!-- MainActivity is the tooling/debug launcher; release uses one selectable activity-alias. -->
         <activity
             android:name=".MainActivity"

@@ -5,6 +5,7 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../network/api_client.dart';
@@ -68,6 +69,8 @@ class SemanticDeepLink {
 }
 
 class PushNotificationService {
+  static const MethodChannel _androidForegroundPush =
+      MethodChannel('app.tarak.mobile/notifications');
   late final ApiClient _apiClient;
   late final SecureStorageService _storage;
 
@@ -79,6 +82,12 @@ class PushNotificationService {
       StreamController<SemanticDeepLink>.broadcast();
 
   Stream<SemanticDeepLink> get deepLinkStream => _deepLinkController.stream;
+
+  // The notification bell updates from server state whenever FCM delivers.
+  // No local unread count is invented: the UI refetches /notifications/unread-count.
+  final StreamController<RemoteMessage> _arrivalController =
+      StreamController<RemoteMessage>.broadcast();
+  Stream<RemoteMessage> get notificationArrivals => _arrivalController.stream;
 
   PushNotificationService({
     required ApiClient apiClient,
@@ -108,6 +117,14 @@ class PushNotificationService {
         '[PushNotificationService] Firebase initialized successfully.',
       );
 
+      // iOS does not display foreground notifications by default.
+      if (!kIsWeb && Platform.isIOS) {
+        await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+      }
       _setupMessageHandlers();
     } catch (e) {
       _isFirebaseInitialized = false;
@@ -264,6 +281,7 @@ class PushNotificationService {
   void _setupMessageHandlers() {
     // When notification is tapped while app is in background/terminated
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      _arrivalController.add(message);
       _resolveSemanticDeepLink(message.data);
     });
 
@@ -272,16 +290,34 @@ class PushNotificationService {
       RemoteMessage? message,
     ) {
       if (message != null) {
+        _arrivalController.add(message);
         _resolveSemanticDeepLink(message.data);
       }
     });
 
-    // Foreground messages: payload notifies UI without creating fake source-of-truth items
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      if (kDebugMode) {
-        debugPrint(
-          '[PushNotificationService] Foreground message received (type: ${message.data['type'] ?? 'NOTIFICATION'})',
-        );
+    // iOS presents the remote alert via setForegroundNotificationPresentationOptions.
+    // Android does not auto-display foreground FCM alerts, so use the native
+    // notification channel shared with the background FCM payload.
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
+      _arrivalController.add(message);
+      if (!kIsWeb && Platform.isAndroid) {
+        final title = message.notification?.title ??
+            message.data['title']?.toString() ?? 'Tarak';
+        final body = message.notification?.body ??
+            message.data['body']?.toString() ?? '';
+        if (body.isNotEmpty) {
+          final id = int.tryParse(message.data['notification_id']?.toString() ?? '') ??
+              DateTime.now().millisecondsSinceEpoch.remainder(2147483647);
+          try {
+            await _androidForegroundPush.invokeMethod<bool>('show', {
+              'title': title,
+              'body': body,
+              'id': id,
+            });
+          } catch (e) {
+            debugPrint('[PushNotificationService] Foreground alert failed: $e');
+          }
+        }
       }
     });
   }
@@ -361,5 +397,6 @@ class PushNotificationService {
   void dispose() {
     _tokenRefreshSub?.cancel();
     _deepLinkController.close();
+    _arrivalController.close();
   }
 }
