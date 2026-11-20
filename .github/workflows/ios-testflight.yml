@@ -1,6 +1,9 @@
 name: Tarak iOS TestFlight Beta — Push Fix
 
 on:
+  push:
+    branches:
+      - fix/push-notifications-and-unread-badge-20261120
   workflow_dispatch:
     inputs:
       build_number:
