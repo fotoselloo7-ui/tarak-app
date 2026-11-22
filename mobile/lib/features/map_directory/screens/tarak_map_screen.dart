@@ -131,6 +131,13 @@ class _TarakMapScreenState extends ConsumerState<TarakMapScreen> {
       'https://tiles.openfreemap.org/styles/liberty';
   static const String _sourceId = 'tarak-businesses';
   static const String _clusterLayerId = 'tarak-clusters';
+  static const String _clusterCoiffeurLayerId = 'tarak-clusters-coiffeur';
+  static const String _clusterMixedLayerId = 'tarak-clusters-mixed';
+  static const List<String> _clusterLayerIds = <String>[
+    _clusterLayerId,
+    _clusterCoiffeurLayerId,
+    _clusterMixedLayerId,
+  ];
   static const String _pinLayerId = 'tarak-pins';
   static const String _routeSourceId = 'tarak-active-route';
   static const String _routeCasingLayerId = 'tarak-route-casing';
@@ -813,33 +820,61 @@ class _TarakMapScreenState extends ConsumerState<TarakMapScreen> {
           ),
         );
 
-        // Tarak clusters use official Tarak icon circles with ZERO numbers.
+        // iOS MapLibre 0.27.1 can crash in MLNSymbolStyleLayer.setIconImageName
+        // when an icon-image 'case' expression is parsed. Apple TestFlight
+        // 1.1.3 (30) crash: SIGABRT -> bad_alloc -> Case::parse.
+        // Use constant sprite names with separate filtered layers on every OS.
+        // This preserves blue/red/mixed Tarak cluster icons without numbers.
         await controller.addSymbolLayer(
           _sourceId,
           _clusterLayerId,
           const SymbolLayerProperties(
-            iconImage: [
-              'case',
-              [
-                'all',
-                ['>', ['coalesce', ['get', 'barber_count'], 0], 0],
-                ['==', ['coalesce', ['get', 'coiffeur_count'], 0], 0],
-              ],
-              TarakMarkerRenderer.spriteClusterBarber,
-              [
-                'all',
-                ['>', ['coalesce', ['get', 'coiffeur_count'], 0], 0],
-                ['==', ['coalesce', ['get', 'barber_count'], 0], 0],
-              ],
-              TarakMarkerRenderer.spriteClusterCoiffeur,
-              TarakMarkerRenderer.spriteClusterMixed,
-            ],
+            iconImage: TarakMarkerRenderer.spriteClusterBarber,
             iconSize: 0.66,
             iconAnchor: 'center',
             iconAllowOverlap: true,
             iconIgnorePlacement: true,
           ),
-          filter: ['has', 'point_count'],
+          filter: [
+            'all',
+            ['has', 'point_count'],
+            ['>', ['coalesce', ['get', 'barber_count'], 0], 0],
+            ['==', ['coalesce', ['get', 'coiffeur_count'], 0], 0],
+          ],
+        );
+        await controller.addSymbolLayer(
+          _sourceId,
+          _clusterCoiffeurLayerId,
+          const SymbolLayerProperties(
+            iconImage: TarakMarkerRenderer.spriteClusterCoiffeur,
+            iconSize: 0.66,
+            iconAnchor: 'center',
+            iconAllowOverlap: true,
+            iconIgnorePlacement: true,
+          ),
+          filter: [
+            'all',
+            ['has', 'point_count'],
+            ['>', ['coalesce', ['get', 'coiffeur_count'], 0], 0],
+            ['==', ['coalesce', ['get', 'barber_count'], 0], 0],
+          ],
+        );
+        await controller.addSymbolLayer(
+          _sourceId,
+          _clusterMixedLayerId,
+          const SymbolLayerProperties(
+            iconImage: TarakMarkerRenderer.spriteClusterMixed,
+            iconSize: 0.66,
+            iconAnchor: 'center',
+            iconAllowOverlap: true,
+            iconIgnorePlacement: true,
+          ),
+          filter: [
+            'all',
+            ['has', 'point_count'],
+            ['>', ['coalesce', ['get', 'barber_count'], 0], 0],
+            ['>', ['coalesce', ['get', 'coiffeur_count'], 0], 0],
+          ],
         );
 
         // Single unclustered Tarak pins render ABOVE clusters for strict tap priority.
@@ -2181,7 +2216,7 @@ class _TarakMapScreenState extends ConsumerState<TarakMapScreen> {
         final clusterFeats = await _queryFeaturesWithTolerance(
           controller,
           point,
-          [_clusterLayerId],
+          _clusterLayerIds,
         );
         final bestCluster = _closestRenderedFeature(clusterFeats, coordinates);
         if (bestCluster != null &&
@@ -2251,11 +2286,11 @@ class _TarakMapScreenState extends ConsumerState<TarakMapScreen> {
       }
 
       // 2. Cluster symbol tap: zoom cleanly even if queryRenderedFeaturesInRect was empty.
-      if (layerId == _clusterLayerId) {
+      if (_clusterLayerIds.contains(layerId)) {
         final clusterFeats = await _queryFeaturesWithTolerance(
           controller,
           point,
-          [_clusterLayerId],
+          _clusterLayerIds,
         );
         final bestCluster = _closestRenderedFeature(clusterFeats, coordinates);
         if (await _handleClusterExpansion(
