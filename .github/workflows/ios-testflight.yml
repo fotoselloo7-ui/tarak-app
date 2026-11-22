@@ -1,12 +1,17 @@
-name: Tarak iOS TestFlight
+name: Tarak iOS TestFlight — Harita Beta
 
 on:
+  push:
+    branches:
+      - beta/tarak-harita-testflight-20261122
+    paths:
+      - '.github/workflows/ios-testflight.yml'
   workflow_dispatch:
     inputs:
       build_number:
         description: 'New Tarak.app iOS build number (higher than previous uploads)'
         required: true
-        default: '6'
+        default: '30'
         type: string
 
 permissions:
@@ -202,13 +207,17 @@ jobs:
       - name: Flutter analyze
         run: flutter analyze
 
+      - name: Run Tarak Harita and auth regression tests
+        run: |
+          flutter test --no-pub test/tarak_harita_test.dart test/appointment_reminder_settings_test.dart test/staff_and_birthday_ui_test.dart test/preauth_flow_test.dart test/registration_flow_test.dart
+
       - name: Prepare Flutter iOS build
         env:
           GOOGLE_IOS_CLIENT_ID: ${{ vars.GOOGLE_IOS_CLIENT_ID || secrets.GOOGLE_IOS_CLIENT_ID }}
           GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID || secrets.GOOGLE_WEB_CLIENT_ID || '977885914941-lts9n172clgr8p6glbi3gv1k2qn2fkvn.apps.googleusercontent.com' }}
         run: |
           flutter build ios --release --no-codesign \
-            --build-name 1.1.1 --build-number "${{ inputs.build_number || '6' }}" \
+            --build-name 1.1.3 --build-number "${{ inputs.build_number || '30' }}" \
             --dart-define=API_BASE_URL=https://tarak.app/api \
             --dart-define=REVERB_HOST=tarak.app \
             --dart-define=REVERB_APP_KEY=hhyfpgfv2dgv95yd78kz \
@@ -322,7 +331,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: tarak-ios-testflight-${{ inputs.build_number || '6' }}
+          name: tarak-ios-harita-beta-${{ inputs.build_number || '30' }}
           path: ${{ runner.temp }}/export/*.ipa
           if-no-files-found: ignore
           retention-days: 7
