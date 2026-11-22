@@ -152,9 +152,10 @@ class InstantMatchingService
             ];
         }
 
-        // 11. Location & Radius check
+        // 11. Location & Radius check (plus explicit service areas)
         $hasReqCoords = $request->private_latitude !== null && $request->private_longitude !== null;
         $hasProvCoords = $profile->latitude !== null && $profile->longitude !== null;
+        $distance = null;
 
         if ($hasReqCoords && $hasProvCoords) {
             $distance = $this->haversineDistanceKm(
@@ -165,20 +166,48 @@ class InstantMatchingService
             );
             $radius = $profile->service_radius_km ?: 15;
 
-            if ($distance > $radius) {
+            if ($distance <= $radius) {
                 return [
-                    'eligible' => false,
-                    'reason' => "Mesafe ({$distance} km) hizmet verenin servis yarıçapından ({$radius} km) fazla.",
-                    'distance_km' => $distance,
+                    'eligible' => true,
+                    'reason' => null,
+                    'distance_km' => round($distance, 1),
+                    'is_approximate_match' => false,
+                ];
+            }
+
+            if (app(ServiceAreaMatcher::class)->matchesExplicitArea(
+                $profile,
+                $request->approx_province,
+                $request->approx_district,
+                $request->approx_neighborhood,
+            )) {
+                return [
+                    'eligible' => true,
+                    'reason' => null,
+                    'distance_km' => round($distance, 1),
                     'is_approximate_match' => false,
                 ];
             }
 
             return [
+                'eligible' => false,
+                'reason' => "Mesafe ({$distance} km) hizmet verenin servis yarıçapından ({$radius} km) fazla.",
+                'distance_km' => $distance,
+                'is_approximate_match' => false,
+            ];
+        }
+
+        if (app(ServiceAreaMatcher::class)->matchesExplicitArea(
+            $profile,
+            $request->approx_province,
+            $request->approx_district,
+            $request->approx_neighborhood,
+        )) {
+            return [
                 'eligible' => true,
                 'reason' => null,
-                'distance_km' => round($distance, 1),
-                'is_approximate_match' => false,
+                'distance_km' => null,
+                'is_approximate_match' => true,
             ];
         }
 

@@ -178,6 +178,36 @@ class GeoService {
     return null;
   }
 
+  /// Resolves a district query ("Alanya", "Kadıköy", or "Alanya Antalya")
+  /// using the bundled offline dataset.
+  Future<({String province, String district})?> findDistrictMatch(
+    String query,
+  ) async {
+    final key = geoKey(query);
+    if (key.length < 2) return null;
+    final provinces = await getProvinces();
+    final exactMatches = <({String province, String district})>[];
+
+    for (final p in provinces) {
+      final pKey = geoKey(p.name);
+      for (final d in p.districts) {
+        final dKey = geoKey(d.name);
+        if (key == '$dKey $pKey' ||
+            key == '$pKey $dKey' ||
+            key == '$dKey, $pKey' ||
+            key == '$pKey, $dKey' ||
+            key == '$dKey/$pKey' ||
+            key == '$dKey / $pKey') {
+          return (province: p.name, district: d.name);
+        }
+        if (dKey == key) {
+          exactMatches.add((province: p.name, district: d.name));
+        }
+      }
+    }
+    return exactMatches.length == 1 ? exactMatches.first : null;
+  }
+
   Future<List<GeoNeighborhood>> getNeighborhoods(int districtId) async {
     if (_cachedNeighborhoods.containsKey(districtId)) {
       return _cachedNeighborhoods[districtId]!;

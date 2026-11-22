@@ -14,6 +14,7 @@ import '../appointments/screens/customer_appointment_detail_screen.dart';
 import '../models/service_request_model.dart';
 import '../providers/instant_request_provider.dart';
 import '../providers/home_content_providers.dart';
+import '../../map_directory/screens/tarak_map_screen.dart';
 import 'request_tracking_screen.dart';
 import 'service_selection_screen.dart';
 import 'home_sections.dart';
@@ -148,150 +149,135 @@ class CustomerHomeTab extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Primary CTA: Hemen Çağır
-                    FadeSlideIn(
-                      child: PressableScale(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const ServiceSelectionScreen(),
-                          ),
-                        ),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(18),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primary,
-                            borderRadius: AppTheme.radiusCard,
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppTheme.primary.withAlpha(50),
-                                blurRadius: 16,
-                                offset: const Offset(0, 6),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: const BoxDecoration(
-                                  color: Colors.white,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.flash_on_rounded,
-                                  color: AppTheme.primary,
-                                  size: 28,
-                                ),
-                              ),
-                              SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Hemen Çağır',
-                                      style: TextStyle(
-                                        fontFamily: AppTheme.fontFamily,
-                                        color: Colors.white,
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: -0.2,
-                                      ),
-                                    ),
-                                    SizedBox(height: 3),
-                                    Text(
-                                      'En yakın berber anında kapına gelsin',
-                                      style: TextStyle(
-                                        fontFamily: AppTheme.fontFamily,
-                                        color: Color(0xFFFFCCBC),
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w400,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Icon(
-                                Icons.arrow_forward_ios_rounded,
-                                color: Colors.white,
-                                size: 16,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
+                    // Primary Action Row: 3 cards side-by-side in 1 row (Hemen Çağır, Planlı Randevu, Haritada Gör)
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isCompact = constraints.maxWidth < 340;
+                        final gap = isCompact ? 6.0 : 8.0;
+                        final cardPad = EdgeInsets.symmetric(
+                          horizontal: isCompact ? 6 : 8,
+                          vertical: isCompact ? 8 : 10,
+                        );
+                        final iconBoxSize = isCompact ? 22.0 : 24.0;
+                        final iconSize = isCompact ? 13.0 : 14.0;
+                        final iconTextGap = isCompact ? 4.5 : 5.5;
+                        final titleSize = isCompact ? 10.5 : 11.5;
+                        final subtitleSize = isCompact ? 9.2 : 10.0;
 
-                    const SizedBox(height: 12),
-
-                    // Secondary CTA: Planlı Randevu Al
-                    FadeSlideIn(
-                      delay: const Duration(milliseconds: 60),
-                      child: PressableScale(
-                        key: const Key('home_scheduled_appointment_cta'),
-                        onTap: openAppointment,
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(18),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: AppTheme.radiusCard,
-                            border: Border.all(color: AppTheme.slate200),
-                            boxShadow: AppTheme.cardShadow,
-                          ),
+                        return IntrinsicHeight(
+                          key: const Key('home_primary_actions_row'),
                           child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: const BoxDecoration(
-                                  color: AppTheme.slate100,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.calendar_month_rounded,
-                                  color: AppTheme.darkNavy,
-                                  size: 24,
-                                ),
-                              ),
-                              SizedBox(width: 14),
+                              // 1. Primary CTA: Hemen Çağır
                               Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Planlı Randevu Al',
-                                      style: TextStyle(
-                                        fontFamily: AppTheme.fontFamily,
-                                        color: AppTheme.textPrimary,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: -0.2,
+                                child: FadeSlideIn(
+                                  child: _HomeQuickActionCard(
+                                    key: const Key('home_instant_call_cta'),
+                                    onTap: () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            const ServiceSelectionScreen(),
                                       ),
                                     ),
-                                    SizedBox(height: 2),
-                                    Text(
-                                      'İstediğin gün ve saatte randevu oluştur',
-                                      style: TextStyle(
-                                        fontFamily: AppTheme.fontFamily,
-                                        color: AppTheme.textSecondary,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w400,
+                                    padding: cardPad,
+                                    backgroundColor: AppTheme.primary,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: AppTheme.primary.withAlpha(50),
+                                        blurRadius: 16,
+                                        offset: const Offset(0, 6),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                    icon: Icons.flash_on_rounded,
+                                    iconColor: AppTheme.primary,
+                                    iconBgColor: Colors.white,
+                                    iconBgCircle: true,
+                                    iconBoxSize: iconBoxSize,
+                                    iconSize: iconSize,
+                                    iconTextGap: iconTextGap,
+                                    title: 'Hemen Çağır',
+                                    titleColor: Colors.white,
+                                    titleSize: titleSize,
+                                    subtitle:
+                                        'En yakın uzman anında kapında',
+                                    subtitleColor: const Color(0xFFFFCCBC),
+                                    subtitleSize: subtitleSize,
+                                  ),
                                 ),
                               ),
-                              Icon(
-                                Icons.arrow_forward_ios_rounded,
-                                color: AppTheme.slate400,
-                                size: 14,
+
+                              SizedBox(width: gap),
+
+                              // 2. Secondary CTA: Planlı Randevu
+                              Expanded(
+                                child: FadeSlideIn(
+                                  delay: const Duration(milliseconds: 60),
+                                  child: _HomeQuickActionCard(
+                                    key: const Key(
+                                      'home_scheduled_appointment_cta',
+                                    ),
+                                    onTap: openAppointment,
+                                    padding: cardPad,
+                                    backgroundColor: Colors.white,
+                                    border: Border.all(color: AppTheme.slate200),
+                                    boxShadow: AppTheme.cardShadow,
+                                    icon: Icons.calendar_month_rounded,
+                                    iconColor: AppTheme.darkNavy,
+                                    iconBgColor: AppTheme.slate100,
+                                    iconBgCircle: true,
+                                    iconBoxSize: iconBoxSize,
+                                    iconSize: iconSize,
+                                    iconTextGap: iconTextGap,
+                                    title: 'Planlı Randevu',
+                                    titleColor: AppTheme.textPrimary,
+                                    titleSize: titleSize,
+                                    subtitle:
+                                        'İstediğin gün ve saatte oluştur',
+                                    subtitleColor: AppTheme.textSecondary,
+                                    subtitleSize: subtitleSize,
+                                  ),
+                                ),
+                              ),
+
+                              SizedBox(width: gap),
+
+                              // 3. Tertiary CTA: Haritada Gör
+                              Expanded(
+                                child: FadeSlideIn(
+                                  delay: const Duration(milliseconds: 120),
+                                  child: _HomeQuickActionCard(
+                                    key: const Key('home_tarak_map_cta'),
+                                    onTap: () => Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => const TarakMapScreen(),
+                                      ),
+                                    ),
+                                    padding: cardPad,
+                                    backgroundColor: AppTheme.darkNavy,
+                                    boxShadow: AppTheme.cardShadow,
+                                    icon: Icons.map_rounded,
+                                    iconColor: Colors.white,
+                                    iconBgColor: AppTheme.primary,
+                                    iconBgCircle: false,
+                                    iconBoxSize: iconBoxSize,
+                                    iconSize: iconSize,
+                                    iconTextGap: iconTextGap,
+                                    title: 'Haritada Gör',
+                                    titleColor: Colors.white,
+                                    titleSize: titleSize,
+                                    subtitle:
+                                        'Yakındaki hizmetverenleri keşfet',
+                                    subtitleColor: AppTheme.slate300,
+                                    subtitleSize: subtitleSize,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
-                        ),
-                      ),
+                        );
+                      },
                     ),
 
                     const SizedBox(height: 24),
@@ -667,6 +653,128 @@ class _UpcomingAppointmentCard extends StatelessWidget {
               Icons.chevron_right_rounded,
               color: AppTheme.slate400,
               size: 18,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeQuickActionCard extends StatelessWidget {
+  final VoidCallback onTap;
+  final EdgeInsetsGeometry padding;
+  final Color backgroundColor;
+  final Border? border;
+  final List<BoxShadow>? boxShadow;
+  final IconData icon;
+  final Color iconColor;
+  final Color iconBgColor;
+  final bool iconBgCircle;
+  final double iconBoxSize;
+  final double iconSize;
+  final double iconTextGap;
+  final String title;
+  final Color titleColor;
+  final double titleSize;
+  final String subtitle;
+  final Color subtitleColor;
+  final double subtitleSize;
+
+  const _HomeQuickActionCard({
+    super.key,
+    required this.onTap,
+    required this.padding,
+    required this.backgroundColor,
+    this.border,
+    this.boxShadow,
+    required this.icon,
+    required this.iconColor,
+    required this.iconBgColor,
+    required this.iconBgCircle,
+    required this.iconBoxSize,
+    required this.iconSize,
+    required this.iconTextGap,
+    required this.title,
+    required this.titleColor,
+    required this.titleSize,
+    required this.subtitle,
+    required this.subtitleColor,
+    required this.subtitleSize,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return PressableScale(
+      onTap: onTap,
+      child: Container(
+        padding: padding,
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(14),
+          border: border,
+          boxShadow: boxShadow,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  width: iconBoxSize,
+                  height: iconBoxSize,
+                  decoration: BoxDecoration(
+                    color: iconBgColor,
+                    shape: iconBgCircle ? BoxShape.circle : BoxShape.rectangle,
+                    borderRadius:
+                        iconBgCircle ? null : BorderRadius.circular(7),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    icon,
+                    color: iconColor,
+                    size: iconSize,
+                  ),
+                ),
+                SizedBox(width: iconTextGap),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        softWrap: false,
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          color: titleColor,
+                          fontSize: titleSize,
+                          fontWeight: FontWeight.w700,
+                          height: 1.15,
+                          letterSpacing: -0.25,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              subtitle,
+              maxLines: 2,
+              softWrap: true,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: subtitleColor,
+                fontSize: subtitleSize,
+                fontWeight: FontWeight.w400,
+                height: 1.25,
+              ),
             ),
           ],
         ),

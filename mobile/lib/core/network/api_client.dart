@@ -55,6 +55,7 @@ class ApiClient {
   /// quietly before an error screen shows. Only requests that cannot have been processed are repeated: the
   /// connection never opened (any method), or for a GET also a connect / read timeout and 502 / 503 / 504.
   bool _isTransient(String method, DioException e) {
+    if (CancelToken.isCancel(e)) return false;
     switch (e.type) {
       case DioExceptionType.connectionError:
         return true;
@@ -96,12 +97,22 @@ class ApiClient {
     String path, {
     Map<String, dynamic>? queryParameters,
     Options? options,
+    CancelToken? cancelToken,
   }) async {
     try {
-      final response = await _send('GET', () => _dio.get<T>(path, queryParameters: queryParameters, options: options));
+      final response = await _send(
+        'GET',
+        () => _dio.get<T>(
+          path,
+          queryParameters: queryParameters,
+          options: options,
+          cancelToken: cancelToken,
+        ),
+      );
       _validateResponse(response.data);
       return response;
     } on DioException catch (e) {
+      if (CancelToken.isCancel(e)) rethrow;
       throw AppException.fromDioError(e);
     }
   }

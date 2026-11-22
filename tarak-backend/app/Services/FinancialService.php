@@ -724,7 +724,12 @@ class FinancialService
     public function giftSummary(Wallet $wallet): array
     {
         $ledgerGranted = $this->ledgerCents($wallet, WalletTransaction::TYPE_WELCOME_PROMO_CREDIT, WalletTransaction::DIRECTION_CREDIT);
-        $usedCents = $this->ledgerCents($wallet, WalletTransaction::TYPE_COMMISSION_CAPTURE_PROMO, WalletTransaction::DIRECTION_DEBIT);
+        $promoDebits = $this->ledgerCents($wallet, WalletTransaction::TYPE_COMMISSION_CAPTURE_PROMO, WalletTransaction::DIRECTION_DEBIT)
+            + $this->ledgerCents($wallet, WalletTransaction::TYPE_BIRTHDAY_NOTIFICATION_PURCHASE, WalletTransaction::DIRECTION_DEBIT, WalletTransaction::BUCKET_PROMO)
+            + $this->ledgerCents($wallet, WalletTransaction::TYPE_NOTIFICATION_AD_PURCHASE_PROMO, WalletTransaction::DIRECTION_DEBIT, WalletTransaction::BUCKET_PROMO);
+        $promoRefunds = $this->ledgerCents($wallet, WalletTransaction::TYPE_NOTIFICATION_AD_REFUND, WalletTransaction::DIRECTION_CREDIT, WalletTransaction::BUCKET_PROMO)
+            + $this->ledgerCents($wallet, WalletTransaction::TYPE_BIRTHDAY_NOTIFICATION_REFUND, WalletTransaction::DIRECTION_CREDIT, WalletTransaction::BUCKET_PROMO);
+        $usedCents = max(0, $promoDebits - $promoRefunds);
         $remainingCents = self::parseToCents($wallet->promo_balance);
         $reservedCents = min($remainingCents, self::parseToCents($wallet->reserved_promo_balance));
         // Promo that was set without the welcome ledger entry (older / demo data) still counts as granted.
@@ -757,21 +762,22 @@ class FinancialService
         return "İlk {$amount} TL komisyon Tarak.app'ten!";
     }
 
-    private function ledgerCents(Wallet $wallet, string $type, string $direction): int
+    private function ledgerCents(Wallet $wallet, string $type, string $direction, ?string $bucket = null): int
     {
         $sum = WalletTransaction::where('wallet_id', $wallet->id)
             ->where('type', $type)
             ->where('direction', $direction)
+            ->when($bucket !== null, fn ($q) => $q->where('bucket', $bucket))
             ->sum('amount');
 
         return self::parseToCents(number_format((float) $sum, 2, '.', ''));
     }
 
     /**
-     * Called inside the capture transaction after the wallet was saved. When a captured commission used up the very
+     * Called inside the capture transaction after the wallet was saved. When a captured charge used up the very
      * last of the gift right, remember it and queue the one-time e-mail (idempotent: the job re-checks under lock).
      */
-    private function afterPromoCaptured(Wallet $wallet, int $capturedPromoCents): void
+    public function afterPromoCaptured(Wallet $wallet, int $capturedPromoCents): void
     {
         if ($capturedPromoCents <= 0 || self::parseToCents($wallet->promo_balance) > 0) {
             return;

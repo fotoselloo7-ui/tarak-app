@@ -76,4 +76,22 @@ return [
         'lock_minutes' => (int) env('SERVICE_START_LOCK_MINUTES', 5),
     ],
 
+    'map_osm' => [
+        'overpass_urls' => array_values(array_filter(array_map('trim', explode(',', (string) env(
+            'MAP_OVERPASS_URLS',
+            'https://overpass.openstreetmap.fr/api/interpreter,https://overpass-api.de/api/interpreter,https://overpass.kumi.systems/api/interpreter'
+        ))))),
+        'nominatim_url' => env('MAP_NOMINATIM_URL', 'https://nominatim.openstreetmap.org/search'),
+        'cache_ttl_minutes' => (int) env('MAP_OSM_CACHE_TTL_MINUTES', 30),
+    ],
+
+    'map_routing' => [
+        // Production MUST configure MAP_ROUTING_BASE_URL (self-hosted Valhalla/OSRM or managed ORS).
+        // Non-production local/testing falls back to FOSSGIS Valhalla -> FOSSGIS OSRM.
+        'provider' => env('MAP_ROUTING_PROVIDER', 'valhalla'),
+        'base_url' => env('MAP_ROUTING_BASE_URL', ''),
+        'api_key' => env('MAP_ROUTING_API_KEY', ''),
+        'cache_ttl_minutes' => (int) env('MAP_ROUTING_CACHE_TTL_MINUTES', 10),
+    ],
+
 ];

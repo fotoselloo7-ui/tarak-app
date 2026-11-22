@@ -1,4 +1,5 @@
 import '../../notifications/screens/notification_center_screen.dart';
+import '../../notifications/widgets/appointment_reminder_minutes_selector.dart';
 
 import 'dart:io';
 
@@ -23,6 +24,13 @@ import '../appointments/screens/provider_schedule_screen.dart';
 import 'provider_wallet_screen.dart';
 import 'provider_documents_screen.dart';
 import 'provider_location_sheet.dart';
+import '../../customer/providers/instant_request_provider.dart';
+import '../../customer/services/geo_service.dart';
+import '../../map_directory/models/map_business_model.dart';
+import '../../map_directory/providers/map_directory_providers.dart';
+import '../instant/models/provider_profile_model.dart';
+import 'provider_birthday_assistant_screen.dart';
+import '../staff/screens/provider_staff_screen.dart';
 import '../instant/providers/provider_instant_providers.dart';
 import '../../shared/widgets/app_icon_card.dart';
 import '../../../core/widgets/verified_tick.dart';
@@ -94,12 +102,336 @@ class _ProviderProfileTabState extends ConsumerState<ProviderProfileTab> {
   bool _pushLoading = true;
   bool _pushSaving = false;
   String? _pushError;
+  bool _reminderEnabled = true;
+  int _reminderMinutes = 30;
+  bool _reminderSaving = false;
   bool _coverUploading = false;
+  bool _logoUploading = false;
   bool _galleryUploading = false;
   bool _statusSaving = false;
+  bool _directorySaving = false;
+  int? _radiusDraft;
 
   static const _acceptedImageExt = ['jpg', 'jpeg', 'png', 'webp'];
   static const _maxMediaBytes = 5 * 1024 * 1024; // 5MB, matches backend cap
+
+  Future<void> _pickAndUploadLogo() async {
+    if (_logoUploading) return;
+    final XFile? picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1024,
+      imageQuality: 85,
+    );
+    if (picked == null || !mounted) return;
+    final ext = picked.path.split('.').last.toLowerCase();
+    if (!_acceptedImageExt.contains(ext)) {
+      _showSnack(
+        'Yalnızca JPG, PNG veya WEBP formatı kabul edilir.',
+        isError: true,
+      );
+      return;
+    }
+    final size = await File(picked.path).length();
+    if (size > _maxMediaBytes) {
+      _showSnack('Logo boyutu en fazla 5 MB olabilir.', isError: true);
+      return;
+    }
+    setState(() => _logoUploading = true);
+    try {
+      await ref
+          .read(mapDirectoryRepositoryProvider)
+          .uploadLogo(picked.path, filename: 'logo.$ext');
+      await ref.read(providerProfileNotifierProvider.notifier).refresh();
+      _showSnack('İşletme logosu güncellendi.');
+    } on AppException catch (e) {
+      _showSnack(e.message, isError: true);
+    } catch (_) {
+      _showSnack('İşletme logosu yüklenemedi.', isError: true);
+    } finally {
+      if (mounted) setState(() => _logoUploading = false);
+    }
+  }
+
+  Future<void> _removeLogo() async {
+    if (_logoUploading) return;
+    setState(() => _logoUploading = true);
+    try {
+      await ref.read(mapDirectoryRepositoryProvider).deleteLogo();
+      await ref.read(providerProfileNotifierProvider.notifier).refresh();
+      _showSnack('İşletme logosu kaldırıldı.');
+    } on AppException catch (e) {
+      _showSnack(e.message, isError: true);
+    } catch (_) {
+      _showSnack('İşletme logosu kaldırılamadı.', isError: true);
+    } finally {
+      if (mounted) setState(() => _logoUploading = false);
+    }
+  }
+
+  Future<void> _updateConsolidatedProfile(
+    Map<String, dynamic> fields, {
+    String? successMessage,
+  }) async {
+    if (_directorySaving) return;
+    setState(() => _directorySaving = true);
+    try {
+      final api = ref.read(apiClientProvider);
+      await api.put('/provider/profile', data: fields);
+      await ref.read(providerProfileNotifierProvider.notifier).refresh();
+      if (successMessage != null) {
+        _showSnack(successMessage);
+      }
+    } on AppException catch (e) {
+      _showSnack(e.message, isError: true);
+    } catch (_) {
+      _showSnack('Ayarlar kaydedilemedi.', isError: true);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _directorySaving = false;
+          _radiusDraft = null;
+        });
+      }
+    }
+  }
+
+  Future<void> _openAddServiceAreaSheet(ProviderProfileModel profile) async {
+    final geo = ref.read(geoServiceProvider);
+    List<GeoProvince> provinces = const [];
+    try {
+      provinces = await geo.getProvinces();
+    } catch (_) {}
+    if (!mounted) return;
+    if (provinces.isEmpty) {
+      _showSnack('İl / ilçe listesi yüklenemedi.', isError: true);
+      return;
+    }
+
+    GeoProvince selectedProvince = provinces.first;
+    GeoDistrict? selectedDistrict =
+        selectedProvince.districts.isNotEmpty
+            ? selectedProvince.districts.first
+            : null;
+    List<GeoNeighborhood> neighborhoods = const [];
+    GeoNeighborhood? selectedNeighborhood;
+    bool loadingNeighborhoods = false;
+
+    Future<void> loadNeighborhoods(
+      GeoDistrict? d,
+      void Function(void Function()) setSheetState,
+    ) async {
+      if (d == null) {
+        setSheetState(() {
+          neighborhoods = const [];
+          selectedNeighborhood = null;
+        });
+        return;
+      }
+      setSheetState(() => loadingNeighborhoods = true);
+      try {
+        final rows = await geo.getNeighborhoods(d.id);
+        setSheetState(() {
+          neighborhoods = rows;
+          selectedNeighborhood = null;
+          loadingNeighborhoods = false;
+        });
+      } catch (_) {
+        setSheetState(() {
+          neighborhoods = const [];
+          selectedNeighborhood = null;
+          loadingNeighborhoods = false;
+        });
+      }
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: AppTheme.radiusSheet),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          return Padding(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              20,
+              20,
+              24 + MediaQuery.of(ctx).viewInsets.bottom,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text('Hizmet Bölgesi Ekle', style: AppTheme.headingMedium),
+                const SizedBox(height: 6),
+                const Text(
+                  'Hizmet verdiğiniz ilçe veya mahalleyi ekleyin.',
+                  style: AppTheme.bodySmall,
+                ),
+                const SizedBox(height: 14),
+                DropdownButtonFormField<GeoProvince>(
+                  initialValue: selectedProvince,
+                  decoration: const InputDecoration(labelText: 'İl'),
+                  items: provinces
+                      .map((p) => DropdownMenuItem(value: p, child: Text(p.name)))
+                      .toList(),
+                  onChanged: (p) {
+                    if (p == null) return;
+                    setSheetState(() {
+                      selectedProvince = p;
+                      selectedDistrict =
+                          p.districts.isNotEmpty ? p.districts.first : null;
+                      neighborhoods = const [];
+                      selectedNeighborhood = null;
+                    });
+                    loadNeighborhoods(selectedDistrict, setSheetState);
+                  },
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<GeoDistrict>(
+                  initialValue: selectedDistrict,
+                  decoration: const InputDecoration(labelText: 'İlçe'),
+                  items: selectedProvince.districts
+                      .map((d) => DropdownMenuItem(value: d, child: Text(d.name)))
+                      .toList(),
+                  onChanged: (d) {
+                    setSheetState(() {
+                      selectedDistrict = d;
+                      selectedNeighborhood = null;
+                    });
+                    loadNeighborhoods(d, setSheetState);
+                  },
+                ),
+                const SizedBox(height: 12),
+                if (loadingNeighborhoods)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: LinearProgressIndicator(),
+                  )
+                else
+                  DropdownButtonFormField<GeoNeighborhood?>(
+                    initialValue: selectedNeighborhood,
+                    decoration: const InputDecoration(
+                      labelText: 'Mahalle (İsteğe Bağlı — boş bırakılırsa tüm ilçe)',
+                    ),
+                    items: [
+                      const DropdownMenuItem<GeoNeighborhood?>(
+                        value: null,
+                        child: Text('Tüm İlçe'),
+                      ),
+                      ...neighborhoods.map(
+                        (n) => DropdownMenuItem<GeoNeighborhood?>(
+                          value: n,
+                          child: Text(n.name),
+                        ),
+                      ),
+                    ],
+                    onChanged: (n) => setSheetState(() => selectedNeighborhood = n),
+                  ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  key: const Key('confirm_add_service_area_btn'),
+                  onPressed: selectedDistrict == null
+                      ? null
+                      : () async {
+                          final item = ServiceAreaItem(
+                            province: selectedProvince.name,
+                            district: selectedDistrict!.name,
+                            neighborhood: selectedNeighborhood?.name,
+                          );
+                          final current = List<ServiceAreaItem>.from(
+                            profile.serviceAreas,
+                          );
+                          if (!current.any(
+                            (a) => a.normalizedKey == item.normalizedKey,
+                          )) {
+                            current.add(item);
+                          }
+                          Navigator.pop(ctx);
+                          await _updateConsolidatedProfile(
+                            {
+                              'service_areas':
+                                  current.map((a) => a.toJson()).toList(),
+                            },
+                            successMessage: 'Hizmet bölgesi kaydedildi.',
+                          );
+                        },
+                  child: const Text('Bölgeyi Ekle'),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildDirectoryStatusPill(ProviderProfileModel? profile) {
+    final status = profile?.directoryStatus ?? 'NOT_REQUESTED';
+    final listed = profile?.directoryListed ?? false;
+    String label;
+    Color bg;
+    Color fg;
+    switch (status) {
+      case 'APPROVED':
+        label = listed
+            ? 'Rehber Durumu: Onaylı ve Haritada Yayında'
+            : 'Rehber Durumu: Onaylı (Haritada Gizli)';
+        bg = AppTheme.successLight;
+        fg = AppTheme.success;
+        break;
+      case 'PENDING':
+        label = 'Rehber Durumu: Yönetici İncelemesi Bekliyor';
+        bg = AppTheme.warningLight;
+        fg = AppTheme.warning;
+        break;
+      case 'REJECTED':
+        label = 'Rehber Durumu: Reddedildi';
+        bg = AppTheme.errorLight;
+        fg = AppTheme.error;
+        break;
+      case 'SUSPENDED':
+        label = 'Rehber Durumu: Askıya Alındı';
+        bg = AppTheme.errorLight;
+        fg = AppTheme.error;
+        break;
+      default:
+        label = 'Rehber Durumu: Henüz Talep Edilmedi';
+        bg = AppTheme.slate100;
+        fg = AppTheme.slate700;
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: AppTheme.radiusSmall,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              color: fg,
+            ),
+          ),
+          if (profile?.directoryRejectionReason != null &&
+              profile!.directoryRejectionReason!.trim().isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Not: ${profile.directoryRejectionReason!}',
+              style: AppTheme.caption,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 
   Future<void> _pickAndUploadCover() async {
     final XFile? picked = await ImagePicker().pickImage(
@@ -266,10 +598,12 @@ class _ProviderProfileTabState extends ConsumerState<ProviderProfileTab> {
   Future<void> _loadPushPreference() async {
     try {
       final pushService = ref.read(pushNotificationServiceProvider);
-      final enabled = await pushService.getPushPreference();
+      final prefs = await pushService.getNotificationPreferences();
       if (mounted) {
         setState(() {
-          _pushEnabled = enabled;
+          _pushEnabled = prefs.push;
+          _reminderEnabled = prefs.appointmentReminderEnabled;
+          _reminderMinutes = prefs.appointmentReminderMinutes;
           _pushError = null;
         });
       }
@@ -277,6 +611,52 @@ class _ProviderProfileTabState extends ConsumerState<ProviderProfileTab> {
       if (mounted) setState(() => _pushError = 'Bildirim tercihi yüklenemedi.');
     } finally {
       if (mounted) setState(() => _pushLoading = false);
+    }
+  }
+
+  Future<String?> _saveReminderPreference({
+    bool? enabled,
+    int? minutes,
+  }) async {
+    if (_pushLoading || _reminderSaving || _pushError != null) {
+      return _pushError ?? 'Lütfen mevcut işlemin bitmesini bekleyin.';
+    }
+    final prevEnabled = _reminderEnabled;
+    final prevMinutes = _reminderMinutes;
+    setState(() {
+      _reminderSaving = true;
+      if (enabled != null) _reminderEnabled = enabled;
+      if (minutes != null) _reminderMinutes = minutes;
+    });
+
+    try {
+      final updated = await ref
+          .read(pushNotificationServiceProvider)
+          .updateAppointmentReminderPreferences(
+            appointmentReminderEnabled: enabled,
+            appointmentReminderMinutes: minutes,
+          );
+      if (mounted) {
+        setState(() {
+          _reminderEnabled = updated.appointmentReminderEnabled;
+          _reminderMinutes = updated.appointmentReminderMinutes;
+        });
+      }
+      return null;
+    } catch (e) {
+      final msg = e is AppException && e.message.trim().isNotEmpty
+          ? e.message.trim()
+          : 'Randevu hatırlatma tercihi güncellenemedi.';
+      if (mounted) {
+        setState(() {
+          _reminderEnabled = prevEnabled;
+          _reminderMinutes = prevMinutes;
+        });
+        _showSnack(msg, isError: true);
+      }
+      return msg;
+    } finally {
+      if (mounted) setState(() => _reminderSaving = false);
     }
   }
 
@@ -587,30 +967,33 @@ class _ProviderProfileTabState extends ConsumerState<ProviderProfileTab> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Profilim',
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontFamily,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
-                          color: AppTheme.textPrimary,
-                          letterSpacing: -0.5,
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Profilim',
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.textPrimary,
+                            letterSpacing: -0.5,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      const Text(
-                        'Hesabını yönet, bilgilerini güncelle.',
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontFamily,
-                          fontSize: 13,
-                          color: AppTheme.textSecondary,
+                        SizedBox(height: 2),
+                        Text(
+                          'Hesabını yönet, bilgilerini güncelle.',
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: 13,
+                            color: AppTheme.textSecondary,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 12),
                   Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -1503,8 +1886,9 @@ class _ProviderProfileTabState extends ConsumerState<ProviderProfileTab> {
               ),
               const SizedBox(height: 12),
 
-              // İşletme bilgileri: same header row as every module, details underneath.
+              // İşletme bilgileri: same header row as every module, details & logo underneath.
               AppCard(
+                key: const Key('provider_business_info_card'),
                 onTap: () => showProfileEditSheet(
                   context,
                   title: 'İşletme Bilgileri',
@@ -1514,6 +1898,18 @@ class _ProviderProfileTabState extends ConsumerState<ProviderProfileTab> {
                       key: 'business_name',
                       label: 'İşletme Adı',
                       initial: providerProfile?.businessName ?? ustaName,
+                    ),
+                    ProfileEditField(
+                      key: 'title',
+                      label: 'Kısa Başlık / Uzmanlık',
+                      initial: providerProfile?.title ?? '',
+                      maxLength: 150,
+                    ),
+                    ProfileEditField(
+                      key: 'bio',
+                      label: 'İşletme Açıklaması',
+                      initial: providerProfile?.bio ?? '',
+                      maxLength: 1000,
                     ),
                     ProfileEditField(
                       key: 'city',
@@ -1528,6 +1924,13 @@ class _ProviderProfileTabState extends ConsumerState<ProviderProfileTab> {
                       kind: ProfileEditKind.district,
                     ),
                     ProfileEditField(
+                      key: 'experience_years',
+                      label: 'Deneyim Yılı',
+                      initial: '${providerProfile?.experienceYears ?? 1}',
+                      keyboardType: TextInputType.number,
+                      maxLength: 2,
+                    ),
+                    ProfileEditField(
                       key: 'service_radius_km',
                       label: 'Hizmet Yarıçapı (km)',
                       initial: '${providerProfile?.serviceRadiusKm ?? 15}',
@@ -1535,7 +1938,11 @@ class _ProviderProfileTabState extends ConsumerState<ProviderProfileTab> {
                       maxLength: 3,
                     ),
                   ],
-                ),
+                ).then((saved) {
+                  if (saved == true) {
+                    ref.read(providerProfileNotifierProvider.notifier).refresh();
+                  }
+                }),
                 padding: const EdgeInsets.all(14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1582,13 +1989,548 @@ class _ProviderProfileTabState extends ConsumerState<ProviderProfileTab> {
                       'İşletme',
                       providerProfile?.businessName ?? ustaName,
                     ),
+                    if ((providerProfile?.title ?? '').trim().isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      _buildWalletRow(
+                        Icons.workspace_premium_outlined,
+                        'Uzmanlık',
+                        providerProfile!.title!.trim(),
+                      ),
+                    ],
                     const SizedBox(height: 4),
                     _buildWalletRow(
                       Icons.location_on_outlined,
                       'Hizmet Bölgesi',
                       locationLine ?? 'Belirtilmedi',
                     ),
+                    if ((providerProfile?.bio ?? '').trim().isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        providerProfile!.bio!.trim(),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTheme.bodySmall,
+                      ),
+                    ],
+                    const SizedBox(height: 10),
+                    const Divider(height: 1, color: AppTheme.slate100),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            color: AppTheme.slate100,
+                            child: (providerProfile?.logoUrl ?? '').isNotEmpty
+                                ? Image.network(
+                                    providerProfile!.logoUrl!,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, _, _) => const Icon(
+                                      Icons.storefront_rounded,
+                                      size: 20,
+                                      color: AppTheme.primary,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.storefront_rounded,
+                                    size: 20,
+                                    color: AppTheme.slate400,
+                                  ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'İşletme Logosu',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                        ),
+                        OutlinedButton(
+                          key: const Key('provider_logo_upload_btn'),
+                          onPressed: _logoUploading ? null : _pickAndUploadLogo,
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(0, 34),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: Text(
+                            _logoUploading
+                                ? 'Yükleniyor...'
+                                : ((providerProfile?.logoUrl ?? '').isNotEmpty
+                                    ? 'Değiştir'
+                                    : 'Logo Yükle'),
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                        if ((providerProfile?.logoUrl ?? '').isNotEmpty) ...[
+                          const SizedBox(width: 4),
+                          IconButton(
+                            key: const Key('provider_logo_delete_btn'),
+                            tooltip: 'Logoyu Kaldır',
+                            onPressed: _logoUploading ? null : _removeLogo,
+                            icon: const Icon(
+                              Icons.delete_outline_rounded,
+                              size: 18,
+                              color: AppTheme.error,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ],
+                      ],
+                    ),
                   ],
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // ── Çalışma Şeklim ve Hizmet Bölgelerim ─────────────────────────
+              if (providerProfile != null)
+                AppCard(
+                  key: const Key('provider_work_mode_card'),
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Çalışma Şeklim ve Hizmet Bölgelerim',
+                        style: AppTheme.headingSmall,
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          for (final option in const [
+                            {
+                              'key': Key('provider_work_mode_venue'),
+                              'mode': 'venue',
+                              'label': 'İşletmede',
+                              'success':
+                                  'Çalışma şekli İşletmede olarak güncellendi.',
+                              'flex': 10,
+                            },
+                            {
+                              'key': Key('provider_work_mode_mobile'),
+                              'mode': 'mobile',
+                              'label': 'Adreste (Gezici)',
+                              'success':
+                                  'Çalışma şekli Adreste olarak güncellendi.',
+                              'flex': 13,
+                            },
+                            {
+                              'key': Key('provider_work_mode_both'),
+                              'mode': 'both',
+                              'label': 'Her İkisi',
+                              'success':
+                                  'Çalışma şekli Her İkisi olarak güncellendi.',
+                              'flex': 10,
+                            },
+                          ]) ...[
+                            if (option['mode'] != 'venue')
+                              const SizedBox(width: 6),
+                            Expanded(
+                              flex: option['flex'] as int,
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  key: option['key'] as Key,
+                                  borderRadius: BorderRadius.circular(10),
+                                  onTap: _directorySaving
+                                      ? null
+                                      : () => _updateConsolidatedProfile(
+                                            {'work_mode': option['mode']},
+                                            successMessage:
+                                                option['success'] as String,
+                                          ),
+                                  child: Ink(
+                                    height: 36,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: providerProfile.workMode ==
+                                              option['mode']
+                                          ? AppTheme.primaryLight
+                                          : Colors.white,
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: providerProfile.workMode ==
+                                                option['mode']
+                                            ? AppTheme.primary
+                                            : AppTheme.slate300,
+                                      ),
+                                    ),
+                                    child: Center(
+                                      child: FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            if (providerProfile.workMode ==
+                                                option['mode']) ...[
+                                              const Icon(
+                                                Icons.check_rounded,
+                                                size: 13,
+                                                color: AppTheme.primaryDark,
+                                              ),
+                                              const SizedBox(width: 4),
+                                            ],
+                                            Text(
+                                              option['label'] as String,
+                                              maxLines: 1,
+                                              softWrap: false,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight:
+                                                    providerProfile.workMode ==
+                                                            option['mode']
+                                                        ? FontWeight.w600
+                                                        : FontWeight.w500,
+                                                color:
+                                                    providerProfile.workMode ==
+                                                            option['mode']
+                                                        ? AppTheme.primaryDark
+                                                        : AppTheme.textPrimary,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      if (providerProfile.workMode == 'mobile') ...[
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryLight,
+                            borderRadius: AppTheme.radiusSmall,
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(
+                                Icons.shield_outlined,
+                                size: 17,
+                                color: AppTheme.primaryDark,
+                              ),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Gezici hizmet verdiğinizde özel ev adresiniz gizli tutulur; haritada pin olarak gösterilmez.',
+                                  style: AppTheme.caption,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      if (providerProfile.workMode != 'venue') ...[
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'Hizmet Yarıçapı',
+                                style: AppTheme.bodyLarge,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${_radiusDraft ?? providerProfile.serviceRadiusKm.clamp(1, 50)} km',
+                              style: const TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.primaryDark,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Slider(
+                          value: (_radiusDraft ??
+                                  providerProfile.serviceRadiusKm.clamp(1, 50))
+                              .toDouble(),
+                          min: 1,
+                          max: 50,
+                          divisions: 49,
+                          label:
+                              '${_radiusDraft ?? providerProfile.serviceRadiusKm.clamp(1, 50)} km',
+                          onChanged: (v) =>
+                              setState(() => _radiusDraft = v.round()),
+                          onChangeEnd: (v) => _updateConsolidatedProfile(
+                            {'service_radius_km': v.round()},
+                            successMessage:
+                                'Hizmet yarıçapı ${v.round()} km olarak kaydedildi.',
+                          ),
+                        ),
+                      ],
+                      const Divider(height: 20, color: AppTheme.slate100),
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Hizmet Verilen İlçe ve Mahalleler',
+                              style: AppTheme.bodyLarge,
+                            ),
+                          ),
+                          TextButton.icon(
+                            key: const Key('provider_add_service_area_btn'),
+                            onPressed: _directorySaving
+                                ? null
+                                : () => _openAddServiceAreaSheet(providerProfile),
+                            icon: const Icon(
+                              Icons.add_location_alt_outlined,
+                              size: 17,
+                            ),
+                            label: const Text('Bölge Ekle'),
+                          ),
+                        ],
+                      ),
+                      if (providerProfile.serviceAreas.isEmpty)
+                        const Text(
+                          'Henüz ek hizmet bölgesi tanımlanmadı.',
+                          style: AppTheme.caption,
+                        )
+                      else
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: providerProfile.serviceAreas.map((area) {
+                            return Chip(
+                              label: Text(area.displayLabel),
+                              onDeleted: _directorySaving
+                                  ? null
+                                  : () {
+                                      final remaining = providerProfile
+                                          .serviceAreas
+                                          .where(
+                                            (a) =>
+                                                a.normalizedKey !=
+                                                area.normalizedKey,
+                                          )
+                                          .map((a) => a.toJson())
+                                          .toList();
+                                      _updateConsolidatedProfile(
+                                        {'service_areas': remaining},
+                                        successMessage:
+                                            'Hizmet bölgesi kaldırıldı.',
+                                      );
+                                    },
+                            );
+                          }).toList(),
+                        ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 12),
+
+              // ── Tarak Harita Görünürlüğü ────────────────────────────────────
+              if (providerProfile != null)
+                AppCard(
+                  key: const Key('provider_directory_visibility_card'),
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Tarak Harita Görünürlüğü',
+                        style: AppTheme.headingSmall,
+                      ),
+                      const SizedBox(height: 10),
+                      _buildDirectoryStatusPill(providerProfile),
+                      const SizedBox(height: 8),
+                      SwitchListTile.adaptive(
+                        key: const Key('provider_directory_listed_switch'),
+                        contentPadding: EdgeInsets.zero,
+                        value: providerProfile.directoryStatus == 'SUSPENDED'
+                            ? false
+                            : providerProfile.directoryListed,
+                        onChanged: (_directorySaving ||
+                                providerProfile.directoryStatus == 'SUSPENDED')
+                            ? null
+                            : (v) => _updateConsolidatedProfile(
+                                  {'directory_listed': v},
+                                  successMessage: v
+                                      ? 'Harita görünürlüğü talebi kaydedildi.'
+                                      : 'Harita görünürlüğü kapatıldı.',
+                                ),
+                        title: const Text(
+                          'Tarak Haritada Görün',
+                          style: AppTheme.bodyLarge,
+                        ),
+                        subtitle: Text(
+                          providerProfile.directoryStatus == 'SUSPENDED'
+                              ? 'Rehber kaydınız askıya alındığı için değiştirilemez.'
+                              : 'İşletmeniz Tarak Harita ve rehber sayfalarında listelenir.',
+                          style: AppTheme.caption,
+                        ),
+                      ),
+                      SwitchListTile.adaptive(
+                        key: const Key('provider_accepts_clients_switch'),
+                        contentPadding: EdgeInsets.zero,
+                        value: providerProfile.acceptsNewClients,
+                        onChanged: _directorySaving
+                            ? null
+                            : (v) => _updateConsolidatedProfile(
+                                  {'accepts_new_clients': v},
+                                  successMessage: v
+                                      ? 'Tarak üzerinden randevu alımı açıldı.'
+                                      : 'Tarak üzerinden randevu alımı durduruldu.',
+                                ),
+                        title: const Text(
+                          'Tarak Üzerinden Hizmet Ver',
+                          style: AppTheme.bodyLarge,
+                        ),
+                        subtitle: const Text(
+                          'Müşteriler uygulama içinden randevu ve anlık hizmet talebi oluşturabilir.',
+                          style: AppTheme.caption,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        providerProfile.isVerified
+                            ? 'Doğrulanmış rozet aktif (mesleki belgeleriniz onaylandı).'
+                            : 'Haritada listelenmek tek başına doğrulanmış rozet vermez; doğrulanmış rozet için belge onayı gerekir.',
+                        style: AppTheme.caption,
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 12),
+              Card(
+                key: const Key('provider_staff_entry'),
+                margin: EdgeInsets.zero,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: const BorderSide(color: AppTheme.slate200),
+                ),
+                child: InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ProviderStaffScreen(),
+                      ),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryLight,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.groups_2_outlined,
+                            color: AppTheme.primaryDark,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Çalışanlarım',
+                                style: AppTheme.headingSmall,
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Personel, verdiği hizmetler, saatler ve izinler',
+                                style: AppTheme.caption,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(
+                          Icons.chevron_right_rounded,
+                          color: AppTheme.slate400,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Card(
+                key: const Key('provider_birthday_assistant_entry'),
+                margin: EdgeInsets.zero,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: const BorderSide(color: AppTheme.slate200),
+                ),
+                child: InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const ProviderBirthdayAssistantScreen(),
+                      ),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryLight,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.cake_outlined,
+                            color: AppTheme.primaryDark,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Tarak Özel Gün Asistanı',
+                                style: AppTheme.headingSmall,
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Onaylı müşterilere otomatik doğum günü tebriği',
+                                style: AppTheme.caption,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(
+                          Icons.chevron_right_rounded,
+                          color: AppTheme.slate400,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -1630,6 +2572,100 @@ class _ProviderProfileTabState extends ConsumerState<ProviderProfileTab> {
                     _togglePushPreference(!_pushEnabled);
                   }
                 },
+              ),
+              const SizedBox(height: 12),
+
+              AppCard(
+                key: const Key('provider_reminder_card'),
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryLight,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.alarm_rounded,
+                            color: AppTheme.primary,
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Randevu Hatırlatması',
+                                style: TextStyle(
+                                  fontFamily: AppTheme.fontFamily,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                _pushError ??
+                                    (_pushLoading
+                                        ? 'Yükleniyor…'
+                                        : _reminderEnabled
+                                            ? 'Randevudan $_reminderMinutes dakika önce bildirim al'
+                                            : 'Randevu hatırlatma bildirimi kapalı'),
+                                style: const TextStyle(
+                                  fontFamily: AppTheme.fontFamily,
+                                  fontSize: 11.5,
+                                  color: AppTheme.textSecondary,
+                                  height: 1.3,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        if (_pushError != null)
+                          IconButton(
+                            tooltip: 'Tekrar Dene',
+                            onPressed: _loadPushPreference,
+                            icon: const Icon(Icons.refresh),
+                          )
+                        else if (_pushLoading || _reminderSaving)
+                          const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        else
+                          Switch.adaptive(
+                            key: const Key('provider_reminder_switch'),
+                            value: _reminderEnabled,
+                            activeThumbColor: AppTheme.primary,
+                            onChanged: (v) =>
+                                _saveReminderPreference(enabled: v),
+                          ),
+                      ],
+                    ),
+                    if (!_pushLoading &&
+                        _pushError == null &&
+                        _reminderEnabled) ...[
+                      const SizedBox(height: 12),
+                      AppointmentReminderMinutesSelector(
+                        keyPrefix: 'provider_reminder',
+                        selectedMinutes: _reminderMinutes,
+                        enabled: _pushEnabled,
+                        saving: _reminderSaving,
+                        onSelectMinutes: (m) =>
+                            _saveReminderPreference(minutes: m),
+                      ),
+                    ],
+                  ],
+                ),
               ),
               const SizedBox(height: 12),
 

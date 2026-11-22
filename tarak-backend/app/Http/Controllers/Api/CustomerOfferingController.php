@@ -78,7 +78,9 @@ class CustomerOfferingController extends Controller
         $offerings = ProviderService::with(['service', 'providerProfile.user', 'providerProfile.documents'])
             ->where('service_id', $service->id)
             ->where('is_active', true)
-            ->whereHas('providerProfile', fn ($q) => $q->where('is_approved', true)->where('identity_status', 'APPROVED'))
+            ->whereHas('providerProfile', fn ($q) => $q->where('is_approved', true)
+                ->where('identity_status', 'APPROVED')
+                ->where('accepts_new_clients', true))
             ->get()
             ->filter(fn ($ps) => $ps->providerProfile?->isVerified());
 
@@ -136,15 +138,25 @@ class CustomerOfferingController extends Controller
             return $location;
         }
 
-        $availabilityFor = fn (int $duration) => $demoPreview
-            ? ['available' => false, 'reason' => 'Bu bir demo profildir; gerçek hizmet talebi oluşturulamaz.', 'distance_km' => null]
-            : $this->offerings->instantAvailability(
-            $profile,
-            $duration,
-            $location['lat'],
-            $location['lng'],
-            $location['province']
-        );
+        $availabilityFor = function (int $duration) use ($demoPreview, $profile, $location) {
+            if ($demoPreview) {
+                return ['available' => false, 'reason' => 'Bu bir demo profildir; gerçek hizmet talebi oluşturulamaz.', 'distance_km' => null];
+            }
+            if ($profile->work_mode === ProviderProfile::WORK_MODE_VENUE) {
+                return ['available' => false, 'reason' => 'Bu işletme yalnızca iş yerinde hizmet vermektedir. Planlı randevu alabilirsiniz.', 'distance_km' => null];
+            }
+            if ($location['lat'] === null || $location['lng'] === null) {
+                return ['available' => false, 'reason' => 'Adrese anlık çağrı için kayıtlı adres seçin veya planlı randevu alın.', 'distance_km' => null];
+            }
+
+            return $this->offerings->instantAvailability(
+                $profile,
+                $duration,
+                $location['lat'],
+                $location['lng'],
+                $location['province']
+            );
+        };
 
         $discountPercent = $this->discounts->percentFor((int) $profile->user_id);
 
@@ -177,6 +189,8 @@ class CustomerOfferingController extends Controller
             'data' => [
                 'provider' => $this->offerings->presentProvider($profile),
                 'preview_only' => (bool) $demoPreview,
+                'work_mode' => $profile->work_mode,
+                'scheduled_booking_available' => !$demoPreview && $profile->canAcceptTarakBookings(),
                 'services' => $services,
                 'packages' => $packages,
             ],
@@ -189,12 +203,28 @@ class CustomerOfferingController extends Controller
     private function customerLocation(Request $request): array|JsonResponse
     {
         $addressId = $request->query('customer_address_id');
+        $customerProfileId = $request->user()?->customerProfile?->id;
         if (!$addressId) {
-            return ['lat' => null, 'lng' => null, 'province' => null];
+            if (!$customerProfileId) {
+                return ['lat' => null, 'lng' => null, 'province' => null];
+            }
+            $defaultAddr = CustomerAddress::where('customer_profile_id', $customerProfileId)
+                ->orderByDesc('is_default')
+                ->orderBy('id')
+                ->first();
+            if (!$defaultAddr) {
+                return ['lat' => null, 'lng' => null, 'province' => null];
+            }
+
+            return [
+                'lat' => $defaultAddr->latitude !== null ? (float) $defaultAddr->latitude : null,
+                'lng' => $defaultAddr->longitude !== null ? (float) $defaultAddr->longitude : null,
+                'province' => $defaultAddr->province,
+            ];
         }
 
         $address = CustomerAddress::where('id', $addressId)
-            ->where('customer_profile_id', $request->user()->customerProfile?->id)
+            ->where('customer_profile_id', $customerProfileId)
             ->first();
 
         if (!$address) {

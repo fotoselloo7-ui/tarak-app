@@ -3,6 +3,7 @@ import 'package:app/core/network/api_exception.dart';
 import 'package:app/core/network/auth_interceptor.dart';
 import 'package:app/core/services/push_notification_service.dart';
 import 'package:app/core/services/secure_storage_service.dart';
+import 'package:app/core/widgets/app_bottom_nav.dart';
 import 'package:app/features/auth/models/user_model.dart';
 import 'package:app/features/auth/providers/auth_provider.dart';
 import 'package:app/features/auth/screens/auth_gate.dart';
@@ -11,6 +12,7 @@ import 'package:app/features/auth/screens/register_screen.dart';
 import 'package:app/features/auth/screens/unsupported_admin_screen.dart';
 import 'package:app/features/auth/screens/welcome_screen.dart';
 import 'package:app/features/customer/screens/customer_shell.dart';
+import 'package:app/features/customer/screens/requests_tab.dart';
 import 'package:app/features/provider/screens/provider_shell.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -318,10 +320,36 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.byType(CustomerShell), findsOneWidget);
-    expect(find.text('Talepler'), findsOneWidget);
-    expect(find.text('Randevular'), findsOneWidget);
-    expect(find.text('Mesajlar'), findsOneWidget);
-    expect(find.text('Profilim'), findsOneWidget);
+    final bottomNav = find.byType(AppBottomNav);
+    final homeNav = find.descendant(of: bottomNav, matching: find.text('Ana Sayfa'));
+    final mapNav = find.descendant(of: bottomNav, matching: find.text('Harita'));
+    final apptsNav = find.descendant(of: bottomNav, matching: find.text('Randevular'));
+    final msgsNav = find.descendant(of: bottomNav, matching: find.text('Mesajlar'));
+    final profileNav = find.descendant(of: bottomNav, matching: find.text('Profilim'));
+    expect(homeNav, findsOneWidget);
+    expect(mapNav, findsOneWidget);
+    expect(find.byTooltip('Tarak Harita'), findsOneWidget);
+    expect(find.descendant(of: bottomNav, matching: find.text('Talepler')), findsNothing);
+    expect(apptsNav, findsOneWidget);
+    expect(msgsNav, findsOneWidget);
+    expect(profileNav, findsOneWidget);
+    expect(tester.getRect(homeNav).left, lessThan(tester.getRect(mapNav).left));
+    expect(tester.getRect(mapNav).left, lessThan(tester.getRect(apptsNav).left));
+    expect(tester.getRect(apptsNav).left, lessThan(tester.getRect(msgsNav).left));
+    expect(tester.getRect(msgsNav).left, lessThan(tester.getRect(profileNav).left));
+
+    await tester.tap(apptsNav);
+    await tester.pumpAndSettle();
+
+    final tabBar = find.byType(TabBar);
+    final activeTab = find.descendant(of: tabBar, matching: find.text('Aktif Randevular'));
+    final requestsTab = find.descendant(of: tabBar, matching: find.text('Talepler'));
+    final pastTab = find.descendant(of: tabBar, matching: find.text('Geçmiş'));
+    expect(activeTab, findsOneWidget);
+    expect(requestsTab, findsOneWidget);
+    expect(pastTab, findsOneWidget);
+    expect(tester.getRect(activeTab).left, lessThan(tester.getRect(requestsTab).left));
+    expect(tester.getRect(requestsTab).left, lessThan(tester.getRect(pastTab).left));
   });
 
   // 3. Valid restored provider -> ProviderShell
@@ -905,10 +933,11 @@ void main() {
       'resource_id': '10',
     });
 
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pumpAndSettle();
 
-    expect(find.text('Taleplerim'), findsWidgets);
+    expect(find.text('Randevularım'), findsWidgets);
+    expect(find.byType(RequestsListView), findsOneWidget);
+    expect(find.text('Henüz talebiniz yok'), findsOneWidget);
   });
 
   // 18. Notification deep-link PROVIDER routes to correct tab
@@ -1144,10 +1173,12 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
-    expect(find.text('İşler'), findsNothing);
-    expect(find.text('Talepler'), findsOneWidget);
+    final bottomNav = find.byType(AppBottomNav);
+    expect(find.descendant(of: bottomNav, matching: find.text('İşler')), findsNothing);
+    expect(find.descendant(of: bottomNav, matching: find.text('Talepler')), findsNothing);
+    expect(find.descendant(of: bottomNav, matching: find.text('Randevular')), findsOneWidget);
 
-    // Provider Shell does NOT contain Customer 'Talepler' tab
+    // Provider Shell does NOT contain Customer 'Randevular'/'Talepler' conflicts
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: providerContainer,
@@ -1156,7 +1187,117 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
-    expect(find.text('Talepler'), findsNothing);
-    expect(find.text('İşler'), findsOneWidget);
+    expect(find.descendant(of: find.byType(AppBottomNav), matching: find.text('Talepler')), findsNothing);
+    expect(find.descendant(of: find.byType(AppBottomNav), matching: find.text('İşler')), findsOneWidget);
   });
+
+  // 21. Customer bottom nav Harita shortcut & shifted tab indices
+  testWidgets(
+    '21. Customer bottom nav Harita shortcut opens map and preserves active tab on back',
+    (tester) async {
+      final dio = Dio();
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            return handler.resolve(
+              Response(
+                requestOptions: options,
+                statusCode: 200,
+                data: {'data': []},
+              ),
+            );
+          },
+        ),
+      );
+      final apiClient = ApiClient(storage: storageService, customDio: dio);
+      final pushService = PushNotificationService(
+        apiClient: apiClient,
+        storage: storageService,
+      );
+      const customer = UserModel(
+        id: 1,
+        role: 'CUSTOMER',
+        name: 'Ali',
+        email: 'ali@test.com',
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          secureStorageProvider.overrideWithValue(storageService),
+          apiClientProvider.overrideWithValue(apiClient),
+          pushNotificationServiceProvider.overrideWithValue(pushService),
+          authNotifierProvider.overrideWith(() {
+            return AuthNotifier(
+              storage: storageService,
+              initialState: const AuthState(
+                status: AuthStatus.authenticated,
+                user: customer,
+              ),
+            );
+          }),
+          myServiceRequestsProvider.overrideWith(
+            FakeMyServiceRequestsNotifier.new,
+          ),
+          customerAppointmentsProvider.overrideWith(
+            FakeCustomerAppointmentsNotifier.new,
+          ),
+          serviceCategoriesProvider.overrideWith((ref) async => const []),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: CustomerShell(
+              mapScreenBuilder: (_) => Scaffold(
+                appBar: AppBar(title: const Text('Tarak Harita Test')),
+                body: const SizedBox.shrink(),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final bottomNavFinder = find.byType(AppBottomNav);
+      expect(tester.widget<AppBottomNav>(bottomNavFinder).currentIndex, 0);
+
+      // 1. Switch to Randevular (shifted nav index 2)
+      await tester.tap(
+        find.descendant(of: bottomNavFinder, matching: find.text('Randevular')),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.widget<AppBottomNav>(bottomNavFinder).currentIndex, 2);
+      expect(find.text('Randevularım'), findsOneWidget);
+
+      // 2. Tap Harita shortcut -> opens map route without losing current tab
+      await tester.tap(
+        find.descendant(of: bottomNavFinder, matching: find.text('Harita')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Tarak Harita Test'), findsOneWidget);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.text('Randevularım'), findsOneWidget);
+      expect(tester.widget<AppBottomNav>(bottomNavFinder).currentIndex, 2);
+
+      // 3. Verify Mesajlar (nav index 3) and Profilim (nav index 4)
+      await tester.tap(
+        find.descendant(of: bottomNavFinder, matching: find.text('Mesajlar')),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.widget<AppBottomNav>(bottomNavFinder).currentIndex, 3);
+      expect(find.text('Mesajlar'), findsWidgets);
+
+      await tester.tap(
+        find.descendant(of: bottomNavFinder, matching: find.text('Profilim')),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.widget<AppBottomNav>(bottomNavFinder).currentIndex, 4);
+      expect(find.text('Profilim'), findsWidgets);
+    },
+  );
 }

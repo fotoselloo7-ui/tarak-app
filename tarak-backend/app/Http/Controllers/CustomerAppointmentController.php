@@ -44,8 +44,9 @@ class CustomerAppointmentController extends Controller
             $request->query->set('sort', $request->query('sort', 'distance'));
             $request->query->set('max_distance_km', (string) min(50, max(1, (float) $request->query('max_distance_km', 50))));
         }
-        $query = ProviderProfile::with(['user', 'services', 'documents'])
-            ->discoverable();
+        $query = ProviderProfile::with(['user', 'services', 'documents', 'serviceAreas'])
+            ->discoverable()
+            ->where('accepts_new_clients', true);
 
         if ($request->filled('provider_type')) {
             $query->where('provider_type', $request->query('provider_type'));
@@ -92,9 +93,25 @@ class CustomerAppointmentController extends Controller
 
         $sponsored = $this->listingAds->sponsored($filters);
         if ($selectedAddress) {
-            $withinRange = fn ($p) => ($d = Geo::distanceKm($origin[0], $origin[1], $p->latitude, $p->longitude)) !== null
-                && $d <= min((float) $filters['max_distance_km'], (float) ($p->service_radius_km ?: 15));
-            $sponsored = $sponsored->filter($withinRange)->sortBy(fn ($p) => Geo::distanceKm($origin[0], $origin[1], $p->latitude, $p->longitude));
+            $matcher = app(\App\Services\ServiceAreaMatcher::class);
+            $withinRange = function ($p) use ($origin, $filters, $selectedAddress, $matcher) {
+                $coverage = $matcher->coversLocation(
+                    $p,
+                    (float) $origin[0],
+                    (float) $origin[1],
+                    $selectedAddress->province,
+                    $selectedAddress->district,
+                    $selectedAddress->neighborhood,
+                );
+                if (!$coverage['covered']) {
+                    return false;
+                }
+
+                return $coverage['matched_by'] === 'service_area'
+                    || $coverage['distance_km'] === null
+                    || $coverage['distance_km'] <= (float) $filters['max_distance_km'];
+            };
+            $sponsored = $sponsored->filter($withinRange)->sortBy(fn ($p) => Geo::distanceKm($origin[0], $origin[1], $p->latitude, $p->longitude) ?? PHP_FLOAT_MAX);
         }
         $sponsored = new EloquentCollection($sponsored->all());
         $sponsored->load(['services', 'documents']);
@@ -138,7 +155,14 @@ class CustomerAppointmentController extends Controller
         if ($origin) {
             $km = fn ($p) => Geo::distanceKm($origin[0], $origin[1], $p->latitude, $p->longitude);
             if ($filters['max_distance_km']) {
-                $organic = $organic->filter(fn ($p) => ($d = $km($p)) !== null && $d <= $filters['max_distance_km']);
+                $matcher = app(\App\Services\ServiceAreaMatcher::class);
+                $organic = $organic->filter(fn ($p) => (($d = $km($p)) !== null && $d <= $filters['max_distance_km'])
+                    || ($selectedAddress !== null && $matcher->matchesExplicitArea(
+                        $p,
+                        $selectedAddress->province,
+                        $selectedAddress->district,
+                        $selectedAddress->neighborhood,
+                    )));
             }
         }
 
@@ -237,6 +261,10 @@ class CustomerAppointmentController extends Controller
         }
 
         $date = $request->query('date', Carbon::tomorrow()->format('Y-m-d'));
+        $staffId = $request->filled('staff_id') ? (int) $request->query('staff_id') : null;
+        $isOwnProviderManual = $request->boolean('manual')
+            && $request->user()
+            && (int) $request->user()->id === (int) $profile->user_id;
 
         $package = null;
         if ($request->filled('provider_package_id')) {
@@ -253,7 +281,21 @@ class CustomerAppointmentController extends Controller
             ? $package->services->pluck('id')->all()
             : $this->parseServiceIds($request->query('service_ids') ?: $request->query('service_id'));
 
-        $slots = $this->availabilityService->getAvailableSlots($profile, $serviceIds, $date, null, $package);
+        $slots = $this->availabilityService->getAvailableSlots(
+            $profile,
+            $serviceIds,
+            $date,
+            null,
+            $package,
+            $staffId,
+            customerVisibleOnly: !$isOwnProviderManual,
+            allowUnverifiedManual: $isOwnProviderManual
+        );
+
+        $staff = $staffId
+            ? $profile->staff()->with('staffServices')->whereKey($staffId)->first()
+            : null;
+
         if ($package) {
             $discount = app(\App\Services\ProviderDiscountService::class)->apply((int) $profile->user_id, (float) $package->price);
             $calc = [
@@ -263,13 +305,21 @@ class CustomerAppointmentController extends Controller
                 'discount_percent' => $discount['discount_percent'],
             ];
         } else {
-            $calc = $this->availabilityService->calculateDurationAndPrice($profile, $serviceIds);
+            $calc = $this->availabilityService->calculateDurationAndPrice($profile, $serviceIds, $staff);
         }
+
+        $hasActiveStaff = $this->availabilityService->providerHasActiveStaff($profile);
+        $eligibleStaffCount = $hasActiveStaff
+            ? $this->availabilityService->getEligibleStaff($profile, $serviceIds, $package, !$isOwnProviderManual)->count()
+            : 0;
 
         return response()->json([
             'success' => true,
             'data' => [
                 'provider_id' => (string) $profile->user_id,
+                'staff_id' => $staffId,
+                'staff_selection_available' => $hasActiveStaff,
+                'eligible_staff_count' => $eligibleStaffCount,
                 'date' => $date,
                 'provider_package_id' => $package?->id,
                 'total_duration_minutes' => $calc['total_duration_minutes'],
@@ -308,7 +358,7 @@ class CustomerAppointmentController extends Controller
     {
         $user = $request->user();
 
-        $appointments = Appointment::with(['provider.providerProfile', 'services', 'alternativeSlots', 'address', 'disputeCase', 'servicePayment.refunds'])
+        $appointments = Appointment::with(['provider.providerProfile', 'staff', 'services', 'alternativeSlots', 'address', 'disputeCase', 'servicePayment.refunds'])
             ->where('customer_user_id', $user->id)
             ->orderByDesc('requested_at')
             ->get();
@@ -328,12 +378,14 @@ class CustomerAppointmentController extends Controller
 
         $validated = $request->validate([
             'provider_id' => 'required',
+            'staff_id' => 'nullable|integer|min:1',
             'provider_package_id' => 'nullable|integer',
             'service_ids' => 'required_without:provider_package_id|array|min:1',
             'service_ids.*' => 'required|integer',
             'date' => 'required|date_format:Y-m-d',
             'time' => 'required|date_format:H:i',
-            'customer_address_id' => 'required|integer',
+            'service_location_type' => 'nullable|string|in:venue,mobile',
+            'customer_address_id' => 'nullable|integer',
             'customer_note' => 'nullable|string|max:1000',
             'payment_method' => 'nullable|string|in:CASH,ONLINE,cash,online',
             // Optional fallback location if customer has no saved address
@@ -347,6 +399,36 @@ class CustomerAppointmentController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Yalnızca mesleki belgesi onaylı uzmanlardan randevu alınabilir.',
+            ], 422);
+        }
+
+        if (!$profile->accepts_new_clients) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bu işletme şu anda Tarak üzerinden randevu kabul etmiyor.',
+            ], 422);
+        }
+
+        $requestedLocType = $validated['service_location_type'] ?? null;
+        if ($requestedLocType === 'venue' && $profile->work_mode === ProviderProfile::WORK_MODE_MOBILE) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bu uzman yalnızca adrese gelerek hizmet vermektedir.',
+            ], 422);
+        }
+        if ($requestedLocType === 'mobile' && $profile->work_mode === ProviderProfile::WORK_MODE_VENUE) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bu işletme yalnızca iş yerinde hizmet vermektedir.',
+            ], 422);
+        }
+        $effectiveLocType = $requestedLocType
+            ?? ($profile->work_mode === ProviderProfile::WORK_MODE_VENUE ? 'venue' : 'mobile');
+
+        if ($effectiveLocType === 'mobile' && empty($validated['customer_address_id'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Adreste hizmet randevusu için kayıtlı adres seçmeniz gerekir.',
             ], 422);
         }
 
@@ -385,37 +467,48 @@ class CustomerAppointmentController extends Controller
             }
         }
 
-        if ($address) {
+        if ($effectiveLocType === 'mobile' && $address) {
             $address = app(\App\Services\SavedCustomerLocation::class)->resolve($customer, (int) $address->id);
-            $distance = Geo::distanceKm($address->latitude, $address->longitude, $profile->latitude, $profile->longitude);
-            if ($distance === null || $distance > (float) ($profile->service_radius_km ?: 15)) {
+            $coverage = app(\App\Services\ServiceAreaMatcher::class)->coversLocation(
+                $profile,
+                (float) $address->latitude,
+                (float) $address->longitude,
+                $address->province,
+                $address->district,
+                $address->neighborhood,
+            );
+            if (!$coverage['covered']) {
                 return response()->json(['success' => false, 'message' => 'Seçilen hizmet veren bu adresin hizmet alanı dışında. Adrese yakın bir hizmet veren seçin.'], 422);
             }
         }
 
         // Concurrency Protection & Race Condition Safety via DB Transaction
-        $appointment = DB::transaction(function () use ($customer, $profile, $validated, $address, $offering, $package) {
+        $appointment = DB::transaction(function () use ($customer, $profile, $validated, $address, $offering, $package, $effectiveLocType) {
             // Lock active appointments for this provider and date to prevent concurrent double-booking
             DB::table('appointments')
                 ->where('provider_user_id', $profile->user_id)
                 ->where('appointment_date', $validated['date'])
-                ->whereIn('status', ['PENDING', 'ALTERNATIVE_PROPOSED', 'CONFIRMED'])
+                ->whereIn('status', ['PENDING', 'ALTERNATIVE_PROPOSED', 'CONFIRMED', 'IN_PROGRESS'])
                 ->lockForUpdate()
                 ->get();
 
-            // Re-verify availability within locked transaction
-            $isAvailable = $this->availabilityService->isSlotAvailable(
+            $requestedStaffId = isset($validated['staff_id']) ? (int) $validated['staff_id'] : null;
+
+            $assignedStaff = $this->availabilityService->resolveStaffForBooking(
                 $profile,
                 $validated['service_ids'],
                 $validated['date'],
                 $validated['time'],
+                $requestedStaffId,
                 null,
-                $package
+                $package,
+                customerVisibleOnly: true,
+                allowUnverifiedManual: false
             );
 
-            if (!$isAvailable) {
-                abort(409, 'Bu saat artık müsait değil. Lütfen başka bir saat seçin.');
-            }
+            $selectionMode = $requestedStaffId !== null
+                ? 'SPECIFIC'
+                : ($assignedStaff !== null ? 'ANY_AVAILABLE' : 'LEGACY');
 
             // Package: the provider's bundle price/duration is canonical; items are recorded with a zero line price.
             $calc = $offering
@@ -428,26 +521,37 @@ class CustomerAppointmentController extends Controller
                         'duration_minutes_snapshot' => 0,
                     ], $offering['snapshot']['items']),
                 ]
-                : $this->availabilityService->calculateDurationAndPrice($profile, $validated['service_ids']);
+                : $this->availabilityService->calculateDurationAndPrice($profile, $validated['service_ids'], $assignedStaff);
 
             // Calculate start and end times
             [$sH, $sM] = explode(':', substr($validated['time'], 0, 5));
-            $sMinutes = (int)$sH * 60 + (int)$sM;
+            $sMinutes = (int) $sH * 60 + (int) $sM;
             $eMinutes = $sMinutes + $calc['total_duration_minutes'];
 
             $startTimeStr = sprintf('%02d:%02d:00', floor($sMinutes / 60), $sMinutes % 60);
             $endTimeStr = sprintf('%02d:%02d:00', floor($eMinutes / 60), $eMinutes % 60);
 
             // Determine approx location
-            $province = $address?->province ?: ($validated['approx_province'] ?? $customer->customerProfile?->city ?: 'İstanbul');
-            $district = $address?->district ?: ($validated['approx_district'] ?? $customer->customerProfile?->district ?: 'Kadıköy');
-            $neighborhood = $address?->neighborhood ?: ($validated['approx_neighborhood'] ?? null);
+            if ($effectiveLocType === 'venue' && !$address) {
+                $province = $profile->city ?: ($validated['approx_province'] ?? $customer->customerProfile?->city ?: 'İstanbul');
+                $district = $profile->district ?: ($validated['approx_district'] ?? $customer->customerProfile?->district ?: 'Merkez');
+                $neighborhood = $profile->neighborhood ?: ($validated['approx_neighborhood'] ?? null);
+            } else {
+                $province = $address?->province ?: ($validated['approx_province'] ?? $customer->customerProfile?->city ?: 'İstanbul');
+                $district = $address?->district ?: ($validated['approx_district'] ?? $customer->customerProfile?->district ?: 'Kadıköy');
+                $neighborhood = $address?->neighborhood ?: ($validated['approx_neighborhood'] ?? null);
+            }
 
             $paymentMethod = strtoupper($validated['payment_method'] ?? 'CASH');
 
             $appt = Appointment::create([
                 'customer_user_id' => $customer->id,
                 'provider_user_id' => $profile->user_id,
+                'staff_id' => $assignedStaff?->id,
+                'staff_name_snapshot' => $assignedStaff?->full_name,
+                'staff_selection_mode' => $selectionMode,
+                'booking_source' => 'CUSTOMER_APP',
+                'created_by_user_id' => $customer->id,
                 'customer_address_id' => $address?->id,
                 'status' => 'PENDING',
                 'appointment_date' => $validated['date'],
@@ -480,13 +584,16 @@ class CustomerAppointmentController extends Controller
             return $appt;
         });
 
-        $appointment->load(['provider.providerProfile', 'services', 'address', 'alternativeSlots']);
+        $appointment->load(['provider.providerProfile', 'staff', 'services', 'address', 'alternativeSlots']);
+        $staffName = $appointment->staffDisplayName();
 
         app(\App\Services\NotificationService::class)->notifyUser(
             $appointment->provider_user_id,
             \App\Models\UserNotification::TYPE_APPOINTMENT_REQUESTED,
             'Yeni Randevu Talebi',
-            'Yeni bir randevu talebiniz var.',
+            $staffName
+                ? "{$staffName} için {$appointment->appointment_date?->format('Y-m-d')} " . substr((string) $appointment->start_time, 0, 5) . " tarihinde yeni bir randevu talebiniz var."
+                : 'Yeni bir randevu talebiniz var.',
             \App\Models\UserNotification::RESOURCE_SCHEDULED_APPOINTMENT,
             $appointment->id,
             '/barber',
@@ -494,6 +601,8 @@ class CustomerAppointmentController extends Controller
                 'appointment_id' => $appointment->id,
                 'appointment_date' => $appointment->appointment_date?->format('Y-m-d') ?: (string) $appointment->appointment_date,
                 'start_time' => (string) $appointment->start_time,
+                'staff_id' => $appointment->staff_id,
+                'staff_name' => $staffName,
             ],
             "APPOINTMENT_REQUESTED:{$appointment->id}:{$appointment->provider_user_id}"
         );
@@ -512,7 +621,7 @@ class CustomerAppointmentController extends Controller
     {
         $user = $request->user();
 
-        $appt = Appointment::with(['provider.providerProfile', 'services', 'address', 'alternativeSlots'])
+        $appt = Appointment::with(['provider.providerProfile', 'staff', 'services', 'address', 'alternativeSlots'])
             ->where('id', $appointment)
             ->where('customer_user_id', $user->id)
             ->first();
@@ -624,7 +733,7 @@ class CustomerAppointmentController extends Controller
             DB::table('appointments')
                 ->where('provider_user_id', $appt->provider_user_id)
                 ->where('appointment_date', $altSlot->date->format('Y-m-d'))
-                ->whereIn('status', ['PENDING', 'ALTERNATIVE_PROPOSED', 'CONFIRMED'])
+                ->whereIn('status', ['PENDING', 'ALTERNATIVE_PROPOSED', 'CONFIRMED', 'IN_PROGRESS'])
                 ->lockForUpdate()
                 ->get();
 
@@ -640,7 +749,9 @@ class CustomerAppointmentController extends Controller
                 // Package bookings are validated against the package itself.
                 $appt->provider_package_id
                     ? \App\Models\ProviderPackage::find($appt->provider_package_id)
-                    : null
+                    : null,
+                $appt->staff_id,
+                customerVisibleOnly: false
             );
 
             if (!$isAvailable) {
@@ -713,7 +824,7 @@ class CustomerAppointmentController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Alternatif randevu saati onaylandı!',
-            'data' => new AppointmentResource($updated->fresh(['provider.providerProfile', 'services', 'alternativeSlots'])),
+            'data' => new AppointmentResource($updated->fresh(['provider.providerProfile', 'staff', 'services', 'alternativeSlots'])),
         ]);
     }
 

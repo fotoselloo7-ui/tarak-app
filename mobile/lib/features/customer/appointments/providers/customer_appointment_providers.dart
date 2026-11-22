@@ -11,6 +11,7 @@ import '../../models/service_item.dart';
 import '../../providers/provider_list_origin.dart';
 import '../../../offerings/models/offering_models.dart';
 import '../../../offerings/providers/offerings_providers.dart';
+import '../../../provider/staff/models/provider_staff_model.dart';
 import '../models/customer_appointment_model.dart';
 import '../models/scheduled_provider_model.dart';
 import '../repositories/customer_appointment_repository.dart';
@@ -383,6 +384,9 @@ class AppointmentWizardState {
   final List<ProviderPackageModel> providerPackages;
   final bool isLoadingPackages;
   final ProviderPackageModel? selectedPackage;
+  final List<ProviderStaffModel> providerStaff;
+  final bool isLoadingStaff;
+  final ProviderStaffModel? selectedStaff;
   final DateTime? selectedDate;
   final List<String> availableSlots;
   final bool isLoadingAvailability;
@@ -397,6 +401,9 @@ class AppointmentWizardState {
   final bool slotConflict;
   final String? errorMessage;
 
+  final int? preferredProviderUserId;
+  final int? preferredStaffId;
+
   const AppointmentWizardState({
     this.selectedServices = const [],
     this.availableProviders = const [],
@@ -409,6 +416,9 @@ class AppointmentWizardState {
     this.providerPackages = const [],
     this.isLoadingPackages = false,
     this.selectedPackage,
+    this.providerStaff = const [],
+    this.isLoadingStaff = false,
+    this.selectedStaff,
     this.selectedDate,
     this.availableSlots = const [],
     this.isLoadingAvailability = false,
@@ -422,6 +432,8 @@ class AppointmentWizardState {
     this.isSubmitting = false,
     this.slotConflict = false,
     this.errorMessage,
+    this.preferredProviderUserId,
+    this.preferredStaffId,
   });
 
   bool get canProceedToProvider => selectedAddress != null && selectedServices.isNotEmpty;
@@ -449,6 +461,9 @@ class AppointmentWizardState {
     List<ProviderPackageModel>? providerPackages,
     bool? isLoadingPackages,
     ProviderPackageModel? selectedPackage,
+    List<ProviderStaffModel>? providerStaff,
+    bool? isLoadingStaff,
+    ProviderStaffModel? selectedStaff,
     DateTime? selectedDate,
     List<String>? availableSlots,
     bool? isLoadingAvailability,
@@ -464,11 +479,16 @@ class AppointmentWizardState {
     String? errorMessage,
     bool clearProvider = false,
     bool clearPackage = false,
+    bool clearSelectedStaff = false,
     bool clearSlot = false,
     bool clearError = false,
     bool clearProvidersError = false,
     bool clearAvailabilityError = false,
     bool clearEstimate = false,
+    int? preferredProviderUserId,
+    int? preferredStaffId,
+    bool clearPreferredProvider = false,
+    bool clearPreferredStaff = false,
   }) {
     return AppointmentWizardState(
       selectedServices: selectedServices ?? this.selectedServices,
@@ -488,6 +508,11 @@ class AppointmentWizardState {
       selectedPackage: clearPackage
           ? null
           : (selectedPackage ?? this.selectedPackage),
+      providerStaff: providerStaff ?? this.providerStaff,
+      isLoadingStaff: isLoadingStaff ?? this.isLoadingStaff,
+      selectedStaff: clearSelectedStaff
+          ? null
+          : (selectedStaff ?? this.selectedStaff),
       selectedDate: selectedDate ?? this.selectedDate,
       availableSlots: availableSlots ?? this.availableSlots,
       isLoadingAvailability:
@@ -508,6 +533,12 @@ class AppointmentWizardState {
       isSubmitting: isSubmitting ?? this.isSubmitting,
       slotConflict: slotConflict ?? this.slotConflict,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      preferredProviderUserId: clearPreferredProvider
+          ? null
+          : (preferredProviderUserId ?? this.preferredProviderUserId),
+      preferredStaffId: clearPreferredStaff
+          ? null
+          : (preferredStaffId ?? this.preferredStaffId),
     );
   }
 }
@@ -578,6 +609,27 @@ class AppointmentWizardNotifier extends Notifier<AppointmentWizardState> {
         rotationSeconds: result.rotationSeconds,
         isLoadingProviders: false,
       );
+      final targetUid = state.preferredProviderUserId;
+      if (targetUid != null && state.selectedProvider == null) {
+        ScheduledProviderModel? match;
+        for (final p in result.sponsored) {
+          if (p.userId == targetUid) {
+            match = p;
+            break;
+          }
+        }
+        if (match == null) {
+          for (final p in result.providers) {
+            if (p.userId == targetUid) {
+              match = p;
+              break;
+            }
+          }
+        }
+        if (match != null) {
+          selectProvider(match, keepPreferredStaff: true);
+        }
+      }
     } catch (e) {
       if (!ref.mounted || req != _providersReq) return;
       state = state.copyWith(
@@ -599,11 +651,17 @@ class AppointmentWizardNotifier extends Notifier<AppointmentWizardState> {
     state = state.copyWith(sponsoredProviders: result.sponsored, rotationSeconds: result.rotationSeconds);
   }
 
-  void selectProvider(ScheduledProviderModel provider) {
+  void selectProvider(
+    ScheduledProviderModel provider, {
+    bool keepPreferredStaff = false,
+  }) {
     state = state.copyWith(
       selectedProvider: provider,
       clearPackage: true,
       providerPackages: const [],
+      providerStaff: const [],
+      clearSelectedStaff: true,
+      clearPreferredStaff: !keepPreferredStaff,
       clearSlot: true,
       availableSlots: const [],
       clearEstimate: true,
@@ -611,7 +669,65 @@ class AppointmentWizardNotifier extends Notifier<AppointmentWizardState> {
       clearAvailabilityError: true,
     );
     loadProviderPackages(provider.userId);
+    loadProviderStaff();
     if (state.selectedDate != null) loadAvailability();
+  }
+
+  Future<void> loadProviderStaff() async {
+    final provider = state.selectedProvider;
+    if (provider == null || !state.hasBookableSelection) return;
+    state = state.copyWith(isLoadingStaff: true);
+    try {
+      final staff = await ref
+          .read(customerAppointmentRepositoryProvider)
+          .fetchProviderStaff(
+            providerId: provider.userId,
+            serviceIds: state.selectedPackage != null
+                ? const []
+                : state.selectedServices.map((s) => s.id).toList(),
+            providerPackageId: state.selectedPackage?.id,
+          );
+      if (!ref.mounted || state.selectedProvider?.userId != provider.userId) {
+        return;
+      }
+      final desiredId = state.selectedStaff?.id ?? state.preferredStaffId;
+      ProviderStaffModel? kept;
+      if (desiredId != null) {
+        for (final s in staff) {
+          if (s.id == desiredId) {
+            kept = s;
+            break;
+          }
+        }
+      }
+      state = state.copyWith(
+        providerStaff: staff,
+        selectedStaff: kept,
+        clearSelectedStaff: kept == null,
+        isLoadingStaff: false,
+      );
+    } catch (_) {
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        providerStaff: const [],
+        clearSelectedStaff: true,
+        isLoadingStaff: false,
+      );
+    }
+  }
+
+  void selectStaff(ProviderStaffModel? staff) {
+    state = state.copyWith(
+      selectedStaff: staff,
+      clearSelectedStaff: staff == null,
+      clearSlot: true,
+      availableSlots: const [],
+      clearError: true,
+      clearAvailabilityError: true,
+    );
+    if (state.selectedProvider != null && state.selectedDate != null) {
+      loadAvailability();
+    }
   }
 
   /// Load the chosen provider's active packages (optional upsell in scheduled flow).
@@ -649,8 +765,11 @@ class AppointmentWizardNotifier extends Notifier<AppointmentWizardState> {
       clearError: true,
       clearAvailabilityError: true,
     );
-    if (state.selectedProvider != null && state.selectedDate != null) {
-      loadAvailability();
+    if (state.selectedProvider != null) {
+      loadProviderStaff();
+      if (state.selectedDate != null) {
+        loadAvailability();
+      }
     }
   }
 
@@ -689,6 +808,7 @@ class AppointmentWizardNotifier extends Notifier<AppointmentWizardState> {
                 ? const []
                 : state.selectedServices.map((s) => s.id).toList(),
             providerPackageId: state.selectedPackage?.id,
+            staffId: state.selectedStaff?.id,
           );
       if (!ref.mounted || req != _availabilityReq) return;
 
@@ -787,6 +907,7 @@ class AppointmentWizardNotifier extends Notifier<AppointmentWizardState> {
                 ? const []
                 : state.selectedServices.map((s) => s.id).toList(),
             providerPackageId: state.selectedPackage?.id,
+            staffId: state.selectedStaff?.id,
             date: _ymd(state.selectedDate!),
             time: state.selectedSlot!,
             customerAddressId: state.selectedAddress!.id,
@@ -814,5 +935,14 @@ class AppointmentWizardNotifier extends Notifier<AppointmentWizardState> {
     _providersReq++;
     _availabilityReq++;
     state = const AppointmentWizardState();
+  }
+
+  void resetWithTarget({int? providerUserId, int? staffId}) {
+    _providersReq++;
+    _availabilityReq++;
+    state = AppointmentWizardState(
+      preferredProviderUserId: providerUserId,
+      preferredStaffId: staffId,
+    );
   }
 }

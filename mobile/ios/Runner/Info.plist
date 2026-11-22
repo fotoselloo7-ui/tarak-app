@@ -45,6 +45,13 @@
 	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>tel</string>
+		<string>https</string>
+		<string>maps</string>
+		<string>comgooglemaps</string>
+	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSLocationWhenInUseUsageDescription</key>

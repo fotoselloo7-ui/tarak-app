@@ -94,8 +94,13 @@ Route::get('/stats/home', [App\Http\Controllers\Api\HomeStatsController::class, 
 Route::get('/providers/{provider}', [App\Http\Controllers\Api\PublicProviderController::class, 'show'])
     ->whereNumber('provider')->middleware('throttle:120,1');
 
+// Public: Tarak Harita & İşletme Rehberi
+Route::get('/map/businesses', [App\Http\Controllers\Api\MapDirectoryController::class, 'index'])->middleware('throttle:120,1,map-businesses:');
+Route::get('/map/businesses/{identifier}', [App\Http\Controllers\Api\MapDirectoryController::class, 'show'])->middleware('throttle:120,1,map-business-detail:');
+Route::get('/map/route', [App\Http\Controllers\Api\MapDirectoryController::class, 'route'])->middleware('throttle:40,1,map-route:');
+
 // Public: provider public rating summary + reviews
-Route::get('/providers/{provider}/reviews', [App\Http\Controllers\Api\ReviewController::class, 'providerSummary'])->whereNumber('provider')->middleware('throttle:120,1');
+Route::get('/providers/{provider}/reviews', [App\Http\Controllers\Api\ReviewController::class, 'providerSummary'])->whereNumber('provider')->middleware('throttle:120,1,provider-reviews:');
 
 // Public: support tickets (contact form; links user if a token is present)
 Route::post('/support/tickets', [App\Http\Controllers\Api\SupportController::class, 'store'])->middleware('throttle:10,1');
@@ -239,12 +244,33 @@ Route::middleware(['auth:sanctum', 'role:ADMIN'])->prefix('admin')->group(functi
     Route::put('/notification-ads/settings', [App\Http\Controllers\Api\AdminNotificationAdController::class, 'updateSettings']);
     Route::get('/notification-ads', [App\Http\Controllers\Api\AdminNotificationAdController::class, 'index']);
 
+    // Bildirim Kontrol Merkezi: unified notification billing, permissions, delivery history & abuse alerts
+    Route::prefix('notification-center')->group(function () {
+        Route::get('/overview', [App\Http\Controllers\Api\AdminNotificationControlController::class, 'overview']);
+        Route::get('/dispatches', [App\Http\Controllers\Api\AdminNotificationControlController::class, 'dispatches']);
+        Route::get('/dispatches/{id}', [App\Http\Controllers\Api\AdminNotificationControlController::class, 'showDispatch'])->whereNumber('id');
+        Route::get('/dispatches/{id}/recipients', [App\Http\Controllers\Api\AdminNotificationControlController::class, 'dispatchRecipients'])->whereNumber('id');
+        Route::get('/providers', [App\Http\Controllers\Api\AdminNotificationControlController::class, 'providers']);
+        Route::put('/providers/{providerUserId}/controls', [App\Http\Controllers\Api\AdminNotificationControlController::class, 'updateProviderControls'])->whereNumber('providerUserId');
+        Route::get('/birthday-deliveries', [App\Http\Controllers\Api\AdminNotificationControlController::class, 'birthdayDeliveries']);
+        Route::get('/settings', [App\Http\Controllers\Api\AdminNotificationControlController::class, 'settings']);
+        Route::put('/settings', [App\Http\Controllers\Api\AdminNotificationControlController::class, 'updateSettings']);
+        Route::get('/alerts', [App\Http\Controllers\Api\AdminNotificationControlController::class, 'alerts']);
+        Route::post('/alerts/{id}/resolve', [App\Http\Controllers\Api\AdminNotificationControlController::class, 'resolveAlert'])->whereNumber('id');
+        Route::get('/audit-logs', [App\Http\Controllers\Api\AdminNotificationControlController::class, 'auditLogs']);
+    });
+
     // Demo (pre-launch preview) data: list, generate, purge-all
     Route::get('/demo-data', [App\Http\Controllers\Api\AdminDemoDataController::class, 'index']);
     Route::get('/demo-data/users', [App\Http\Controllers\Api\AdminDemoDataController::class, 'users']);
     Route::post('/demo-data/generate', [App\Http\Controllers\Api\AdminDemoDataController::class, 'generate'])->middleware('throttle:6,1');
     Route::post('/demo-data/customers', [App\Http\Controllers\Api\AdminDemoDataController::class, 'addCustomers'])->middleware('throttle:6,1');
     Route::delete('/demo-data', [App\Http\Controllers\Api\AdminDemoDataController::class, 'purge'])->middleware('throttle:6,1');
+
+    // Tarak Harita & Directory moderation
+    Route::get('/directory/businesses', [App\Http\Controllers\Api\AdminDirectoryController::class, 'index']);
+    Route::get('/directory/businesses/{id}', [App\Http\Controllers\Api\AdminDirectoryController::class, 'show']);
+    Route::post('/directory/businesses/{id}/review', [App\Http\Controllers\Api\AdminDirectoryController::class, 'review']);
 });
 
 
@@ -271,11 +297,15 @@ Route::middleware(['auth:sanctum', 'role:PROVIDER'])->prefix('provider')->group(
     Route::post('/documents', [App\Http\Controllers\Api\ProviderProfileController::class, 'uploadDocument']);
     Route::delete('/documents/{id}', [App\Http\Controllers\Api\ProviderProfileController::class, 'destroyDocument']);
 
-    // Business showcase media: cover + gallery (public disk; separate from private KYC documents above).
+    // Business showcase media: cover + logo + gallery (public disk; separate from private KYC documents above).
     Route::post('/profile/cover', [App\Http\Controllers\Api\ProviderProfileController::class, 'uploadCover'])->middleware('throttle:15,1');
     Route::delete('/profile/cover', [App\Http\Controllers\Api\ProviderProfileController::class, 'destroyCover']);
+    Route::post('/profile/logo', [App\Http\Controllers\Api\ProviderProfileController::class, 'uploadLogo'])->middleware('throttle:15,1');
+    Route::delete('/profile/logo', [App\Http\Controllers\Api\ProviderProfileController::class, 'destroyLogo']);
     Route::post('/profile/gallery', [App\Http\Controllers\Api\ProviderProfileController::class, 'uploadGalleryImage'])->middleware('throttle:15,1');
     Route::delete('/profile/gallery', [App\Http\Controllers\Api\ProviderProfileController::class, 'destroyGalleryImage']);
+    Route::get('/service-areas', [App\Http\Controllers\Api\ProviderProfileController::class, 'getServiceAreas']);
+    Route::put('/service-areas', [App\Http\Controllers\Api\ProviderProfileController::class, 'updateServiceAreas']);
 
     // Instant Service Requests & Offers (Marketplace)
     Route::get('/service-requests', [App\Http\Controllers\Api\ProviderServiceRequestController::class, 'marketplace']);
@@ -293,12 +323,30 @@ Route::middleware(['auth:sanctum', 'role:PROVIDER'])->prefix('provider')->group(
     Route::post('/closed-dates', [App\Http\Controllers\ProviderScheduleController::class, 'storeClosedDate']);
     Route::delete('/closed-dates/{id}', [App\Http\Controllers\ProviderScheduleController::class, 'destroyClosedDate']);
 
-    // Scheduled Appointments
+    // Scheduled Appointments & Staff Management & Birthday Assistant
     Route::get('/appointments', [App\Http\Controllers\ProviderAppointmentController::class, 'index']);
+    Route::post('/appointments', [App\Http\Controllers\ProviderAppointmentController::class, 'storeManual']);
     Route::get('/appointments/{id}', [App\Http\Controllers\ProviderAppointmentController::class, 'show']);
+    Route::put('/appointments/{id}', [App\Http\Controllers\ProviderAppointmentController::class, 'updateManual'])->whereNumber('id');
     Route::post('/appointments/{id}/confirm', [App\Http\Controllers\ProviderAppointmentController::class, 'confirm']);
     Route::post('/appointments/{id}/reject', [App\Http\Controllers\ProviderAppointmentController::class, 'reject']);
+    Route::post('/appointments/{id}/cancel', [App\Http\Controllers\ProviderAppointmentController::class, 'cancel']);
+    Route::post('/appointments/{id}/change-staff', [App\Http\Controllers\ProviderAppointmentController::class, 'changeStaff']);
     Route::post('/appointments/{id}/alternatives', [App\Http\Controllers\ProviderAppointmentController::class, 'proposeAlternatives']);
+
+    Route::get('/customers', [App\Http\Controllers\ProviderAppointmentController::class, 'customers']);
+
+    Route::get('/staff', [App\Http\Controllers\Api\ProviderStaffController::class, 'index']);
+    Route::post('/staff', [App\Http\Controllers\Api\ProviderStaffController::class, 'store']);
+    Route::put('/staff/{id}', [App\Http\Controllers\Api\ProviderStaffController::class, 'update'])->whereNumber('id');
+    Route::delete('/staff/{id}', [App\Http\Controllers\Api\ProviderStaffController::class, 'destroy'])->whereNumber('id');
+    Route::post('/staff/{id}/photo', [App\Http\Controllers\Api\ProviderStaffController::class, 'uploadPhoto'])->whereNumber('id')->middleware('throttle:15,1');
+    Route::delete('/staff/{id}/photo', [App\Http\Controllers\Api\ProviderStaffController::class, 'destroyPhoto'])->whereNumber('id');
+    Route::post('/staff/{id}/time-offs', [App\Http\Controllers\Api\ProviderStaffController::class, 'storeTimeOff'])->whereNumber('id');
+    Route::delete('/staff/{staffId}/time-offs/{timeOffId}', [App\Http\Controllers\Api\ProviderStaffController::class, 'destroyTimeOff'])->whereNumber('staffId')->whereNumber('timeOffId');
+
+    Route::get('/birthday-assistant', [App\Http\Controllers\Api\ProviderBirthdayAssistantController::class, 'show']);
+    Route::put('/birthday-assistant', [App\Http\Controllers\Api\ProviderBirthdayAssistantController::class, 'update']);
 
     // Location Share Grants (PROVIDER READ)
     Route::get('/service-requests/{id}/shared-location', [App\Http\Controllers\Api\ProviderLocationShareController::class, 'getInstantSharedLocation']);
@@ -326,6 +374,8 @@ Route::middleware(['auth:sanctum', 'role:PROVIDER'])->prefix('provider')->group(
     Route::post('/notification-ads', [App\Http\Controllers\Api\ProviderNotificationAdController::class, 'store'])->middleware('throttle:10,1');
     Route::get('/notification-ads/{id}', [App\Http\Controllers\Api\ProviderNotificationAdController::class, 'status'])->whereNumber('id')->middleware('throttle:60,1');
     Route::delete('/notification-ads/discount', [App\Http\Controllers\Api\ProviderNotificationAdController::class, 'endDiscount']);
+    Route::get('/notification-report', [App\Http\Controllers\Api\ProviderNotificationReportController::class, 'index']);
+    Route::get('/notification-report/dispatches/{id}', [App\Http\Controllers\Api\ProviderNotificationReportController::class, 'showDispatch'])->whereNumber('id');
 
     // Wallet & Ledger Transactions
     Route::get('/wallet', [App\Http\Controllers\Api\ProviderWalletController::class, 'getWallet']);
@@ -379,6 +429,7 @@ Route::middleware(['auth:sanctum', 'role:CUSTOMER'])->prefix('customer')->group(
     Route::get('/providers', [App\Http\Controllers\CustomerAppointmentController::class, 'providers']);
     Route::get('/services/{service}/providers', [App\Http\Controllers\Api\CustomerOfferingController::class, 'providersForService'])->whereNumber('service');
     Route::get('/providers/{provider}/offerings', [App\Http\Controllers\Api\CustomerOfferingController::class, 'providerOfferings'])->whereNumber('provider');
+    Route::get('/providers/{provider}/staff', [App\Http\Controllers\Api\ProviderStaffController::class, 'publicIndex'])->whereNumber('provider');
     Route::get('/providers/{provider}/availability', [App\Http\Controllers\CustomerAppointmentController::class, 'availability'])
         ->withoutMiddleware('role:CUSTOMER')
         ->middleware('role:CUSTOMER,PROVIDER');

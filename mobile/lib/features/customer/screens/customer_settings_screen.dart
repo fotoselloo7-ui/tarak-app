@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/widgets/web_landing_widgets.dart' show trUpper;
 import '../../notifications/screens/notification_center_screen.dart';
+import '../../notifications/widgets/appointment_reminder_minutes_selector.dart';
 import '../../shared/screens/legal_screen.dart';
 import '../../shared/screens/sessions_screen.dart';
 import '../../shared/screens/support_screen.dart';
@@ -25,6 +27,10 @@ class CustomerSettingsScreen extends ConsumerStatefulWidget {
 class _CustomerSettingsScreenState extends ConsumerState<CustomerSettingsScreen> {
   bool _pushEnabled = true;
   bool _campaignEnabled = true;
+  bool _appointmentReminderEnabled = true;
+  int _appointmentReminderMinutes = 30;
+  bool _appointmentStartAlertEnabled = true;
+  bool _birthdayGreetingEnabled = false;
   bool _loadingPreference = true;
   bool _savingPreference = false;
   String? _preferenceError;
@@ -42,7 +48,17 @@ class _CustomerSettingsScreenState extends ConsumerState<CustomerSettingsScreen>
     });
     try {
       final prefs = await ref.read(pushNotificationServiceProvider).getNotificationPreferences();
-      if (mounted) setState(() { _pushEnabled = prefs.push; _campaignEnabled = prefs.campaign; _loadingPreference = false; });
+      if (mounted) {
+        setState(() {
+          _pushEnabled = prefs.push;
+          _campaignEnabled = prefs.campaign;
+          _appointmentReminderEnabled = prefs.appointmentReminderEnabled;
+          _appointmentReminderMinutes = prefs.appointmentReminderMinutes;
+          _appointmentStartAlertEnabled = prefs.appointmentStartAlertEnabled;
+          _birthdayGreetingEnabled = prefs.birthdayGreetingEnabled;
+          _loadingPreference = false;
+        });
+      }
     } catch (_) {
       if (mounted) setState(() { _loadingPreference = false; _preferenceError = 'Bildirim tercihi yüklenemedi.'; });
     }
@@ -81,6 +97,63 @@ class _CustomerSettingsScreenState extends ConsumerState<CustomerSettingsScreen>
         setState(() => _campaignEnabled = !value);
         _snack('Bildirim tercihi güncellenemedi.');
       }
+    } finally {
+      if (mounted) setState(() => _savingPreference = false);
+    }
+  }
+
+  Future<String?> _saveReminderPrefs({
+    bool? reminderEnabled,
+    int? reminderMinutes,
+    bool? startAlertEnabled,
+    bool? birthdayGreetingEnabled,
+  }) async {
+    if (_savingPreference || _loadingPreference || _preferenceError != null) {
+      return _preferenceError ?? 'Lütfen mevcut işlemin bitmesini bekleyin.';
+    }
+    final prevEnabled = _appointmentReminderEnabled;
+    final prevMinutes = _appointmentReminderMinutes;
+    final prevStartAlert = _appointmentStartAlertEnabled;
+    final prevBirthday = _birthdayGreetingEnabled;
+    setState(() {
+      _savingPreference = true;
+      if (reminderEnabled != null) _appointmentReminderEnabled = reminderEnabled;
+      if (reminderMinutes != null) _appointmentReminderMinutes = reminderMinutes;
+      if (startAlertEnabled != null) _appointmentStartAlertEnabled = startAlertEnabled;
+      if (birthdayGreetingEnabled != null) _birthdayGreetingEnabled = birthdayGreetingEnabled;
+    });
+    try {
+      final updated = await ref
+          .read(pushNotificationServiceProvider)
+          .updateAppointmentReminderPreferences(
+            appointmentReminderEnabled: reminderEnabled,
+            appointmentReminderMinutes: reminderMinutes,
+            appointmentStartAlertEnabled: startAlertEnabled,
+            birthdayGreetingEnabled: birthdayGreetingEnabled,
+          );
+      if (mounted) {
+        setState(() {
+          _appointmentReminderEnabled = updated.appointmentReminderEnabled;
+          _appointmentReminderMinutes = updated.appointmentReminderMinutes;
+          _appointmentStartAlertEnabled = updated.appointmentStartAlertEnabled;
+          _birthdayGreetingEnabled = updated.birthdayGreetingEnabled;
+        });
+      }
+      return null;
+    } catch (e) {
+      final msg = e is AppException && e.message.trim().isNotEmpty
+          ? e.message.trim()
+          : 'Randevu hatırlatma tercihi güncellenemedi.';
+      if (mounted) {
+        setState(() {
+          _appointmentReminderEnabled = prevEnabled;
+          _appointmentReminderMinutes = prevMinutes;
+          _appointmentStartAlertEnabled = prevStartAlert;
+          _birthdayGreetingEnabled = prevBirthday;
+        });
+        _snack(msg);
+      }
+      return msg;
     } finally {
       if (mounted) setState(() => _savingPreference = false);
     }
@@ -211,6 +284,89 @@ class _CustomerSettingsScreenState extends ConsumerState<CustomerSettingsScreen>
                   : _loadingPreference || _savingPreference
                       ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                       : Switch.adaptive(key: const Key('campaign_switch'), value: _campaignEnabled, activeThumbColor: AppTheme.primary, onChanged: _toggleCampaign),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _row(
+                  icon: Icons.alarm_rounded,
+                  title: 'Randevu hatırlatması',
+                  subtitle: _preferenceError ??
+                      (_loadingPreference
+                          ? 'Yükleniyor…'
+                          : (_appointmentReminderEnabled
+                              ? 'Randevudan $_appointmentReminderMinutes dakika önce hatırlat'
+                              : 'Yaklaşan randevu hatırlatması kapalı')),
+                  onTap: _preferenceError != null
+                      ? _loadPushPreference
+                      : () => _saveReminderPrefs(
+                            reminderEnabled: !_appointmentReminderEnabled,
+                          ),
+                  trailing: _preferenceError != null
+                      ? const Icon(Icons.refresh_rounded, size: 20, color: AppTheme.slate500)
+                      : _loadingPreference || _savingPreference
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                          : Switch.adaptive(
+                              key: const Key('customer_reminder_switch'),
+                              value: _appointmentReminderEnabled,
+                              activeThumbColor: AppTheme.primary,
+                              onChanged: (v) => _saveReminderPrefs(reminderEnabled: v),
+                            ),
+                ),
+                if (!_loadingPreference &&
+                    _preferenceError == null &&
+                    _appointmentReminderEnabled)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                    child: AppointmentReminderMinutesSelector(
+                      keyPrefix: 'customer_reminder',
+                      selectedMinutes: _appointmentReminderMinutes,
+                      enabled: _pushEnabled,
+                      saving: _savingPreference,
+                      onSelectMinutes: (m) => _saveReminderPrefs(reminderMinutes: m),
+                    ),
+                  ),
+              ],
+            ),
+            _row(
+              icon: Icons.event_available_outlined,
+              title: 'Randevu saati bildirimi',
+              subtitle: 'Randevu saatinde hizmet veren adı ve saatiyle bildir',
+              onTap: _preferenceError != null
+                  ? _loadPushPreference
+                  : () => _saveReminderPrefs(
+                        startAlertEnabled: !_appointmentStartAlertEnabled,
+                      ),
+              trailing: _preferenceError != null
+                  ? const Icon(Icons.refresh_rounded, size: 20, color: AppTheme.slate500)
+                  : _loadingPreference || _savingPreference
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      : Switch.adaptive(
+                          key: const Key('customer_start_alert_switch'),
+                          value: _appointmentStartAlertEnabled,
+                          activeThumbColor: AppTheme.primary,
+                          onChanged: (v) => _saveReminderPrefs(startAlertEnabled: v),
+                        ),
+            ),
+            _row(
+              icon: Icons.cake_outlined,
+              title: 'Doğum günü tebrikleri',
+              subtitle: 'Hizmet aldığın işletmelerden doğum günü kutlaması al (isteğe bağlı)',
+              onTap: _preferenceError != null
+                  ? _loadPushPreference
+                  : () => _saveReminderPrefs(
+                        birthdayGreetingEnabled: !_birthdayGreetingEnabled,
+                      ),
+              trailing: _preferenceError != null
+                  ? const Icon(Icons.refresh_rounded, size: 20, color: AppTheme.slate500)
+                  : _loadingPreference || _savingPreference
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      : Switch.adaptive(
+                          key: const Key('customer_birthday_greeting_switch'),
+                          value: _birthdayGreetingEnabled,
+                          activeThumbColor: AppTheme.primary,
+                          onChanged: (v) => _saveReminderPrefs(birthdayGreetingEnabled: v),
+                        ),
             ),
             _row(
               icon: Icons.notifications_active_outlined,

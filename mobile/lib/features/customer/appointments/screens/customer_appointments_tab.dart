@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/common_widgets.dart';
+import '../../providers/instant_request_provider.dart';
+import '../../screens/requests_tab.dart';
 import '../models/customer_appointment_model.dart';
 import '../providers/customer_appointment_providers.dart';
 import 'create_appointment_screen.dart';
@@ -9,7 +11,14 @@ import 'customer_appointment_detail_screen.dart';
 import '../../../../core/widgets/verified_tick.dart';
 
 class CustomerAppointmentsTab extends ConsumerStatefulWidget {
-  const CustomerAppointmentsTab({super.key});
+  final int? requestedTabIndex;
+  final int tabSwitchTick;
+
+  const CustomerAppointmentsTab({
+    super.key,
+    this.requestedTabIndex,
+    this.tabSwitchTick = 0,
+  });
 
   @override
   ConsumerState<CustomerAppointmentsTab> createState() =>
@@ -24,11 +33,36 @@ class _CustomerAppointmentsTabState
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    final initial = (widget.requestedTabIndex ?? 0).clamp(0, 2);
+    _tabController = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: initial,
+    );
+    _tabController.addListener(_onTabChanged);
+  }
+
+  void _onTabChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant CustomerAppointmentsTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.tabSwitchTick != oldWidget.tabSwitchTick &&
+        widget.requestedTabIndex != null) {
+      final target = widget.requestedTabIndex!.clamp(0, 2);
+      if (_tabController.index != target) {
+        _tabController.animateTo(target);
+      }
+    }
   }
 
   @override
   void dispose() {
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     super.dispose();
   }
@@ -36,12 +70,21 @@ class _CustomerAppointmentsTabState
   @override
   Widget build(BuildContext context) {
     final appointmentsAsync = ref.watch(customerAppointmentsProvider);
+    final isRequestsTab = _tabController.index == 1;
 
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
         title: const Text('Randevularım'),
         automaticallyImplyLeading: false,
+        actions: [
+          if (isRequestsTab)
+            IconButton(
+              icon: const Icon(Icons.refresh_rounded),
+              onPressed: () =>
+                  ref.read(myServiceRequestsProvider.notifier).refresh(),
+            ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
           child: Container(
@@ -55,67 +98,82 @@ class _CustomerAppointmentsTabState
               unselectedLabelColor: AppTheme.slate500,
               indicatorColor: AppTheme.primary,
               indicatorWeight: 2.5,
+              labelPadding: const EdgeInsets.symmetric(horizontal: 6),
               labelStyle: const TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 fontWeight: FontWeight.w700,
-                fontSize: 14,
+                fontSize: 12.5,
               ),
               unselectedLabelStyle: const TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 fontWeight: FontWeight.w500,
-                fontSize: 14,
+                fontSize: 12.5,
               ),
               tabs: const [
                 Tab(text: 'Aktif Randevular'),
+                Tab(text: 'Talepler'),
                 Tab(text: 'Geçmiş'),
               ],
             ),
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        key: const Key('new_appointment_fab'),
-        onPressed: () {
-          ref.read(appointmentWizardProvider.notifier).reset();
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const CreateAppointmentScreen()),
-          ).then((_) {
-            ref.read(customerAppointmentsProvider.notifier).refresh();
-          });
-        },
-        backgroundColor: AppTheme.primary,
-        icon: const Icon(Icons.add_rounded, color: Colors.white),
-        label: const Text(
-          'Yeni Randevu',
-          style: TextStyle(
-            fontFamily: AppTheme.fontFamily,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
-          ),
-        ),
+      floatingActionButton: isRequestsTab
+          ? null
+          : FloatingActionButton.extended(
+              key: const Key('new_appointment_fab'),
+              onPressed: () {
+                ref.read(appointmentWizardProvider.notifier).reset();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const CreateAppointmentScreen(),
+                  ),
+                ).then((_) {
+                  ref.read(customerAppointmentsProvider.notifier).refresh();
+                });
+              },
+              backgroundColor: AppTheme.primary,
+              icon: const Icon(Icons.add_rounded, color: Colors.white),
+              label: const Text(
+                'Yeni Randevu',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildAppointmentsBody(context, appointmentsAsync, isActive: true),
+          const RequestsListView(),
+          _buildAppointmentsBody(context, appointmentsAsync, isActive: false),
+        ],
       ),
-      body: appointmentsAsync.when(
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: AppTheme.primary),
-        ),
-        error: (err, _) => ErrorState(
-          message: 'Randevular yüklenemedi: $err',
-          onRetry: () => ref.read(customerAppointmentsProvider.notifier).refresh(),
-        ),
-        data: (appointments) {
-          final activeAppointments = appointments.where((a) => !a.isFinal).toList();
-          final pastAppointments = appointments.where((a) => a.isFinal).toList();
+    );
+  }
 
-          return TabBarView(
-            controller: _tabController,
-            children: [
-              _buildList(context, activeAppointments, isActive: true),
-              _buildList(context, pastAppointments, isActive: false),
-            ],
-          );
-        },
+  Widget _buildAppointmentsBody(
+    BuildContext context,
+    AsyncValue<List<CustomerAppointmentModel>> appointmentsAsync, {
+    required bool isActive,
+  }) {
+    return appointmentsAsync.when(
+      loading: () => const Center(
+        child: CircularProgressIndicator(color: AppTheme.primary),
       ),
+      error: (err, _) => ErrorState(
+        message: 'Randevular yüklenemedi: $err',
+        onRetry: () => ref.read(customerAppointmentsProvider.notifier).refresh(),
+      ),
+      data: (appointments) {
+        final filtered = isActive
+            ? appointments.where((a) => !a.isFinal).toList()
+            : appointments.where((a) => a.isFinal).toList();
+        return _buildList(context, filtered, isActive: isActive);
+      },
     );
   }
 

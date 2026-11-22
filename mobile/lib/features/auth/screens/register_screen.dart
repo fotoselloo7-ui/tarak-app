@@ -56,6 +56,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   late String _selectedRole;
   bool _obscurePassword = true;
   bool _obscurePasswordConfirm = true;
+  bool _directoryListed = true;
+  bool _acceptsNewClients = true;
+  String _workMode = 'venue';
 
   bool get _hasVerifiedSocialEmail => _socialProof != null && _socialEmailVerified &&
       _socialEmail?.toLowerCase() == _emailController.text.trim().toLowerCase();
@@ -140,6 +143,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           businessName: _selectedRole == 'PROVIDER'
               ? _businessNameController.text.trim()
               : null,
+          directoryListed:
+              _selectedRole == 'PROVIDER' ? _directoryListed : null,
+          acceptsNewClients:
+              _selectedRole == 'PROVIDER' ? _acceptsNewClients : null,
+          workMode: _selectedRole == 'PROVIDER' ? _workMode : null,
           emailVerificationToken: _emailProof,
           phoneVerificationToken: _phoneProof,
           socialPrefillToken: _socialProof,
@@ -472,7 +480,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // If Provider: Business Name field
+                // If Provider: Business Name & independent Harita / Booking options
                 if (_selectedRole == 'PROVIDER') ...[
                   CustomTextField(
                     controller: _businessNameController,
@@ -480,6 +488,98 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     hint: 'Örn: Usta Eller Berber Salonu',
                     prefixIcon: const Icon(Icons.storefront_outlined,
                         size: 18, color: AppTheme.slate400),
+                  ),
+                  const SizedBox(height: 12),
+                  Material(
+                    color: AppTheme.slate50,
+                    borderRadius: AppTheme.radiusMedium,
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        borderRadius: AppTheme.radiusMedium,
+                        border: Border.all(color: AppTheme.slate200),
+                      ),
+                      child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Hizmet Şekli',
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.slate800,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            ChoiceChip(
+                              label: const Text('İşletmede'),
+                              selected: _workMode == 'venue',
+                              onSelected: (_) =>
+                                  setState(() => _workMode = 'venue'),
+                            ),
+                            ChoiceChip(
+                              label: const Text('Adrese Gelen'),
+                              selected: _workMode == 'mobile',
+                              onSelected: (_) =>
+                                  setState(() => _workMode = 'mobile'),
+                            ),
+                            ChoiceChip(
+                              label: const Text('Her İkisi'),
+                              selected: _workMode == 'both',
+                              onSelected: (_) =>
+                                  setState(() => _workMode = 'both'),
+                            ),
+                          ],
+                        ),
+                        const Divider(height: 18),
+                        SwitchListTile.adaptive(
+                          key: const Key('register_directory_listed_switch'),
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          value: _directoryListed,
+                          onChanged: (v) =>
+                              setState(() => _directoryListed = v),
+                          title: const Text(
+                            'Sadece Haritada Görün',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          subtitle: const Text(
+                            'Tarak Harita ve web rehberinde vitrin sayfası yayınla (yönetici onayıyla açılır).',
+                            style: AppTheme.caption,
+                          ),
+                        ),
+                        SwitchListTile.adaptive(
+                          key: const Key('register_accepts_new_clients_switch'),
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          value: _acceptsNewClients,
+                          onChanged: (v) =>
+                              setState(() => _acceptsNewClients = v),
+                          title: const Text(
+                            'Tarak Üzerinden Hizmet Ver',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          subtitle: const Text(
+                            'Tarak randevu ve anlık talep akışlarından müşteri kabul et.',
+                            style: AppTheme.caption,
+                          ),
+                        ),
+                      ],
+                    ),
+                    ),
                   ),
                   const SizedBox(height: 16),
                 ],

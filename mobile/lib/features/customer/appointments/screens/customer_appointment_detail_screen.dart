@@ -429,6 +429,30 @@ class _CustomerAppointmentDetailScreenState
                           ],
                         ],
                       ),
+                      if (appointment.staffName != null &&
+                          appointment.staffName!.trim().isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.badge_outlined,
+                              size: 14,
+                              color: AppTheme.primary,
+                            ),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                'Uzman: ${appointment.staffName!.trim()}',
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.primary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       if (provider?.district != null ||
                           provider?.city != null) ...[
                         const SizedBox(height: 2),

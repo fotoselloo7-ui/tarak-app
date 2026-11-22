@@ -237,6 +237,9 @@ class AuthNotifier extends Notifier<AuthState> {
     required String password,
     required String passwordConfirmation,
     String? businessName,
+    bool? directoryListed,
+    bool? acceptsNewClients,
+    String? workMode,
     String? emailVerificationToken,
     String? phoneVerificationToken,
     String? socialPrefillToken,
@@ -281,6 +284,17 @@ class AuthNotifier extends Notifier<AuthState> {
       }
       if (cleanRole == 'PROVIDER' && businessName != null && businessName.trim().isNotEmpty) {
         payload['business_name'] = businessName.trim();
+      }
+      if (cleanRole == 'PROVIDER') {
+        if (directoryListed != null) {
+          payload['directory_listed'] = directoryListed;
+        }
+        if (acceptsNewClients != null) {
+          payload['accepts_new_clients'] = acceptsNewClients;
+        }
+        if (workMode != null && workMode.trim().isNotEmpty) {
+          payload['work_mode'] = workMode.trim();
+        }
       }
 
       final response = await _apiClient.post('/auth/register', data: payload);

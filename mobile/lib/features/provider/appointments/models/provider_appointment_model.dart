@@ -217,6 +217,13 @@ class ProviderAppointmentModel {
   final int customerUserId;
   final int providerUserId;
   final ProviderAppointmentCustomer? customer;
+  final int? staffId;
+  final String? staffName;
+  final String? staffSelectionMode;
+  final String? bookingSource;
+  final bool isGuestCustomer;
+  final String? guestCustomerName;
+  final String? guestCustomerPhone;
   final String status;
   final String appointmentDate;
   final String startTime;
@@ -251,6 +258,13 @@ class ProviderAppointmentModel {
     required this.customerUserId,
     required this.providerUserId,
     this.customer,
+    this.staffId,
+    this.staffName,
+    this.staffSelectionMode,
+    this.bookingSource,
+    this.isGuestCustomer = false,
+    this.guestCustomerName,
+    this.guestCustomerPhone,
     required this.status,
     required this.appointmentDate,
     required this.startTime,
@@ -279,6 +293,16 @@ class ProviderAppointmentModel {
     this.completedAt,
     this.disputedAt,
   });
+
+  bool get isManualBooking => bookingSource == 'PROVIDER_MANUAL';
+
+  String get customerDisplayName {
+    final registered = customer?.name.trim() ?? '';
+    if (registered.isNotEmpty) return registered;
+    final guest = guestCustomerName?.trim() ?? '';
+    if (guest.isNotEmpty) return guest;
+    return 'Müşteri';
+  }
 
   bool get isPending => status == 'PENDING';
   bool get isConfirmed => status == 'CONFIRMED';
@@ -386,6 +410,16 @@ class ProviderAppointmentModel {
           ? json['provider_user_id'] as int
           : int.tryParse(json['provider_user_id']?.toString() ?? '0') ?? 0,
       customer: parsedCustomer,
+      staffId: json['staff_id'] is int
+          ? json['staff_id'] as int
+          : int.tryParse(json['staff_id']?.toString() ?? ''),
+      staffName: json['staff_name']?.toString() ??
+          (json['staff'] is Map ? json['staff']['full_name']?.toString() : null),
+      staffSelectionMode: json['staff_selection_mode']?.toString(),
+      bookingSource: json['booking_source']?.toString(),
+      isGuestCustomer: json['is_guest_customer'] == true,
+      guestCustomerName: json['guest_customer_name']?.toString(),
+      guestCustomerPhone: json['guest_customer_phone']?.toString(),
       providerPackageId: json['provider_package_id'] is int
           ? json['provider_package_id'] as int
           : int.tryParse(json['provider_package_id']?.toString() ?? ''),

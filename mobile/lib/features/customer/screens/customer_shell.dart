@@ -10,16 +10,21 @@ import '../../auth/providers/auth_provider.dart';
 import '../../chat/providers/chat_providers.dart';
 import '../../chat/screens/chat_screen.dart';
 import '../../chat/screens/conversation_list_screen.dart';
+import '../../map_directory/screens/tarak_map_screen.dart';
 import 'customer_profile_tab.dart';
 import '../appointments/screens/customer_appointment_detail_screen.dart';
 import '../appointments/screens/customer_appointments_tab.dart';
 import 'customer_home_tab.dart';
 import 'request_tracking_screen.dart';
-import 'requests_tab.dart';
 import 'provider_detail_screen.dart';
 
 class CustomerShell extends ConsumerStatefulWidget {
-  const CustomerShell({super.key});
+  final WidgetBuilder? mapScreenBuilder;
+
+  const CustomerShell({
+    super.key,
+    this.mapScreenBuilder,
+  });
 
   @override
   ConsumerState<CustomerShell> createState() => _CustomerShellState();
@@ -27,15 +32,9 @@ class CustomerShell extends ConsumerStatefulWidget {
 
 class _CustomerShellState extends ConsumerState<CustomerShell> {
   int _currentIndex = 0;
+  int _appointmentsSubTab = 0;
+  int _appointmentsTabTick = 0;
   StreamSubscription<SemanticDeepLink>? _deepLinkSub;
-
-  final List<Widget> _screens = const [
-    CustomerHomeTab(),
-    RequestsTab(),
-    CustomerAppointmentsTab(),
-    ConversationListScreen(),
-    CustomerProfileTab(),
-  ];
 
   @override
   void initState() {
@@ -53,15 +52,19 @@ class _CustomerShellState extends ConsumerState<CustomerShell> {
           break;
         case SemanticRouteTab.requests:
           _currentIndex = 1;
+          _appointmentsSubTab = 1;
+          _appointmentsTabTick++;
           break;
         case SemanticRouteTab.appointments:
-          _currentIndex = 2;
+          _currentIndex = 1;
+          _appointmentsSubTab = 0;
+          _appointmentsTabTick++;
           break;
         case SemanticRouteTab.messages:
-          _currentIndex = 3;
+          _currentIndex = 2;
           break;
         case SemanticRouteTab.profile:
-          _currentIndex = 4;
+          _currentIndex = 3;
           break;
       }
     });
@@ -130,21 +133,44 @@ class _CustomerShellState extends ConsumerState<CustomerShell> {
   @override
   Widget build(BuildContext context) {
     final unreadCount = ref.watch(unreadCountProvider);
+    final navIndex = _currentIndex == 0 ? 0 : _currentIndex + 1;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark.copyWith(
         statusBarColor: Colors.transparent,
       ),
       child: Scaffold(
-        body: IndexedStack(index: _currentIndex, children: _screens),
+        body: IndexedStack(
+          index: _currentIndex,
+          children: [
+            const CustomerHomeTab(),
+            CustomerAppointmentsTab(
+              requestedTabIndex: _appointmentsSubTab,
+              tabSwitchTick: _appointmentsTabTick,
+            ),
+            const ConversationListScreen(),
+            const CustomerProfileTab(),
+          ],
+        ),
         bottomNavigationBar: AppBottomNav(
-          currentIndex: _currentIndex,
+          currentIndex: navIndex,
           onTap: (index) {
+            if (index == 1) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: widget.mapScreenBuilder ??
+                      (_) => const TarakMapScreen(),
+                ),
+              );
+              return;
+            }
+            final tabIndex = index == 0 ? 0 : index - 1;
             // IndexedStack keeps the list alive; refresh previews when the tab is reopened.
-            if (index == 3 && _currentIndex != 3) {
+            if (tabIndex == 2 && _currentIndex != 2) {
               ref.read(conversationsProvider.notifier).refresh();
             }
-            setState(() => _currentIndex = index);
+            setState(() => _currentIndex = tabIndex);
           },
           items: [
             const AppNavItem(
@@ -153,9 +179,10 @@ class _CustomerShellState extends ConsumerState<CustomerShell> {
               label: 'Ana Sayfa',
             ),
             const AppNavItem(
-              icon: Icons.flash_on_outlined,
-              activeIcon: Icons.flash_on_rounded,
-              label: 'Talepler',
+              icon: Icons.map_outlined,
+              activeIcon: Icons.map_rounded,
+              label: 'Harita',
+              tooltip: 'Tarak Harita',
             ),
             const AppNavItem(
               icon: Icons.calendar_month_outlined,

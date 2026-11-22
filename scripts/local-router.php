@@ -10,7 +10,7 @@ if (str_contains($path, "\0") || preg_match('~(^|/)\.(?!well-known(?:/|$))~', $p
     exit;
 }
 
-if (preg_match('~^/(api|up|payment-result)(?:/|$)~', $path)) {
+if (preg_match('~^/(api|up|payment-result|isletmeler|isletme|sitemap\.xml)(?:/|$)~', $path)) {
     require $webRoot . '/index.php';
     return true;
 }

@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\NotificationAbuseAlert;
 use App\Models\NotificationAd;
 use App\Models\ProviderProfile;
+use App\Services\NotificationAbuseGuardService;
 use App\Services\NotificationAdService;
 use App\Services\ProviderDiscountService;
 use Illuminate\Http\JsonResponse;
@@ -19,6 +21,7 @@ class ProviderNotificationAdController extends Controller
     public function __construct(
         private NotificationAdService $ads,
         private ProviderDiscountService $discounts,
+        private NotificationAbuseGuardService $abuseGuard,
     ) {
     }
 
@@ -101,7 +104,23 @@ class ProviderNotificationAdController extends Controller
     /** Polled while the card payment window is open. */
     public function status(Request $request, int $id): JsonResponse
     {
-        $ad = NotificationAd::query()->where('provider_user_id', $request->user()->id)->findOrFail($id);
+        $ad = NotificationAd::query()->findOrFail($id);
+        if ((int) $ad->provider_user_id !== (int) $request->user()->id) {
+            $this->abuseGuard->recordAlert(
+                (int) $request->user()->id,
+                NotificationAbuseAlert::TYPE_UNAUTHORIZED_PII_ACCESS,
+                'Başka işletmeye ait bildirim reklamı kaydına erişim girişimi engellendi.',
+                ['notification_ad_id' => $ad->id, 'owner_provider_user_id' => $ad->provider_user_id],
+                dispatchId: $ad->dispatch_id,
+                severity: 'HIGH',
+                autoAction: 'ACCESS_DENIED_403',
+            );
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Başka bir işletmenin bildirim kaydına erişemezsiniz.',
+            ], 403);
+        }
         $ad = $this->ads->refresh($ad);
 
         return response()->json(['success' => true, 'data' => $ad->present()]);

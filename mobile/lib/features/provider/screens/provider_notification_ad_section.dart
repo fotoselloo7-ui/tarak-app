@@ -259,17 +259,30 @@ class _ProviderNotificationAdSectionState extends ConsumerState<ProviderNotifica
     final chosen = audiences.firstWhere((a) => a['audience'] == _audience, orElse: () => audiences.first);
     final price = (chosen['price'] as num?) ?? 0;
     final wallet = _map(data['wallet']);
-    final balance = (wallet['usable_cash_balance'] as num?)?.toDouble() ?? 0;
+    final pricing = _map(data['pricing']);
+    final permissions = _map(data['permissions']);
+    final monthly = _map(data['monthly_summary']);
+    final promoBalance = (wallet['usable_promo_balance'] as num?)?.toDouble() ?? 0;
+    final cashBalance = (wallet['usable_cash_balance'] as num?)?.toDouble() ?? 0;
+    final allowPromoForAds = pricing['allow_promo_for_notification_ads'] != false;
+    final fallbackToCash = pricing['fallback_to_cash_when_promo_insufficient'] != false;
+    final birthdayUnitPrice = (pricing['birthday_unit_price'] as num?)?.toDouble() ?? 0;
+    final availableForAds = allowPromoForAds
+        ? (fallbackToCash ? (promoBalance + cashBalance) : promoBalance)
+        : cashBalance;
     final frozen = wallet['is_frozen'] == true;
+    final blockedByAdmin = permissions['notification_ads_blocked'] == true;
+    final restrictionReason = permissions['restriction_reason']?.toString();
     final payment = _map(data['payment']);
     final cardEnabled = payment['card_enabled'] == true;
-    final affordable = !frozen && balance + 0.001 >= price;
+    final affordable = !blockedByAdmin && !frozen && availableForAds + 0.001 >= price;
     final sendsLeft = (data['sends_left_today'] as num?)?.toInt() ?? 0;
+    final ready = !blockedByAdmin && _title.text.trim().length >= 3 && _body.text.trim().length >= 5 && (_audience != 'location' || _province.isNotEmpty) && sendsLeft > 0;
     final reach = _estimates[_audience];
-    final ready = _title.text.trim().length >= 3 && _body.text.trim().length >= 5 && (_audience != 'location' || _province.isNotEmpty) && sendsLeft > 0;
     final active = data['active_discount'] is Map ? _map(data['active_discount']) : null;
     final provinces = _list(data['provinces']);
     final history = _list(data['history']);
+    final birthdayHistory = _list(data['birthday_history']);
 
     final percentChoices = {minP, 10, 15, 20, 25, 30, 40, maxP}.where((p) => p >= minP && p <= maxP).toList()..sort();
     final dayChoices = [1, 3, 7, 14, 30].where((d) => d <= maxDays).toList();
@@ -283,6 +296,57 @@ class _ProviderNotificationAdSectionState extends ConsumerState<ProviderNotifica
       key: const Key('notification_ad_form'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        AppCard(
+          key: const Key('provider_notification_report_card'),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Bildirim Bakiyesi ve Aylık Özet',
+                style: TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 13.5, fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
+              ),
+              const SizedBox(height: 6),
+              _SummaryRow('Promosyon Bakiyesi', _money(promoBalance)),
+              _SummaryRow('Nakit Bakiye', _money(cashBalance)),
+              _SummaryRow(
+                'Doğum Günü Birim Ücreti',
+                birthdayUnitPrice <= 0 ? 'Ücretsiz' : '${_money(birthdayUnitPrice)} / alıcı',
+              ),
+              _SummaryRow(
+                'Bu Ay Gönderilen Ücretli / Harcama',
+                '${_count((monthly['paid_notifications_count'] as num?) ?? 0)} bildirim · ${_money(monthly['total_spent'] as num?)}',
+              ),
+              _SummaryRow(
+                'Yaklaşan Uygun Doğum Günü (30 gün)',
+                '${_count((data['upcoming_eligible_birthdays_30d'] as num?) ?? 0)} kişi',
+              ),
+              _SummaryRow(
+                'FCM İletim / Başarısız',
+                '${_count((monthly['fcm_accepted_count'] as num?) ?? 0)} / ${_count((monthly['failed_count'] as num?) ?? 0)}',
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (blockedByAdmin) ...[
+          Container(
+            key: const Key('notification_ad_blocked_banner'),
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF2F2),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFFECACA)),
+            ),
+            child: Text(
+              restrictionReason?.isNotEmpty == true
+                  ? 'Bildirim gönderme yetkiniz yönetici tarafından kısıtlanmıştır. Neden: $restrictionReason'
+                  : 'Bildirim gönderme yetkiniz yönetici tarafından kısıtlanmıştır.',
+              style: const TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFFB91C1C), height: 1.35),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
         if (active != null) ...[
           Container(
             key: const Key('notification_ad_active_discount'),
@@ -419,7 +483,12 @@ class _ProviderNotificationAdSectionState extends ConsumerState<ProviderNotifica
               _SummaryRow('Ulaşacağı kişi', reach == null ? '—' : '≈ ${_count(reach)}'),
               _SummaryRow('Ücret', _money(price), bold: true),
               const SizedBox(height: 4),
-              Text('Bakiyen: ${_money(balance)}', style: const TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 11, color: AppTheme.slate500)),
+              Text(
+                allowPromoForAds
+                    ? 'Kullanılabilir bakiye: ${_money(availableForAds)} (Promosyon: ${_money(promoBalance)} + Nakit: ${_money(cashBalance)})'
+                    : 'Nakit bakiye: ${_money(cashBalance)}',
+                style: const TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 11, color: AppTheme.slate500),
+              ),
               const SizedBox(height: 10),
               SizedBox(
                 width: double.infinity,
@@ -428,7 +497,15 @@ class _ProviderNotificationAdSectionState extends ConsumerState<ProviderNotifica
                   key: const Key('notification_ad_send_wallet'),
                   onPressed: !ready || !affordable || _busy ? null : () => _send(data, card: false),
                   icon: _busy ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.send_rounded, size: 17),
-                  label: Text(!ready ? 'Başlık, açıklama ve hedefi tamamla' : affordable ? 'Bakiyeden Öde ve Gönder' : (frozen ? 'Cüzdan donduruldu' : 'Bakiye yetersiz')),
+                  label: Text(
+                    blockedByAdmin
+                        ? 'Yönetici tarafından kısıtlandı'
+                        : (!ready
+                            ? 'Başlık, açıklama ve hedefi tamamla'
+                            : affordable
+                                ? 'Bakiyeden Öde ve Gönder'
+                                : (frozen ? 'Cüzdan donduruldu' : 'Bakiye yetersiz')),
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
@@ -473,6 +550,44 @@ class _ProviderNotificationAdSectionState extends ConsumerState<ProviderNotifica
                       ),
                     ),
                     Text(_money(h['amount'] as num?), style: const TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 12, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
+                  ],
+                ),
+              ),
+            ),
+        ],
+        if (birthdayHistory.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          const SectionHeader(title: 'Geçmiş Doğum Günü Bildirimleri'),
+          for (final b in birthdayHistory)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: AppCard(
+                child: Row(
+                  children: [
+                    const CircleAvatar(
+                      radius: 16,
+                      backgroundColor: AppTheme.primaryLight,
+                      child: Icon(Icons.cake_outlined, size: 16, color: AppTheme.primary),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${b['title'] ?? 'Doğum Günü Kutlaması'}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                          ),
+                          Text(
+                            '${_day((b['sent_at'] ?? b['created_at'])?.toString())} · FCM: ${_count((b['fcm_accepted_count'] as num?) ?? 0)} · Başarısız: ${_count((b['failed_count'] as num?) ?? 0)} · ${b['balance_source_label'] ?? ''}',
+                            style: const TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 11, color: AppTheme.slate500),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(_money(b['total_cost'] as num?), style: const TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 12, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
                   ],
                 ),
               ),

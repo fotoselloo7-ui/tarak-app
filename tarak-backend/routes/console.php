@@ -75,3 +75,6 @@ Artisan::command('broadcasts:requeue-due', function () {
 })->purpose('Resume stalled or scheduled admin broadcast batches');
 
 Schedule::command('broadcasts:requeue-due')->everyMinute()->withoutOverlapping();
+
+Schedule::command('appointments:send-reminders')->everyMinute()->withoutOverlapping();
+Schedule::command('birthdays:send-greetings')->everyMinute()->withoutOverlapping();

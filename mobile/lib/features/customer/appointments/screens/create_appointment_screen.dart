@@ -13,9 +13,17 @@ import '../providers/customer_appointment_providers.dart';
 import 'customer_appointment_detail_screen.dart';
 import '../../payment/providers/customer_payment_providers.dart';
 import '../../../../core/widgets/verified_tick.dart';
+import '../../../shared/widgets/common_widgets.dart';
 
 class CreateAppointmentScreen extends ConsumerStatefulWidget {
-  const CreateAppointmentScreen({super.key});
+  final int? initialProviderUserId;
+  final int? initialStaffId;
+
+  const CreateAppointmentScreen({
+    super.key,
+    this.initialProviderUserId,
+    this.initialStaffId,
+  });
 
   @override
   ConsumerState<CreateAppointmentScreen> createState() =>
@@ -38,7 +46,18 @@ class _CreateAppointmentScreenState
   @override
   void initState() {
     super.initState();
-    Future.microtask(() { if (mounted) ref.read(appointmentWizardProvider.notifier).reset(); });
+    Future.microtask(() {
+      if (!mounted) return;
+      final notifier = ref.read(appointmentWizardProvider.notifier);
+      if (widget.initialProviderUserId != null) {
+        notifier.resetWithTarget(
+          providerUserId: widget.initialProviderUserId,
+          staffId: widget.initialStaffId,
+        );
+      } else {
+        notifier.reset();
+      }
+    });
   }
 
   @override
@@ -612,6 +631,10 @@ class _CreateAppointmentScreenState
               _buildPackageSelector(state, notifier),
               const SizedBox(height: 16),
             ],
+            if (state.isLoadingStaff || state.providerStaff.isNotEmpty) ...[
+              _buildStaffSelector(state, notifier),
+              const SizedBox(height: 16),
+            ],
             const Text(
               'Tarih Seçin',
               style: TextStyle(
@@ -799,6 +822,17 @@ class _CreateAppointmentScreenState
               if (mounted) notifier.selectAddress(match.first);
             });
           }
+        } else if (widget.initialProviderUserId != null &&
+            state.selectedAddress == null &&
+            addresses.isNotEmpty) {
+          final picked = addresses.where((a) => a.isDefault).firstOrNull ??
+              addresses.first;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted &&
+                ref.read(appointmentWizardProvider).selectedAddress == null) {
+              notifier.selectAddress(picked);
+            }
+          });
         }
 
         if (addresses.isEmpty) {
@@ -1102,6 +1136,19 @@ class _CreateAppointmentScreenState
             subcontent: state.selectedProvider?.locationSummary,
             icon: Icons.person_outline,
           ),
+          if (state.providerStaff.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _buildReviewCard(
+              title: 'Usta / Uzman',
+              content:
+                  state.selectedStaff?.fullName ??
+                  'Fark Etmez — İlk Müsait Usta',
+              subcontent: state.selectedStaff?.subtitle.isNotEmpty == true
+                  ? state.selectedStaff!.subtitle
+                  : null,
+              icon: Icons.badge_outlined,
+            ),
+          ],
           const SizedBox(height: 10),
           _buildReviewCard(
             title: state.selectedPackage != null ? 'Paket' : 'Hizmetler',
@@ -1232,6 +1279,145 @@ class _CreateAppointmentScreenState
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStaffSelector(
+    AppointmentWizardState state,
+    AppointmentWizardNotifier notifier,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Usta / Uzman Seçimi',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF0F172A),
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'İsterseniz ilk müsait ustayı bırakın veya çalışmak istediğiniz uzmanı seçin.',
+          style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+        ),
+        const SizedBox(height: 10),
+        if (state.isLoadingStaff)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: LinearProgressIndicator(color: AppTheme.primary),
+          )
+        else ...[
+          _buildStaffChoiceTile(
+            tileKey: const Key('staff_option_any'),
+            selected: state.selectedStaff == null,
+            name: 'Fark Etmez — İlk Müsait Usta',
+            subtitle: 'Seçtiğiniz saatte müsait olan ilk uygun uzman atanır',
+            photoUrl: null,
+            isAny: true,
+            onTap: () => notifier.selectStaff(null),
+          ),
+          const SizedBox(height: 8),
+          for (final member in state.providerStaff) ...[
+            _buildStaffChoiceTile(
+              tileKey: Key('staff_option_${member.id}'),
+              selected: state.selectedStaff?.id == member.id,
+              name: member.fullName,
+              subtitle: member.subtitle.isNotEmpty
+                  ? member.subtitle
+                  : '${member.services.length} hizmet veriyor',
+              photoUrl: member.photoUrl,
+              isAny: false,
+              onTap: () => notifier.selectStaff(member),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ],
+      ],
+    );
+  }
+
+  Widget _buildStaffChoiceTile({
+    required Key tileKey,
+    required bool selected,
+    required String name,
+    required String subtitle,
+    required String? photoUrl,
+    required bool isAny,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: selected ? const Color(0xFFFFF7ED) : Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        key: tileKey,
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected ? AppTheme.primary : const Color(0xFFE2E8F0),
+              width: selected ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              isAny
+                  ? CircleAvatar(
+                      radius: 20,
+                      backgroundColor: selected
+                          ? AppTheme.primary
+                          : const Color(0xFFF1F5F9),
+                      child: Icon(
+                        Icons.auto_awesome_outlined,
+                        size: 20,
+                        color: selected ? Colors.white : const Color(0xFF475569),
+                      ),
+                    )
+                  : AppAvatar(
+                      radius: 20,
+                      imageUrl: photoUrl,
+                      name: name,
+                    ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    if (subtitle.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Icon(
+                selected
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_off,
+                color: selected ? AppTheme.primary : const Color(0xFF94A3B8),
+              ),
+            ],
+          ),
         ),
       ),
     );

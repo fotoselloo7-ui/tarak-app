@@ -14,12 +14,30 @@ class AppointmentResource extends JsonResource
     {
         $providerUser = $this->provider;
         $providerProfile = $providerUser?->providerProfile;
+        $staffName = $this->staffDisplayName();
 
         return [
             'id' => (string) $this->id,
-            'public_id' => 'APT' . str_pad((string)$this->id, 6, '0', STR_PAD_LEFT),
-            'customer_user_id' => (string) $this->customer_user_id,
+            'public_id' => 'APT' . str_pad((string) $this->id, 6, '0', STR_PAD_LEFT),
+            'customer_user_id' => $this->customer_user_id ? (string) $this->customer_user_id : null,
             'provider_user_id' => (string) $this->provider_user_id,
+            'staff_id' => $this->staff_id ? (string) $this->staff_id : null,
+            'staff_name' => $staffName,
+            'staff' => $this->staff ? [
+                'id' => (string) $this->staff->id,
+                'full_name' => $this->staff->full_name,
+                'title' => $this->staff->title,
+                'specialty' => $this->staff->specialty,
+                'photo_url' => \App\Support\MediaUrl::resolve($this->staff->photo_url),
+            ] : ($staffName ? [
+                'id' => $this->staff_id ? (string) $this->staff_id : null,
+                'full_name' => $staffName,
+                'title' => null,
+                'specialty' => null,
+                'photo_url' => null,
+            ] : null),
+            'staff_selection_mode' => $this->staff_selection_mode ?: 'LEGACY',
+            'booking_source' => $this->booking_source ?: 'CUSTOMER_APP',
             'provider' => $providerProfile ? [
                 'id' => (string) $providerProfile->id,
                 'user_id' => (string) $providerUser->id,
@@ -46,6 +64,7 @@ class AppointmentResource extends JsonResource
             'status' => $this->status,
             // Lets clients hide the review CTA once this customer has reviewed the appointment.
             'has_review' => $this->status === \App\Models\Appointment::STATUS_COMPLETED
+                && $this->customer_user_id !== null
                 && \App\Models\ProviderReview::where('appointment_id', $this->id)
                     ->where('customer_user_id', $this->customer_user_id)
                     ->exists(),
@@ -88,7 +107,6 @@ class AppointmentResource extends JsonResource
                 'resolved_at' => $this->disputeCase->resolved_at?->toISOString(),
             ] : null,
             // Backend source-of-truth for start code / location share / service start gates
-            // (CASH: commission RESERVED/CAPTURED, ONLINE: payment HELD/TRANSFER_PENDING/SETTLED)
             'is_financially_ready' => in_array($this->status, ['CONFIRMED', 'IN_PROGRESS', 'AWAITING_CUSTOMER_CONFIRMATION', 'COMPLETED'], true)
                 && app(\App\Services\FinancialService::class)->isResourceFinanciallyReady(
                     \App\Models\LocationShareGrant::RESOURCE_SCHEDULED_APPOINTMENT,

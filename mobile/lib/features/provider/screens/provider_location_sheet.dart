@@ -107,6 +107,30 @@ class _ProviderLocationSheetState extends ConsumerState<ProviderLocationSheet> {
             children: [
               const Text('İşletme Konumu', style: TextStyle(fontFamily: AppTheme.fontFamily,
                   fontSize: 18, fontWeight: FontWeight.w800)),
+              if (widget.profile.workMode == 'mobile') ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryLight,
+                    borderRadius: AppTheme.radiusSmall,
+                    border: Border.all(color: AppTheme.primaryBorder),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.shield_outlined,
+                          size: 18, color: AppTheme.primaryDark),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Adrese gelen modda bu konum yalnızca mesafe hesaplaması içindir; haritada pin olarak paylaşılmaz.',
+                          style: AppTheme.bodySmall,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 14),
               OutlinedButton.icon(onPressed: _chooseMap,
                   icon: const Icon(Icons.map_outlined), label: const Text('Haritadan konum seç')),

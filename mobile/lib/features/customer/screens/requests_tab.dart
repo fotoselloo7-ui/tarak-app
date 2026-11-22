@@ -13,8 +13,6 @@ class RequestsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final requestsAsync = ref.watch(myServiceRequestsProvider);
-
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
@@ -23,57 +21,73 @@ class RequestsTab extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
-            onPressed: () => ref.read(myServiceRequestsProvider.notifier).refresh(),
+            onPressed: () =>
+                ref.read(myServiceRequestsProvider.notifier).refresh(),
           ),
         ],
       ),
-      body: requestsAsync.when(
-        data: (requests) {
-          if (requests.isEmpty) {
-            return RefreshIndicator(
-              color: AppTheme.primary,
-              onRefresh: () => ref.read(myServiceRequestsProvider.notifier).refresh(),
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: [
-                  SizedBox(
-                    height: MediaQuery.of(context).size.height * 0.55,
-                    child: EmptyState(
-                      icon: Icons.flash_on_outlined,
-                      title: 'Henüz talebiniz yok',
-                      description: 'Hemen Çağır ile en yakın berberi anında kapınıza çağırabilirsiniz.',
-                      actionText: 'Berber Çağır',
-                      onAction: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const ServiceSelectionScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }
+      body: const RequestsListView(),
+    );
+  }
+}
+
+/// Reusable customer service-requests list (embedded in Randevular > Talepler).
+class RequestsListView extends ConsumerWidget {
+  const RequestsListView({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final requestsAsync = ref.watch(myServiceRequestsProvider);
+
+    return requestsAsync.when(
+      data: (requests) {
+        if (requests.isEmpty) {
           return RefreshIndicator(
             color: AppTheme.primary,
-            onRefresh: () => ref.read(myServiceRequestsProvider.notifier).refresh(),
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: requests.length,
-              itemBuilder: (ctx, i) => _RequestCard(request: requests[i]),
+            onRefresh: () =>
+                ref.read(myServiceRequestsProvider.notifier).refresh(),
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.55,
+                  child: EmptyState(
+                    icon: Icons.flash_on_outlined,
+                    title: 'Henüz talebiniz yok',
+                    description:
+                        'Hemen Çağır ile en yakın berberi anında kapınıza çağırabilirsiniz.',
+                    actionText: 'Berber Çağır',
+                    onAction: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ServiceSelectionScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
           );
-        },
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: AppTheme.primary),
-        ),
-        error: (e, _) => ErrorState(
-          message: e.toString(),
-          onRetry: () => ref.read(myServiceRequestsProvider.notifier).refresh(),
-        ),
+        }
+        return RefreshIndicator(
+          color: AppTheme.primary,
+          onRefresh: () =>
+              ref.read(myServiceRequestsProvider.notifier).refresh(),
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: requests.length,
+            itemBuilder: (ctx, i) => _RequestCard(request: requests[i]),
+          ),
+        );
+      },
+      loading: () => const Center(
+        child: CircularProgressIndicator(color: AppTheme.primary),
+      ),
+      error: (e, _) => ErrorState(
+        message: e.toString(),
+        onRetry: () => ref.read(myServiceRequestsProvider.notifier).refresh(),
       ),
     );
   }

@@ -7,6 +7,34 @@ use Illuminate\Validation\ValidationException;
 class MessageContentPolicyService
 {
     public const BLOCKED_MESSAGE = 'Güvenliğiniz için telefon, sosyal medya, e-posta, bağlantı veya ödeme bilgilerini mesajlarda paylaşamazsınız.';
+    public const PROFILE_BLOCKED_MESSAGE = 'Platform kuralları gereği bu alanda telefon numarası, WhatsApp, e-posta, sosyal medya hesabı veya harici web bağlantısı paylaşılamaz.';
+
+    /**
+     * Validate multiple customer-visible free-text fields against anti-bypass policy.
+     *
+     * @param array<string, mixed> $fields
+     * @throws ValidationException
+     */
+    public function validateFields(array $fields, ?string $message = null): void
+    {
+        $errors = [];
+        foreach ($fields as $field => $value) {
+            if (! is_string($value)) {
+                continue;
+            }
+            $trimmed = trim($value);
+            if ($trimmed === '') {
+                continue;
+            }
+            if ($this->detectViolation($trimmed) !== null) {
+                $errors[$field] = [$message ?? self::PROFILE_BLOCKED_MESSAGE];
+            }
+        }
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
+    }
 
     /**
      * Validate message content against platform anti-bypass and safety rules.
@@ -80,9 +108,16 @@ class MessageContentPolicyService
         if (preg_match('/(?:instagram|instadan|instaya|insta[\'’]dan|\binsta\b|\big\s*:\s*[a-zA-Z0-9_.]+)/iu', $text)) {
             return 'INSTAGRAM';
         }
+        // Other social networks & handles
+        if (preg_match('/(?:facebook|fb\.com|fb\.me|tiktok|twitter\.com|x\.com\/)/iu', $text)) {
+            return 'SOCIAL';
+        }
+        if (preg_match('/(?:^|[\s(:])@[a-zA-Z0-9_][a-zA-Z0-9_.]{2,29}(?=$|[\s).,;!?])/u', $text)) {
+            return 'SOCIAL_HANDLE';
+        }
 
         // 5. Explicit bypass phrases
-        if (preg_match('/(?:beni\s+ara\b|ara\s+beni\b|numaram[ıi]?\s*[:=\-]?\s*\d|telefonum[ıi]?\s*[:=\-]?\s*\d|özelden\s+(?:yaz|görüş|ulaş|ara)|dışarıdan\s+halled)/iu', $text)) {
+        if (preg_match('/(?:beni\s+ara\b|ara\s+beni\b|numaram[ıi]?\s*[:=\-]?\s*\d|telefonum[ıi]?\s*[:=\-]?\s*\d|özelden\s+(?:yaz|görüş|ulaş|ara)|dışarıdan\s+halled|\bdm[\'’]?(?:den|at|yaz)\b|\bdm\s+at\b|randevu\s+i[çc]in\s+(?:ara|yaz))/iu', $text)) {
             return 'BYPASS_PHRASE';
         }
 

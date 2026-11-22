@@ -6,6 +6,7 @@ import 'login_screen.dart';
 import 'register_screen.dart';
 import 'public_provider_screen.dart';
 import '../../customer/screens/all_providers_screen.dart';
+import '../../map_directory/screens/tarak_map_screen.dart';
 
 class WelcomeScreen extends ConsumerWidget {
   const WelcomeScreen({super.key});
@@ -65,6 +66,11 @@ class WelcomeScreen extends ConsumerWidget {
                       onSelectService: () => _navigateToRegister(context),
                       onViewAllProviders: () => _openAllProviders(context),
                       onProviderTap: openProvider,
+                      onOpenMap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const TarakMapScreen(isGuest: true),
+                        ),
+                      ),
                     ),
                     const WebFooterSection(),
                   ],

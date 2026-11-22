@@ -208,5 +208,10 @@ class User extends Authenticatable
     {
         return $this->hasOne(UserPushPreference::class);
     }
+
+    public function notificationControl(): HasOne
+    {
+        return $this->hasOne(ProviderNotificationControl::class, 'provider_user_id');
+    }
 }
 

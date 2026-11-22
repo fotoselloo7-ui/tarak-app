@@ -406,6 +406,8 @@ class _ProfileEditSheetState extends ConsumerState<_ProfileEditSheet> {
           controller: _controllers[f.key],
           keyboardType: f.keyboardType,
           maxLength: f.maxLength,
+          minLines: f.maxLength >= 300 ? 2 : 1,
+          maxLines: f.maxLength >= 300 ? 4 : 1,
           decoration: _dec(f.label),
         );
       }
@@ -418,42 +420,44 @@ class _ProfileEditSheetState extends ConsumerState<_ProfileEditSheet> {
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(widget.title, style: _t(18, w: FontWeight.w800)),
-              IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => Navigator.pop(context)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          if (_error != null) ...[
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: AppTheme.errorLight, borderRadius: BorderRadius.circular(10)),
-              child: Text(_error!, style: _t(13, c: AppTheme.error)),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(widget.title, style: _t(18, w: FontWeight.w800)),
+                IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => Navigator.pop(context)),
+              ],
             ),
-            const SizedBox(height: 10),
-          ],
-          ..._buildFields(),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _saving ? null : _submit,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            const SizedBox(height: 8),
+            if (_error != null) ...[
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: AppTheme.errorLight, borderRadius: BorderRadius.circular(10)),
+                child: Text(_error!, style: _t(13, c: AppTheme.error)),
               ),
-              child: Text(_saving ? 'Kaydediliyor...' : 'Kaydet', style: const TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 10),
+            ],
+            ..._buildFields(),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _saving ? null : _submit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                child: Text(_saving ? 'Kaydediliyor...' : 'Kaydet', style: const TextStyle(fontWeight: FontWeight.w700)),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

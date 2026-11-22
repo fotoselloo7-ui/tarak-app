@@ -68,6 +68,76 @@ class SemanticDeepLink {
   }
 }
 
+class NotificationPreferences {
+  final bool push;
+  final bool campaign;
+  final bool appointmentReminderEnabled;
+  final int appointmentReminderMinutes;
+  final bool appointmentStartAlertEnabled;
+  final bool birthdayGreetingEnabled;
+
+  const NotificationPreferences({
+    required this.push,
+    required this.campaign,
+    this.appointmentReminderEnabled = true,
+    this.appointmentReminderMinutes = 30,
+    this.appointmentStartAlertEnabled = true,
+    this.birthdayGreetingEnabled = false,
+  });
+
+  factory NotificationPreferences.fromJson(Map<dynamic, dynamic> data) {
+    final push = data['push_enabled'];
+    if (push is! bool) {
+      throw const FormatException('Bildirim tercihi yüklenemedi.');
+    }
+    final campaign = data['campaign_enabled'];
+    final reminderEnabled = data['appointment_reminder_enabled'];
+    final rawMinutes = data['appointment_reminder_minutes'];
+    final parsedMinutes = rawMinutes is num
+        ? rawMinutes.toInt()
+        : int.tryParse(rawMinutes?.toString() ?? '') ?? 30;
+    final clampedMinutes = parsedMinutes < 5
+        ? 5
+        : (parsedMinutes > 1440 ? 1440 : parsedMinutes);
+    final startAlertEnabled = data['appointment_start_alert_enabled'];
+    final birthdayEnabled = data['birthday_greeting_enabled'];
+
+    return NotificationPreferences(
+      push: push,
+      campaign: campaign is bool ? campaign : true,
+      appointmentReminderEnabled:
+          reminderEnabled is bool ? reminderEnabled : true,
+      appointmentReminderMinutes: clampedMinutes,
+      appointmentStartAlertEnabled:
+          startAlertEnabled is bool ? startAlertEnabled : true,
+      birthdayGreetingEnabled:
+          birthdayEnabled is bool ? birthdayEnabled : false,
+    );
+  }
+
+  NotificationPreferences copyWith({
+    bool? push,
+    bool? campaign,
+    bool? appointmentReminderEnabled,
+    int? appointmentReminderMinutes,
+    bool? appointmentStartAlertEnabled,
+    bool? birthdayGreetingEnabled,
+  }) {
+    return NotificationPreferences(
+      push: push ?? this.push,
+      campaign: campaign ?? this.campaign,
+      appointmentReminderEnabled:
+          appointmentReminderEnabled ?? this.appointmentReminderEnabled,
+      appointmentReminderMinutes:
+          appointmentReminderMinutes ?? this.appointmentReminderMinutes,
+      appointmentStartAlertEnabled:
+          appointmentStartAlertEnabled ?? this.appointmentStartAlertEnabled,
+      birthdayGreetingEnabled:
+          birthdayGreetingEnabled ?? this.birthdayGreetingEnabled,
+    );
+  }
+}
+
 class PushNotificationService {
   static const MethodChannel _androidForegroundPush =
       MethodChannel('app.tarak.mobile/notifications');
@@ -241,16 +311,11 @@ class PushNotificationService {
     return value;
   }
 
-  /// Push on/off and the separate switch for providers' discount campaigns ("kampanya bildirimleri", on by default).
-  Future<({bool push, bool campaign})> getNotificationPreferences() async {
+  /// Push, campaign and appointment reminder preferences.
+  Future<NotificationPreferences> getNotificationPreferences() async {
     final response = await _apiClient.get('/push/preferences');
     final data = response.data is Map ? response.data as Map : const {};
-    final push = data['push_enabled'];
-    if (push is! bool) {
-      throw const FormatException('Bildirim tercihi yüklenemedi.');
-    }
-    final campaign = data['campaign_enabled'];
-    return (push: push, campaign: campaign is bool ? campaign : true);
+    return NotificationPreferences.fromJson(data);
   }
 
   Future<bool> updateCampaignPreference(bool enabled) async {
@@ -263,6 +328,31 @@ class PushNotificationService {
       throw const FormatException('Bildirim tercihi kaydedilemedi.');
     }
     return value;
+  }
+
+  Future<NotificationPreferences> updateAppointmentReminderPreferences({
+    bool? appointmentReminderEnabled,
+    int? appointmentReminderMinutes,
+    bool? appointmentStartAlertEnabled,
+    bool? birthdayGreetingEnabled,
+  }) async {
+    final payload = <String, dynamic>{};
+    if (appointmentReminderEnabled != null) {
+      payload['appointment_reminder_enabled'] = appointmentReminderEnabled;
+    }
+    if (appointmentReminderMinutes != null) {
+      payload['appointment_reminder_minutes'] = appointmentReminderMinutes;
+    }
+    if (appointmentStartAlertEnabled != null) {
+      payload['appointment_start_alert_enabled'] =
+          appointmentStartAlertEnabled;
+    }
+    if (birthdayGreetingEnabled != null) {
+      payload['birthday_greeting_enabled'] = birthdayGreetingEnabled;
+    }
+    final response = await _apiClient.put('/push/preferences', data: payload);
+    final data = response.data is Map ? response.data as Map : const {};
+    return NotificationPreferences.fromJson(data);
   }
 
   /// Update user push notification preference.

@@ -138,6 +138,108 @@ class GeoApiTest extends TestCase
         $this->assertLessThan(0.01, $response->json('data.0.distance_km'));
     }
 
+    public function test_photon_search_omits_unsupported_tr_lang_and_picks_requested_subdistrict_over_province(): void
+    {
+        Http::fake([
+            'photon.komoot.io/api*' => Http::response([
+                'features' => [
+                    [
+                        'geometry' => ['coordinates' => [32.8540497, 39.9207759]],
+                        'properties' => [
+                            'osm_key' => 'place',
+                            'osm_value' => 'city',
+                            'type' => 'district',
+                            'name' => 'Ankara',
+                            'city' => 'Çankaya',
+                            'state' => 'Ankara',
+                            'country' => 'Türkiye',
+                            'countrycode' => 'TR',
+                            'osm_id' => 25869410,
+                        ],
+                    ],
+                    [
+                        'geometry' => ['coordinates' => [32.8554966, 39.8853321]],
+                        'properties' => [
+                            'osm_key' => 'place',
+                            'osm_value' => 'town',
+                            'type' => 'city',
+                            'name' => 'Çankaya',
+                            'state' => 'Ankara',
+                            'country' => 'Türkiye',
+                            'countrycode' => 'TR',
+                            'osm_id' => 1812321,
+                        ],
+                    ],
+                ],
+            ]),
+        ]);
+
+        $this->getJson('/api/geo/search?q=' . urlencode('Çankaya, Ankara, Türkiye'))
+            ->assertOk()
+            ->assertJsonPath('data.latitude', 39.8853321)
+            ->assertJsonPath('data.longitude', 32.8554966)
+            ->assertJsonPath('data.province', 'Ankara')
+            ->assertJsonPath('data.district', 'Çankaya');
+
+        Http::assertSent(function ($request): bool {
+            $query = [];
+            parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+
+            return str_contains($request->url(), 'photon.komoot.io/api')
+                && !array_key_exists('lang', $query)
+                && (string) ($query['limit'] ?? '') === '5';
+        });
+    }
+
+    public function test_nominatim_fallback_picks_requested_district_alanya_instead_of_province_antalya(): void
+    {
+        Http::fake([
+            'photon.komoot.io/api*' => Http::response([], 503),
+            'nominatim.openstreetmap.org/search*' => Http::response([
+                [
+                    'place_id' => 55357884,
+                    'osm_id' => 428039517,
+                    'lat' => '36.8865728',
+                    'lon' => '30.7030242',
+                    'category' => 'place',
+                    'type' => 'city',
+                    'addresstype' => 'city',
+                    'name' => 'Antalya',
+                    'display_name' => 'Antalya, Muratpaşa, Antalya, Akdeniz Bölgesi, 07050, Türkiye',
+                    'address' => [
+                        'city' => 'Antalya',
+                        'town' => 'Muratpaşa',
+                        'province' => 'Antalya',
+                        'country_code' => 'tr',
+                    ],
+                ],
+                [
+                    'place_id' => 209743824,
+                    'osm_id' => 1726977,
+                    'lat' => '36.5436680',
+                    'lon' => '32.0019387',
+                    'category' => 'boundary',
+                    'type' => 'administrative',
+                    'addresstype' => 'town',
+                    'name' => 'Alanya',
+                    'display_name' => 'Alanya, Antalya, Akdeniz Bölgesi, Türkiye',
+                    'address' => [
+                        'town' => 'Alanya',
+                        'province' => 'Antalya',
+                        'country_code' => 'tr',
+                    ],
+                ],
+            ]),
+        ]);
+
+        $this->getJson('/api/geo/search?q=' . urlencode('Alanya, Antalya, Türkiye'))
+            ->assertOk()
+            ->assertJsonPath('data.latitude', 36.543668)
+            ->assertJsonPath('data.longitude', 32.0019387)
+            ->assertJsonPath('data.province', 'Antalya')
+            ->assertJsonPath('data.district', 'Alanya');
+    }
+
     private function user(string $role, string $email): User
     {
         return User::create([

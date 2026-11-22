@@ -22,6 +22,15 @@ class Appointment extends Model
     protected $fillable = [
         'customer_user_id',
         'provider_user_id',
+        'staff_id',
+        'staff_name_snapshot',
+        'staff_selection_mode',
+        'booking_source',
+        'is_guest_customer',
+        'guest_customer_name',
+        'guest_customer_phone',
+        'guest_customer_consent',
+        'created_by_user_id',
         'customer_address_id',
         'status',
         'appointment_date',
@@ -64,6 +73,8 @@ class Appointment extends Model
         'total_price' => 'decimal:2',
         'offering_snapshot' => 'array',
         'total_duration_minutes' => 'integer',
+        'is_guest_customer' => 'boolean',
+        'guest_customer_consent' => 'boolean',
         'private_latitude' => 'float',
         'private_longitude' => 'float',
     ];
@@ -76,6 +87,35 @@ class Appointment extends Model
     public function provider()
     {
         return $this->belongsTo(User::class, 'provider_user_id');
+    }
+
+    public function staff()
+    {
+        return $this->belongsTo(ProviderStaff::class, 'staff_id');
+    }
+
+    public function createdBy()
+    {
+        return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
+    public function customerDisplayName(): string
+    {
+        if ($this->is_guest_customer && trim((string) $this->guest_customer_name) !== '') {
+            return trim((string) $this->guest_customer_name);
+        }
+
+        return trim((string) ($this->customer?->name ?: 'Müşteri'));
+    }
+
+    public function staffDisplayName(): ?string
+    {
+        $snap = trim((string) $this->staff_name_snapshot);
+        if ($snap !== '') {
+            return $snap;
+        }
+        $live = trim((string) ($this->staff?->full_name ?? ''));
+        return $live !== '' ? $live : null;
     }
 
     public function address()

@@ -2,6 +2,7 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../models/customer_address.dart';
 import '../../models/location_share_status.dart';
+import '../../../provider/staff/models/provider_staff_model.dart';
 import '../models/appointment_availability_model.dart';
 import '../models/customer_appointment_model.dart';
 import '../models/scheduled_provider_model.dart';
@@ -68,18 +69,45 @@ class CustomerAppointmentRepository {
     return ScheduledProviderList(providers: parse(data['data']), sponsored: parse(data['sponsored']), rotationSeconds: (meta['rotation_seconds'] as num?)?.toInt());
   }
 
-  // ── Availability ─────────────────────────────────────────────────────────
+  // ── Provider Staff & Availability ────────────────────────────────────────
+
+  Future<List<ProviderStaffModel>> fetchProviderStaff({
+    required int providerId,
+    List<int> serviceIds = const [],
+    int? providerPackageId,
+    String? date,
+  }) async {
+    final query = <String, dynamic>{
+      if (serviceIds.isNotEmpty) 'service_ids': serviceIds.join(','),
+      'provider_package_id': ?providerPackageId,
+      if (date != null && date.isNotEmpty) 'date': date,
+    };
+    final resp = await _api.get(
+      '/customer/providers/$providerId/staff',
+      queryParameters: query.isEmpty ? null : query,
+    );
+    final body = resp.data;
+    final list = body is Map && body['data'] is List
+        ? body['data'] as List
+        : const [];
+    return list
+        .whereType<Map>()
+        .map((e) => ProviderStaffModel.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+  }
 
   Future<AppointmentAvailabilityModel> fetchAvailability({
     required int providerId,
     required String date,
     required List<int> serviceIds,
     int? providerPackageId,
+    int? staffId,
   }) async {
     final query = <String, dynamic>{
       'date': date,
       'service_ids': serviceIds.join(','),
       'provider_package_id': ?providerPackageId,
+      'staff_id': ?staffId,
     };
 
     final resp = await _api.get(
@@ -118,6 +146,7 @@ class CustomerAppointmentRepository {
     required int providerId,
     List<int> serviceIds = const [],
     int? providerPackageId,
+    int? staffId,
     required String date,
     required String time,
     int? customerAddressId,
@@ -130,6 +159,7 @@ class CustomerAppointmentRepository {
     final payload = <String, dynamic>{
       'provider_id': providerId,
       if (providerPackageId != null) 'provider_package_id': providerPackageId else 'service_ids': serviceIds,
+      'staff_id': ?staffId,
       'date': date,
       'time': time,
       'payment_method': paymentMethod.toUpperCase(),

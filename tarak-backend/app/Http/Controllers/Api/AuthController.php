@@ -7,6 +7,7 @@ use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use App\Services\MessageContentPolicyService;
 use App\Services\RegistrationVerificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,7 +17,10 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-    public function __construct(private RegistrationVerificationService $verification) {}
+    public function __construct(
+        private RegistrationVerificationService $verification,
+        private MessageContentPolicyService $contentPolicy,
+    ) {}
 
     /**
      * Register new customer or provider.
@@ -35,6 +39,12 @@ class AuthController extends Controller
                 'success' => false,
                 'message' => 'Admin hesabı bu yöntemle oluşturulamaz.',
             ], 403);
+        }
+
+        if ($validated['role'] === User::ROLE_PROVIDER && ! empty($validated['business_name'])) {
+            $this->contentPolicy->validateFields([
+                'business_name' => $validated['business_name'],
+            ]);
         }
 
         $user = DB::transaction(function () use ($validated, $smsVerificationEnabled, $legacyNative) {
@@ -118,16 +128,32 @@ class AuthController extends Controller
                     'profile_completed' => false,
                 ]);
             } elseif ($user->role === User::ROLE_PROVIDER) {
-                $user->providerProfile()->create([
+                $directoryListed = (bool) ($validated['directory_listed'] ?? false);
+                $acceptsNewClients = array_key_exists('accepts_new_clients', $validated)
+                    ? (bool) $validated['accepts_new_clients']
+                    : true;
+
+                $profile = $user->providerProfile()->create([
                     'provider_type' => $validated['provider_type'] ?? 'barber',
+                    'work_mode' => $validated['work_mode'] ?? 'both',
                     'business_name' => $validated['business_name'] ?? null,
                     'is_approved' => false,
                     'identity_status' => 'PENDING',
                     'is_online' => false,
-                    'accepts_new_clients' => true,
+                    'accepts_new_clients' => $acceptsNewClients,
+                    'directory_listed' => $directoryListed,
+                    'directory_status' => $directoryListed
+                        ? \App\Models\ProviderProfile::DIRECTORY_PENDING
+                        : \App\Models\ProviderProfile::DIRECTORY_NOT_REQUESTED,
+                    'city' => $validated['city'] ?? null,
+                    'district' => $validated['district'] ?? null,
+                    'neighborhood' => $validated['neighborhood'] ?? null,
                     'service_radius_km' => 10,
                     'experience_years' => 1,
                 ]);
+                $profile->setRelation('user', $user);
+                $profile->ensureSlug();
+                $profile->save();
 
                 // Wallet initial balance is 0. Welcome promo is NOT granted on registration!
                 $user->wallet()->create([

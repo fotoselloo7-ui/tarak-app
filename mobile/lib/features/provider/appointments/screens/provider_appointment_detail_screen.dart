@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/common_widgets.dart';
+import '../../staff/models/provider_staff_model.dart';
+import '../../staff/repositories/provider_staff_repository.dart';
 import '../models/provider_appointment_model.dart';
 import '../providers/provider_appointment_providers.dart';
 import '../repositories/provider_appointment_repository.dart';
@@ -237,7 +240,7 @@ class _ProviderAppointmentDetailScreenState
                   radius: 22,
                   backgroundColor: const Color(0xFFE2E8F0),
                   imageUrl: customer?.avatarUrl,
-                  name: customer?.name ?? 'Müşteri',
+                  name: appt.customerDisplayName,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -245,13 +248,47 @@ class _ProviderAppointmentDetailScreenState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        customer?.name ?? 'Müşteri',
+                        appt.customerDisplayName,
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF0F172A),
                         ),
                       ),
+                      if (appt.isGuestCustomer)
+                        Text(
+                          appt.guestCustomerPhone?.isNotEmpty == true
+                              ? 'Misafir Müşteri • ${appt.guestCustomerPhone}'
+                              : 'Misafir Müşteri',
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      if (appt.staffName != null &&
+                          appt.staffName!.trim().isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.badge_outlined,
+                              size: 14,
+                              color: AppTheme.primary,
+                            ),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                'Uzman: ${appt.staffName!.trim()}',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.primary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       if (appt.approxLocation != null &&
                           appt.approxLocation!.isNotEmpty)
                         Text(
@@ -296,9 +333,10 @@ class _ProviderAppointmentDetailScreenState
                 ),
               ),
             ],
-            if (appt.isConfirmed ||
-                appt.isInProgress ||
-                appt.isAwaitingConfirmation) ...[
+            if (!appt.isGuestCustomer &&
+                (appt.isConfirmed ||
+                    appt.isInProgress ||
+                    appt.isAwaitingConfirmation)) ...[
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
@@ -997,10 +1035,177 @@ class _ProviderAppointmentDetailScreenState
                 ),
               ),
             ],
+            if (!appt.isFinal) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      key: const Key('provider_change_staff_btn'),
+                      onPressed: state.isActionLoading
+                          ? null
+                          : () => _showChangeStaffDialog(appt),
+                      icon: const Icon(Icons.swap_horiz, size: 18),
+                      label: const Text('Ustayı Değiştir'),
+                    ),
+                  ),
+                  if (appt.isPending ||
+                      appt.isConfirmed ||
+                      appt.isAlternativeProposed) ...[
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        key: const Key('provider_cancel_appt_btn'),
+                        onPressed: state.isActionLoading
+                            ? null
+                            : () => _confirmCancelByProvider(appt),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFDC2626),
+                          side: const BorderSide(color: Color(0xFFDC2626)),
+                        ),
+                        icon: const Icon(Icons.cancel_outlined, size: 18),
+                        label: const Text('İptal Et'),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _showChangeStaffDialog(ProviderAppointmentModel appt) async {
+    List<ProviderStaffModel> staffList;
+    try {
+      staffList = await ref.read(providerStaffRepositoryProvider).fetchStaff();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e is AppException && e.message.isNotEmpty
+                ? e.message
+                : 'Çalışan listesi alınamadı.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final activeStaff = staffList
+        .where((s) => s.isActive && s.acceptsAppointments && !s.isArchived)
+        .toList();
+    if (!mounted) return;
+    if (activeStaff.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Atanabilecek aktif çalışan bulunmuyor.')),
+      );
+      return;
+    }
+
+    final chosen = await showDialog<ProviderStaffModel>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('İlgilenecek Uzmanı Seçin'),
+        children: [
+          for (final s in activeStaff)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, s),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      s.fullName,
+                      style: TextStyle(
+                        fontWeight: s.id == appt.staffId
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  if (s.id == appt.staffId)
+                    const Icon(Icons.check, size: 18, color: AppTheme.primary),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+
+    if (chosen == null || chosen.id == appt.staffId || !mounted) return;
+
+    try {
+      await ref
+          .read(providerAppointmentRepositoryProvider)
+          .changeAppointmentStaff(appt.id, chosen.id);
+      await _detailNotifier.loadDetail();
+      ref.invalidate(providerAppointmentsProvider);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Randevu uzmanı ${chosen.fullName} olarak güncellendi.'),
+          backgroundColor: const Color(0xFF059669),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      final msg = e is AppException && e.message.isNotEmpty
+          ? e.message
+          : 'Uzman değiştirilemedi.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: const Color(0xFFDC2626)),
+      );
+    }
+  }
+
+  Future<void> _confirmCancelByProvider(ProviderAppointmentModel appt) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Randevuyu İptal Et'),
+        content: const Text(
+          'Bu randevuyu iptal etmek istediğinize emin misiniz? Seçilen uzmanın takvimi boşa çıkar ve bekleyen hatırlatmalar durdurulur.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Vazgeç'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Randevuyu İptal Et'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+
+    try {
+      await ref
+          .read(providerAppointmentRepositoryProvider)
+          .cancelAppointment(appt.id);
+      await _detailNotifier.loadDetail();
+      ref.invalidate(providerAppointmentsProvider);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Randevu iptal edildi.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      final msg = e is AppException && e.message.isNotEmpty
+          ? e.message
+          : 'Randevu iptal edilemedi.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: const Color(0xFFDC2626)),
+      );
+    }
   }
 
   Future<void> _confirmAppointment() async {

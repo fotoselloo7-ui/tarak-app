@@ -342,7 +342,7 @@ class DemoDataService
             }
             $approvedAt = now()->subDays(mt_rand(20, 500));
 
-            $profile = ProviderProfile::create([
+            $profileAttributes = [
                 'user_id' => $user->id,
                 'provider_type' => $female ? 'coiffeur' : 'barber',
                 'work_mode' => $workMode,
@@ -365,7 +365,13 @@ class DemoDataService
                 'gallery' => $gallery,
                 'approved_at' => $approvedAt,
                 'reviewed_at' => $approvedAt,
-            ]);
+            ];
+            if (ProviderProfile::hasDirectorySchema() && $workMode !== ProviderProfile::WORK_MODE_MOBILE) {
+                $profileAttributes['directory_listed'] = true;
+                $profileAttributes['directory_status'] = ProviderProfile::DIRECTORY_APPROVED;
+                $profileAttributes['directory_approved_at'] = $approvedAt;
+            }
+            $profile = ProviderProfile::create($profileAttributes);
 
             DB::table('wallets')->insert([
                 'user_id' => $user->id,

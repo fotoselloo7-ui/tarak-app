@@ -10,7 +10,9 @@ use App\Http\Resources\UserResource;
 use App\Models\ProviderDocument;
 use App\Models\ProviderProfile;
 use App\Models\ProviderService;
+use App\Models\ProviderServiceArea;
 use App\Models\Service;
+use App\Services\MessageContentPolicyService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,6 +22,7 @@ use App\Support\MediaUrl;
 
 class ProviderProfileController extends Controller
 {
+    public function __construct(protected MessageContentPolicyService $contentPolicy) {}
     /**
      * Helper to re-evaluate and update provider profile_completed status.
      */
@@ -50,7 +53,7 @@ class ProviderProfileController extends Controller
     {
         $user = $request->user();
         $profile = $user->providerProfile()
-            ->with(['providerServices.service', 'documents'])
+            ->with(['providerServices.service', 'documents', 'serviceAreas'])
             ->firstOrCreate(['user_id' => $user->id]);
 
         return response()->json([
@@ -64,7 +67,7 @@ class ProviderProfileController extends Controller
 
     /**
      * Update provider profile.
-     * Security: is_approved, identity_status, commission_rate_override etc. CANNOT be altered by provider!
+     * Security: is_approved, identity_status, directory_status, commission_rate_override etc. CANNOT be altered by provider!
      */
     public function updateProfile(Request $request): JsonResponse
     {
@@ -94,15 +97,40 @@ class ProviderProfileController extends Controller
             'bio' => ['nullable', 'string', 'max:1000'],
             'title' => ['nullable', 'string', 'max:150'],
             'cover_url' => ['nullable', 'string', 'max:500'],
+            'logo_url' => ['nullable', 'string', 'max:500'],
             'cover_position_x' => ['nullable', 'integer', 'min:0', 'max:100'],
             'cover_position_y' => ['nullable', 'integer', 'min:0', 'max:100'],
             'gallery' => ['nullable', 'array'],
             'gallery.*' => ['string', 'max:500'],
             'is_online' => ['nullable', 'boolean'],
             'accepts_new_clients' => ['nullable', 'boolean'],
+            'directory_listed' => ['nullable', 'boolean'],
+            'service_areas' => ['nullable', 'array', 'max:50'],
+            'service_areas.*.province' => ['required', 'string', 'max:100'],
+            'service_areas.*.district' => ['required', 'string', 'max:100'],
+            'service_areas.*.neighborhood' => ['nullable', 'string', 'max:150'],
         ]);
 
-        DB::transaction(function () use ($user, $profile, $validated) {
+        $this->contentPolicy->validateFields([
+            'business_name' => $validated['business_name'] ?? null,
+            'title' => $validated['title'] ?? null,
+            'bio' => $validated['bio'] ?? null,
+        ]);
+
+        if (
+            array_key_exists('directory_listed', $validated)
+            && (bool) $validated['directory_listed'] === true
+            && $profile->directory_status === ProviderProfile::DIRECTORY_SUSPENDED
+        ) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Rehber kaydınız yönetici tarafından askıya alınmıştır. Destek ile iletişime geçiniz.',
+            ], 422);
+        }
+
+        $syncAreas = $request->has('service_areas');
+
+        DB::transaction(function () use ($user, $profile, $validated, $syncAreas) {
             // Update User fields if present
             $userUpdates = [];
             if (!empty($validated['name'])) {
@@ -122,7 +150,7 @@ class ProviderProfileController extends Controller
             }
 
             // Strictly whitelist updatable provider fields
-            // SECURITY: Never allow updating is_approved, identity_status, approved_at, reviewed_at, commission_rate_override
+            // SECURITY: Never allow updating is_approved, identity_status, directory_status, approved_at, reviewed_at, commission_rate_override
             $allowedProfileFields = [
                 'provider_type',
                 'work_mode',
@@ -140,27 +168,51 @@ class ProviderProfileController extends Controller
                 'bio',
                 'title',
                 'cover_url',
+                'logo_url',
                 'cover_position_x',
                 'cover_position_y',
                 'gallery',
                 'is_online',
                 'accepts_new_clients',
+                'directory_listed',
             ];
 
             $profileUpdates = array_intersect_key($validated, array_flip($allowedProfileFields));
-            $profile->update($profileUpdates);
+
+            if (array_key_exists('directory_listed', $profileUpdates) && (bool) $profileUpdates['directory_listed'] === true) {
+                if (in_array($profile->directory_status, [
+                    ProviderProfile::DIRECTORY_NOT_REQUESTED,
+                    ProviderProfile::DIRECTORY_REJECTED,
+                    null,
+                    '',
+                ], true)) {
+                    $profileUpdates['directory_status'] = ProviderProfile::DIRECTORY_PENDING;
+                    $profileUpdates['directory_rejection_reason'] = null;
+                }
+            }
+
+            $profile->fill($profileUpdates);
+            if (empty($profile->slug)) {
+                $profile->setRelation('user', $user->fresh());
+                $profile->ensureSlug();
+            }
+            $profile->save();
+
+            if ($syncAreas) {
+                $this->syncServiceAreas($profile, $validated['service_areas'] ?? []);
+            }
 
             $this->checkAndUpdateProfileCompleted($profile);
         });
 
-        $profile->load(['providerServices.service', 'documents']);
+        $profile->load(['providerServices.service', 'documents', 'serviceAreas']);
 
         return response()->json([
             'success' => true,
             'message' => 'Profil bilgileri güncellendi.',
             'data' => [
                 'user' => new UserResource($user->fresh()),
-                'profile' => new ProviderProfileResource($profile->fresh(['providerServices.service', 'documents'])),
+                'profile' => new ProviderProfileResource($profile->fresh(['providerServices.service', 'documents', 'serviceAreas'])),
             ],
         ]);
     }
@@ -201,6 +253,14 @@ class ProviderProfileController extends Controller
             'services.min' => 'En az bir hizmet seçilmelidir.',
             'services.*.service_id.exists' => 'Seçilen hizmet geçerli değil.',
         ]);
+
+        $descFields = [];
+        foreach ($validated['services'] as $idx => $item) {
+            if (isset($item['description'])) {
+                $descFields["services.{$idx}.description"] = $item['description'];
+            }
+        }
+        $this->contentPolicy->validateFields($descFields);
 
         DB::transaction(function () use ($profile, $validated) {
             // Build sync payload ensuring unique service IDs
@@ -246,6 +306,10 @@ class ProviderProfileController extends Controller
             'is_active' => ['sometimes', 'boolean'],
         ], [
             'service_id.exists' => 'Seçilen hizmet katalogda bulunamadı.',
+        ]);
+
+        $this->contentPolicy->validateFields([
+            'description' => $validated['description'] ?? null,
         ]);
 
         $catalog = \App\Models\Service::find($validated['service_id']);
@@ -336,8 +400,143 @@ class ProviderProfileController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Kapak görseli kaldırıldı.',
-            'data' => new ProviderProfileResource($profile->fresh()),
+            'data' => new ProviderProfileResource($profile->fresh(['serviceAreas'])),
         ]);
+    }
+
+    /**
+     * Upload/replace the business showcase / map pin logo image.
+     */
+    public function uploadLogo(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $profile = $user->providerProfile()->firstOrCreate(['user_id' => $user->id]);
+
+        $request->validate([
+            'logo' => ['required', 'file', 'mimes:jpg,jpeg,png,webp', 'max:' . self::MEDIA_MAX_KB],
+        ], [
+            'logo.required' => 'Lütfen bir işletme logosu seçiniz.',
+            'logo.mimes' => 'Yalnızca JPG, JPEG, PNG veya WEBP formatı kabul edilir.',
+            'logo.max' => 'Görsel boyutu en fazla 5 MB olabilir.',
+        ]);
+
+        $file = $request->file('logo');
+        $extension = strtolower($file->getClientOriginalExtension() ?: $file->extension());
+        $filename = (string) Str::uuid() . '.' . $extension;
+        $path = $file->storeAs('provider-media/' . $profile->id . '/logo', $filename, 'public');
+        $url = MediaUrl::fromPublicPath($path);
+
+        $oldPath = ProfileMediaController::managedPublicPath($profile->logo_url);
+        $profile->update(['logo_url' => $url]);
+
+        if ($oldPath && $oldPath !== $path) {
+            Storage::disk('public')->delete($oldPath);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'İşletme logosu güncellendi.',
+            'data' => new ProviderProfileResource($profile->fresh(['serviceAreas'])),
+        ]);
+    }
+
+    public function destroyLogo(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $profile = $user->providerProfile;
+        if (!$profile) {
+            return response()->json(['success' => false, 'message' => 'Profil bulunamadı.'], 404);
+        }
+
+        $oldPath = ProfileMediaController::managedPublicPath($profile->logo_url);
+        $profile->update(['logo_url' => null]);
+
+        if ($oldPath) {
+            Storage::disk('public')->delete($oldPath);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'İşletme logosu kaldırıldı.',
+            'data' => new ProviderProfileResource($profile->fresh(['serviceAreas'])),
+        ]);
+    }
+
+    public function getServiceAreas(Request $request): JsonResponse
+    {
+        $profile = $request->user()->providerProfile()->firstOrCreate(['user_id' => $request->user()->id]);
+        $areas = $profile->serviceAreas()->get()->map(fn (ProviderServiceArea $a) => [
+            'id' => (string) $a->id,
+            'province' => $a->province,
+            'district' => $a->district,
+            'neighborhood' => $a->neighborhood,
+        ])->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => $areas,
+        ]);
+    }
+
+    public function updateServiceAreas(Request $request): JsonResponse
+    {
+        $profile = $request->user()->providerProfile()->firstOrCreate(['user_id' => $request->user()->id]);
+        $validated = $request->validate([
+            'service_areas' => ['required', 'array', 'max:50'],
+            'service_areas.*.province' => ['required', 'string', 'max:100'],
+            'service_areas.*.district' => ['required', 'string', 'max:100'],
+            'service_areas.*.neighborhood' => ['nullable', 'string', 'max:150'],
+        ]);
+
+        DB::transaction(function () use ($profile, $validated) {
+            $this->syncServiceAreas($profile, $validated['service_areas']);
+        });
+
+        $areas = $profile->serviceAreas()->get()->map(fn (ProviderServiceArea $a) => [
+            'id' => (string) $a->id,
+            'province' => $a->province,
+            'district' => $a->district,
+            'neighborhood' => $a->neighborhood,
+        ])->values();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Hizmet bölgeleri güncellendi.',
+            'data' => $areas,
+        ]);
+    }
+
+    /** @param array<int, array<string, mixed>> $areas */
+    private function syncServiceAreas(ProviderProfile $profile, array $areas): void
+    {
+        $unique = [];
+        $now = now();
+        foreach ($areas as $area) {
+            $province = trim((string) ($area['province'] ?? ''));
+            $district = trim((string) ($area['district'] ?? ''));
+            $neighborhood = trim((string) ($area['neighborhood'] ?? ''));
+            if ($province === '' || $district === '') {
+                continue;
+            }
+            $key = ProviderServiceArea::makeNormalizedKey($province, $district, $neighborhood !== '' ? $neighborhood : null);
+            if (isset($unique[$key])) {
+                continue;
+            }
+            $unique[$key] = [
+                'provider_profile_id' => $profile->id,
+                'province' => $province,
+                'district' => $district,
+                'neighborhood' => $neighborhood !== '' ? $neighborhood : null,
+                'normalized_key' => $key,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        $profile->serviceAreas()->delete();
+        if ($unique !== []) {
+            ProviderServiceArea::insert(array_values($unique));
+        }
     }
 
     /**

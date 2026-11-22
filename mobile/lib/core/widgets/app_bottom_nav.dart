@@ -11,11 +11,15 @@ class AppNavItem {
   /// Unread counter shown as a badge on the icon (0 hides it).
   final int badge;
 
+  /// Optional tooltip / accessibility description shown on long press.
+  final String? tooltip;
+
   const AppNavItem({
     required this.icon,
     required this.activeIcon,
     required this.label,
     this.badge = 0,
+    this.tooltip,
   });
 }
 
@@ -104,6 +108,7 @@ class AppBottomNav extends StatelessWidget {
                   icon: _icon(items[i], false),
                   selectedIcon: _icon(items[i], true),
                   label: items[i].label,
+                  tooltip: items[i].tooltip,
                 ),
             ],
           ),

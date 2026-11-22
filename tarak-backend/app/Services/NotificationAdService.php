@@ -3,13 +3,16 @@
 namespace App\Services;
 
 use App\Jobs\DeliverNotificationAd;
+use App\Models\NotificationAbuseAlert;
 use App\Models\NotificationAd;
 use App\Models\NotificationAdSetting;
+use App\Models\NotificationDispatch;
+use App\Models\NotificationDispatchRecipient;
+use App\Models\ProviderNotificationControl;
 use App\Models\ProviderProfile;
 use App\Models\User;
 use App\Models\UserNotification;
 use App\Models\Wallet;
-use App\Models\WalletTransaction;
 use App\Support\Geo;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -30,6 +33,8 @@ class NotificationAdService
         private ProviderDiscountService $discounts,
         private PaytrService $paytr,
         private MessageContentPolicyService $policy,
+        private NotificationBillingService $billing,
+        private NotificationAbuseGuardService $abuseGuard,
     ) {
     }
 
@@ -173,6 +178,8 @@ class NotificationAdService
             throw ValidationException::withMessages($errors);
         }
 
+        $this->abuseGuard->guardNotificationAdSend($provider, $data['title'], $data['body'], $settings);
+
         $sentToday = NotificationAd::query()->where('provider_user_id', $provider->id)
             ->whereIn('status', [NotificationAd::STATUS_QUEUED, NotificationAd::STATUS_SENT])
             ->where('created_at', '>=', now()->subDay())->count();
@@ -190,58 +197,72 @@ class NotificationAdService
 
     // ───────────────────────────────────────────────────────────── wallet
 
-    /** Pays from the wallet cash balance, starts the discount and sends. */
+    /** Pays from the wallet balance (promo-first if enabled, then cash per admin settings), starts the discount and sends. */
     public function purchaseWithWallet(User $provider, array $input): NotificationAd
     {
         $prepared = $this->prepare($provider, $input);
         $priceCents = FinancialService::parseToCents($prepared['price']);
+        /** @var NotificationAdSetting $settings */
+        $settings = $prepared['settings'];
+        /** @var ProviderProfile $profile */
+        $profile = $prepared['profile'];
 
-        $ad = DB::transaction(function () use ($provider, $prepared, $priceCents) {
-            $wallet = Wallet::firstOrCreate(
-                ['user_id' => $provider->id],
-                ['balance' => 0.00, 'promo_balance' => 0.00, 'reserved_cash_balance' => 0.00, 'reserved_promo_balance' => 0.00, 'currency' => 'TRY', 'is_frozen' => false]
-            );
-            $wallet = Wallet::where('id', $wallet->id)->lockForUpdate()->first();
+        try {
+            $ad = DB::transaction(function () use ($provider, $prepared, $priceCents, $settings, $profile) {
+                $wallet = $this->billing->getOrCreateWallet($provider->id, true);
 
-            if ($priceCents > 0) {
-                if ($wallet->is_frozen) {
-                    throw ValidationException::withMessages(['audience' => ['Cüzdanınız dondurulmuş; satın alma yapılamıyor.']]);
-                }
-                $usableCents = max(0, FinancialService::parseToCents($wallet->balance) - FinancialService::parseToCents($wallet->reserved_cash_balance));
-                if ($usableCents < $priceCents) {
-                    throw ValidationException::withMessages(['audience' => [sprintf(
-                        'Bakiyeniz yetersiz. Kullanılabilir bakiye: ₺%s, bildirim reklamı tutarı: ₺%s.',
-                        number_format($usableCents / 100, 2, ',', '.'),
-                        number_format($priceCents / 100, 2, ',', '.')
-                    )]]);
-                }
-            }
-
-            $ad = NotificationAd::create($this->attributes($provider, $prepared) + [
-                'status' => NotificationAd::STATUS_QUEUED,
-                'payment_source' => NotificationAd::SOURCE_WALLET,
-                'paid_at' => now(),
-            ]);
-
-            if ($priceCents > 0) {
-                WalletTransaction::create([
-                    'wallet_id' => $wallet->id,
-                    'user_id' => $provider->id,
-                    'type' => WalletTransaction::TYPE_NOTIFICATION_AD_PURCHASE,
-                    'direction' => WalletTransaction::DIRECTION_DEBIT,
-                    'bucket' => WalletTransaction::BUCKET_CASH,
-                    'amount' => FinancialService::formatFromCents($priceCents),
-                    'reference_type' => 'NOTIFICATION_AD',
-                    'reference_id' => $ad->id,
-                    'idempotency_key' => 'NOTIFICATION_AD_PURCHASE:' . $ad->id,
-                    'description' => 'Bildirim reklamı: ' . (NotificationAd::AUDIENCE_NAMES[$ad->audience] ?? $ad->audience),
+                $ad = NotificationAd::create($this->attributes($provider, $prepared) + [
+                    'status' => NotificationAd::STATUS_QUEUED,
+                    'payment_source' => NotificationAd::SOURCE_WALLET,
+                    'targeted_count' => $prepared['recipients'],
+                    'paid_at' => now(),
                 ]);
-                $wallet->balance = FinancialService::formatFromCents(FinancialService::parseToCents($wallet->balance) - $priceCents);
-                $wallet->save();
-            }
 
-            return $ad;
-        });
+                $charge = $this->billing->chargeNotificationAdWalletLocked($wallet, $provider, $ad, $priceCents, $settings);
+
+                $dispatch = NotificationDispatch::create([
+                    'reference_code' => 'NAD-' . $ad->id,
+                    'provider_user_id' => $provider->id,
+                    'provider_profile_id' => $profile->id,
+                    'notification_type' => NotificationDispatch::TYPE_NOTIFICATION_AD,
+                    'source_type' => 'NOTIFICATION_AD',
+                    'source_id' => $ad->id,
+                    'title' => $ad->title,
+                    'body' => $ad->body,
+                    'pricing_mode' => $priceCents > 0 ? NotificationDispatch::PRICING_PER_CAMPAIGN : NotificationDispatch::PRICING_FREE,
+                    'unit_price' => FinancialService::formatFromCents($priceCents),
+                    'total_cost' => FinancialService::formatFromCents($priceCents),
+                    'captured_promo_amount' => FinancialService::formatFromCents($charge['promo_cents']),
+                    'captured_cash_amount' => FinancialService::formatFromCents($charge['cash_cents']),
+                    'balance_source' => $charge['balance_source'],
+                    'targeted_count' => (int) $prepared['recipients'],
+                    'eligible_count' => (int) $prepared['recipients'],
+                    'status' => NotificationDispatch::STATUS_QUEUED,
+                    'sent_at' => now(),
+                ]);
+
+                $ad->forceFill([
+                    'dispatch_id' => $dispatch->id,
+                    'promo_amount' => FinancialService::formatFromCents($charge['promo_cents']),
+                    'cash_amount' => FinancialService::formatFromCents($charge['cash_cents']),
+                    'balance_source' => $charge['balance_source'],
+                ])->save();
+
+                return $ad;
+            });
+        } catch (ValidationException $e) {
+            if ($priceCents > 0) {
+                $this->abuseGuard->recordAlert(
+                    $provider->id,
+                    NotificationAbuseAlert::TYPE_INSUFFICIENT_BALANCE_ATTEMPT,
+                    $e->getMessage() ?: 'Yetersiz bakiye veya dondurulmuş cüzdan ile bildirim reklamı gönderim girişimi.',
+                    ['price' => $prepared['price'], 'audience' => $prepared['data']['audience'] ?? null],
+                    severity: 'INFO',
+                    autoAction: 'SEND_REJECTED',
+                );
+            }
+            throw $e;
+        }
 
         $this->fulfil($ad);
 
@@ -362,9 +383,34 @@ class NotificationAdService
         $ad->forceFill([
             'status' => NotificationAd::STATUS_QUEUED,
             'paid_at' => now(),
+            'balance_source' => NotificationDispatch::SOURCE_CARD,
+            'cash_amount' => $ad->amount,
             'failure_message' => null,
             'callback_payload' => $payload,
         ])->save();
+
+        if (!$ad->dispatch_id) {
+            $profileId = ProviderProfile::query()->where('user_id', $ad->provider_user_id)->value('id');
+            $dispatch = NotificationDispatch::create([
+                'reference_code' => 'NAD-' . $ad->id,
+                'provider_user_id' => $ad->provider_user_id,
+                'provider_profile_id' => $profileId,
+                'notification_type' => NotificationDispatch::TYPE_NOTIFICATION_AD,
+                'source_type' => 'NOTIFICATION_AD',
+                'source_id' => $ad->id,
+                'title' => $ad->title,
+                'body' => $ad->body,
+                'pricing_mode' => NotificationDispatch::PRICING_PER_CAMPAIGN,
+                'unit_price' => $ad->amount,
+                'total_cost' => $ad->amount,
+                'captured_cash_amount' => $ad->amount,
+                'balance_source' => NotificationDispatch::SOURCE_CARD,
+                'targeted_count' => (int) ($ad->targeted_count ?: 0),
+                'status' => NotificationDispatch::STATUS_QUEUED,
+                'sent_at' => now(),
+            ]);
+            $ad->forceFill(['dispatch_id' => $dispatch->id])->save();
+        }
 
         DB::afterCommit(fn () => $this->fulfil($ad->refresh()));
     }
@@ -375,6 +421,12 @@ class NotificationAdService
     public function fulfil(NotificationAd $ad): void
     {
         if ($ad->status !== NotificationAd::STATUS_QUEUED) {
+            return;
+        }
+        $perm = $this->abuseGuard->checkPermission((int) $ad->provider_user_id, ProviderNotificationControl::CHANNEL_NOTIFICATION_AD);
+        if (!$perm['allowed']) {
+            $ad->forceFill(['status' => NotificationAd::STATUS_BLOCKED, 'failure_message' => $perm['reason']])->save();
+            $this->billing->refundNotificationAdWallet($ad, $perm['reason'] ?: 'Yönetici tarafından durduruldu');
             return;
         }
         if (!$ad->discount()->exists()) {
@@ -391,11 +443,56 @@ class NotificationAdService
             return;
         }
 
+        $perm = $this->abuseGuard->checkPermission((int) $ad->provider_user_id, ProviderNotificationControl::CHANNEL_NOTIFICATION_AD);
+        if (!$perm['allowed']) {
+            $reason = $perm['reason'] ?: 'Yönetici tarafından bildirim reklamı yetkisi kapatıldığı için durduruldu.';
+            $ad->forceFill(['status' => NotificationAd::STATUS_BLOCKED, 'failure_message' => mb_substr($reason, 0, 250)])->save();
+            $this->discounts->end((int) $ad->provider_user_id);
+            $this->billing->refundNotificationAdWallet($ad, $reason);
+            $this->abuseGuard->recordAlert(
+                (int) $ad->provider_user_id,
+                NotificationAbuseAlert::TYPE_BLOCKED_PROVIDER_QUEUE_STOPPED,
+                'Engellenen hizmet verenin kuyruktaki bildirim reklamı işi durduruldu.',
+                ['notification_ad_id' => $ad->id],
+                dispatchId: $ad->dispatch_id,
+                severity: 'HIGH',
+                autoAction: 'JOB_STOPPED_AND_REFUNDED',
+            );
+
+            return;
+        }
+
         $profile = ProviderProfile::query()->with(['user', 'documents'])->where('user_id', $ad->provider_user_id)->first();
         if (!$profile) {
             $ad->forceFill(['status' => NotificationAd::STATUS_FAILED, 'failure_message' => 'Hizmet veren bulunamadı.'])->save();
 
             return;
+        }
+
+        $dispatch = $ad->dispatch_id ? NotificationDispatch::find($ad->dispatch_id) : null;
+        if (!$dispatch) {
+            $dispatch = NotificationDispatch::create([
+                'reference_code' => 'NAD-' . $ad->id,
+                'provider_user_id' => $ad->provider_user_id,
+                'provider_profile_id' => $profile->id,
+                'notification_type' => NotificationDispatch::TYPE_NOTIFICATION_AD,
+                'source_type' => 'NOTIFICATION_AD',
+                'source_id' => $ad->id,
+                'title' => $ad->title,
+                'body' => $ad->body,
+                'pricing_mode' => (float) $ad->amount > 0 ? NotificationDispatch::PRICING_PER_CAMPAIGN : NotificationDispatch::PRICING_FREE,
+                'unit_price' => $ad->amount,
+                'total_cost' => $ad->amount,
+                'captured_promo_amount' => $ad->promo_amount ?? 0,
+                'captured_cash_amount' => $ad->cash_amount ?? ($ad->payment_source === NotificationAd::SOURCE_CARD ? 0 : $ad->amount),
+                'balance_source' => $ad->balance_source ?: ($ad->payment_source === NotificationAd::SOURCE_CARD ? NotificationDispatch::SOURCE_CARD : NotificationDispatch::SOURCE_CASH),
+                'targeted_count' => (int) ($ad->targeted_count ?: 0),
+                'status' => NotificationDispatch::STATUS_PROCESSING,
+                'sent_at' => now(),
+            ]);
+            $ad->forceFill(['dispatch_id' => $dispatch->id])->save();
+        } else {
+            $dispatch->update(['status' => NotificationDispatch::STATUS_PROCESSING, 'sent_at' => $dispatch->sent_at ?: now()]);
         }
 
         $name = $profile->business_name ?: $profile->user?->name ?: 'Hizmet Veren';
@@ -404,6 +501,7 @@ class NotificationAdService
         $message = sprintf('%s — %s', $ad->title, $ad->body);
         $metadata = [
             'ad_id' => $ad->id,
+            'dispatch_id' => $dispatch->id,
             'provider_user_id' => $ad->provider_user_id,
             'provider_name' => $name,
             'is_verified' => $profile->isVerified(),
@@ -413,29 +511,72 @@ class NotificationAdService
             'valid_until' => $validUntil->toIso8601String(),
         ];
 
+        $settings = NotificationAdSetting::current();
+        $control = $perm['control'];
+        $usage = $this->abuseGuard->dailyUsage((int) $ad->provider_user_id, $settings);
+        $remainingUniqueCap = max(0, $control->effectiveDailyUniqueRecipientLimit($settings) - $usage['unique_recipients_today']);
+        $cappedOut = false;
+
         $count = 0;
         $this->recipientQuery($profile, $ad->audience, $ad->province, $ad->district)
             ->select('users.id')
-            ->chunkById(500, function ($users) use ($ad, $title, $message, $metadata, &$count) {
-                foreach ($users as $user) {
-                    $notification = $this->notifications->notifyUser(
-                        (int) $user->id,
-                        UserNotification::TYPE_PROVIDER_CAMPAIGN,
-                        $title,
-                        $message,
-                        UserNotification::RESOURCE_PROVIDER_PROFILE,
-                        $ad->provider_user_id,
-                        '/p/detail?id=' . $ad->provider_user_id,
-                        $metadata,
-                        'NOTIFICATION_AD:' . $ad->id . ':' . $user->id
-                    );
-                    if ($notification?->wasRecentlyCreated) {
-                        $count++;
-                    }
+            ->chunkById(500, function ($users) use ($ad, $dispatch, $title, $message, $metadata, &$count, $remainingUniqueCap, &$cappedOut) {
+                // Re-check admin block before processing each batch.
+                $perm = $this->abuseGuard->checkPermission((int) $ad->provider_user_id, ProviderNotificationControl::CHANNEL_NOTIFICATION_AD);
+                if (!$perm['allowed']) {
+                    $cappedOut = true;
+                    return false;
                 }
+
+                foreach ($users as $user) {
+                    if ($count >= $remainingUniqueCap) {
+                        $cappedOut = true;
+                        return false;
+                    }
+
+                    DB::transaction(function () use ($ad, $dispatch, $user, $title, $message, $metadata, &$count) {
+                        $notification = $this->notifications->notifyUser(
+                            (int) $user->id,
+                            UserNotification::TYPE_PROVIDER_CAMPAIGN,
+                            $title,
+                            $message,
+                            UserNotification::RESOURCE_PROVIDER_PROFILE,
+                            $ad->provider_user_id,
+                            '/p/detail?id=' . $ad->provider_user_id,
+                            $metadata,
+                            'NOTIFICATION_AD:' . $ad->id . ':' . $user->id
+                        );
+
+                        NotificationDispatchRecipient::firstOrCreate(
+                            ['billing_reference' => "NAD:{$ad->id}:{$user->id}"],
+                            [
+                                'dispatch_id' => $dispatch->id,
+                                'provider_user_id' => $ad->provider_user_id,
+                                'recipient_user_id' => (int) $user->id,
+                                'user_notification_id' => $notification?->id,
+                                'unit_price' => '0.00',
+                                'billing_status' => (float) $ad->amount > 0
+                                    ? NotificationDispatchRecipient::BILLING_CHARGED_CAMPAIGN
+                                    : NotificationDispatchRecipient::BILLING_FREE,
+                                'delivery_status' => NotificationDispatchRecipient::DELIVERY_QUEUED,
+                            ]
+                        );
+
+                        if ($notification?->wasRecentlyCreated) {
+                            $count++;
+                        }
+                    });
+                }
+
+                return true;
             }, 'users.id', 'id');
 
         $ad->forceFill(['status' => NotificationAd::STATUS_SENT, 'recipients_count' => $count, 'sent_at' => now()])->save();
+        $dispatch->recalculateCounters();
+        if ($dispatch->eligible_count === 0) {
+            $dispatch->update(['status' => $cappedOut ? NotificationDispatch::STATUS_BLOCKED : NotificationDispatch::STATUS_COMPLETED, 'completed_at' => now()]);
+        }
+
         $this->notifications->notifyUser(
             (int) $ad->provider_user_id,
             UserNotification::TYPE_FEATURED_STARTED,
@@ -480,6 +621,7 @@ class NotificationAdService
         $cardEnabled = $this->cardEnabled();
 
         $profile = ProviderProfile::query()->with('documents')->where('user_id', $provider->id)->first();
+        $report = app(NotificationReportService::class)->providerReport($provider, $settings);
 
         return $settings->present() + [
             // How the notification will name the provider (the preview in the form shows exactly this).
@@ -488,18 +630,17 @@ class NotificationAdService
             'active_discount' => $discount?->present(),
             'sends_left_today' => max(0, $settings->max_sends_per_provider_per_day - $sentToday),
             'provinces' => $this->provinces(),
-            'wallet' => [
-                'usable_cash_balance' => $wallet ? (float) $wallet->usable_cash_balance : 0.0,
-                'is_frozen' => (bool) ($wallet?->is_frozen),
-            ],
+            'wallet' => $report['wallet'],
+            'permissions' => $report['permissions'],
+            'monthly_summary' => $report['monthly_summary'],
+            'upcoming_eligible_birthdays_30d' => $report['upcoming_eligible_birthdays_30d'],
+            'birthday_history' => $report['birthday_history'],
             'payment' => [
                 'wallet_enabled' => true,
                 'card_enabled' => $cardEnabled,
                 'card_unavailable_reason' => $cardEnabled ? null : 'Kartla ödeme şu anda kullanılamıyor.',
             ],
-            'history' => NotificationAd::query()->where('provider_user_id', $provider->id)
-                ->whereIn('status', [NotificationAd::STATUS_QUEUED, NotificationAd::STATUS_SENT])
-                ->latest('id')->limit(10)->get()->map->present()->values()->all(),
+            'history' => $report['notification_ad_history'],
         ];
     }
 }

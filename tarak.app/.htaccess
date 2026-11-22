@@ -61,8 +61,8 @@ DirectoryIndex index.html
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
-    # API, health check and PayTR return pages -> Laravel through the bridge index.php
-    RewriteRule ^(api|up|payment-result)(/|$) index.php [L]
+    # API, health check, PayTR return pages and public SEO business pages -> Laravel through the bridge index.php
+    RewriteRule ^(api|up|payment-result|isletmeler|isletme|sitemap\.xml)(/|$) index.php [L]
 
     # If cPanel cannot create Laravel's public/storage symlink, let index.php safely
     # stream managed avatar/provider-media uploads from tarak-backend/storage/app/public.

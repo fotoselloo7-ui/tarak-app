@@ -232,6 +232,10 @@ class CustomerAppointmentModel {
   final int customerUserId;
   final int providerUserId;
   final AppointmentProviderInfo? provider;
+  final int? staffId;
+  final String? staffName;
+  final String? staffSelectionMode;
+  final String? bookingSource;
   final int? customerAddressId;
   final Map<String, dynamic>? address;
   final String status;
@@ -273,6 +277,10 @@ class CustomerAppointmentModel {
     required this.customerUserId,
     required this.providerUserId,
     this.provider,
+    this.staffId,
+    this.staffName,
+    this.staffSelectionMode,
+    this.bookingSource,
     this.customerAddressId,
     this.address,
     required this.status,
@@ -423,6 +431,13 @@ class CustomerAppointmentModel {
       provider: json['provider'] is Map<String, dynamic>
           ? AppointmentProviderInfo.fromJson(json['provider'])
           : null,
+      staffId: json['staff_id'] is int
+          ? json['staff_id'] as int
+          : int.tryParse(json['staff_id']?.toString() ?? ''),
+      staffName: json['staff_name']?.toString() ??
+          (json['staff'] is Map ? json['staff']['full_name']?.toString() : null),
+      staffSelectionMode: json['staff_selection_mode']?.toString(),
+      bookingSource: json['booking_source']?.toString(),
       customerAddressId: json['customer_address_id'] is int
           ? json['customer_address_id'] as int
           : int.tryParse(json['customer_address_id']?.toString() ?? ''),

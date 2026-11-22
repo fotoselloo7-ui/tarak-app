@@ -13,17 +13,43 @@ class ProviderAppointmentResource extends JsonResource
     public function toArray(Request $request): array
     {
         $customerUser = $this->customer;
+        $staffName = $this->staffDisplayName();
+        $isGuest = (bool) $this->is_guest_customer;
 
         return [
             'id' => (string) $this->id,
-            'public_id' => 'APT' . str_pad((string)$this->id, 6, '0', STR_PAD_LEFT),
-            'customer_user_id' => (string) $this->customer_user_id,
+            'public_id' => 'APT' . str_pad((string) $this->id, 6, '0', STR_PAD_LEFT),
+            'customer_user_id' => $this->customer_user_id ? (string) $this->customer_user_id : null,
             'provider_user_id' => (string) $this->provider_user_id,
+            'staff_id' => $this->staff_id ? (string) $this->staff_id : null,
+            'staff_name' => $staffName,
+            'staff' => $this->staff ? [
+                'id' => (string) $this->staff->id,
+                'full_name' => $this->staff->full_name,
+                'title' => $this->staff->title,
+                'specialty' => $this->staff->specialty,
+                'photo_url' => \App\Support\MediaUrl::resolve($this->staff->photo_url),
+            ] : ($staffName ? [
+                'id' => $this->staff_id ? (string) $this->staff_id : null,
+                'full_name' => $staffName,
+                'title' => null,
+                'specialty' => null,
+                'photo_url' => null,
+            ] : null),
+            'staff_selection_mode' => $this->staff_selection_mode ?: 'LEGACY',
+            'booking_source' => $this->booking_source ?: 'CUSTOMER_APP',
+            'is_guest_customer' => $isGuest,
+            'guest_customer_name' => $isGuest ? $this->guest_customer_name : null,
+            'guest_customer_phone' => $isGuest ? $this->guest_customer_phone : null,
             'customer' => $customerUser ? [
                 'id' => (string) $customerUser->id,
                 'name' => $customerUser->name,
                 'avatar_url' => $customerUser->avatar_url,
-            ] : null,
+            ] : ($isGuest ? [
+                'id' => '0',
+                'name' => $this->guest_customer_name ?: 'Misafir Müşteri',
+                'avatar_url' => null,
+            ] : null),
             'status' => $this->status,
             'appointment_date' => $this->appointment_date ? $this->appointment_date->format('Y-m-d') : null,
             'start_time' => substr($this->start_time, 0, 5),

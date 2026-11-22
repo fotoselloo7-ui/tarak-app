@@ -90,7 +90,7 @@ class AdminUserController extends Controller
     /** GET /api/admin/users/{id} */
     public function show(int $id): JsonResponse
     {
-        $user = User::query()->with(['customerProfile.addresses', 'providerProfile.providerServices.service', 'providerProfile.documents', 'wallet'])->find($id);
+        $user = User::query()->with(['customerProfile.addresses', 'providerProfile.providerServices.service', 'providerProfile.documents', 'providerProfile.serviceAreas', 'wallet'])->find($id);
         if (!$user) {
             return $this->notFound();
         }
@@ -129,6 +129,15 @@ class AdminUserController extends Controller
                     'identity_status' => $profile->identity_status,
                     'is_online' => (bool) $profile->is_online,
                     'accepts_new_clients' => (bool) $profile->accepts_new_clients,
+                    'directory_listed' => (bool) $profile->directory_listed,
+                    'directory_status' => $profile->directory_status,
+                    'slug' => $profile->slug,
+                    'service_areas' => $profile->serviceAreas->map(fn ($a) => [
+                        'id' => (string) $a->id,
+                        'province' => $a->province,
+                        'district' => $a->district,
+                        'neighborhood' => $a->neighborhood,
+                    ])->values(),
                     'commission_rate_override' => $profile->commission_rate_override !== null ? (float) $profile->commission_rate_override : null,
                     'cover_url' => $profile->cover_url,
                     'gallery' => $profile->gallery ?? [],
@@ -184,6 +193,8 @@ class AdminUserController extends Controller
             'provider.experience_years' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:60'],
             'provider.is_online' => ['sometimes', 'boolean'],
             'provider.accepts_new_clients' => ['sometimes', 'boolean'],
+            'provider.directory_listed' => ['sometimes', 'boolean'],
+            'provider.directory_status' => ['sometimes', 'in:NOT_REQUESTED,PENDING,APPROVED,REJECTED,SUSPENDED'],
             'provider.commission_rate_override' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:100'],
         ]);
 

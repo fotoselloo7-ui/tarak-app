@@ -134,13 +134,7 @@ class PushNotificationController extends Controller
      */
     public function getPreferences(Request $request): JsonResponse
     {
-        $userId = $request->user()->id;
-
-        return response()->json([
-            'push_enabled' => UserPushPreference::isPushEnabledForUser($userId),
-            // Discount campaigns of providers ("bildirim reklamı"): on by default, can be turned off on its own.
-            'campaign_enabled' => UserPushPreference::isCampaignEnabledForUser($userId),
-        ]);
+        return response()->json(UserPushPreference::forUser($request->user()->id));
     }
 
     /**
@@ -148,9 +142,16 @@ class PushNotificationController extends Controller
      */
     public function updatePreferences(Request $request): JsonResponse
     {
+        $minMinutes = UserPushPreference::MIN_REMINDER_MINUTES;
+        $maxMinutes = UserPushPreference::MAX_REMINDER_MINUTES;
+
         $validated = $request->validate([
-            'push_enabled' => ['required_without:campaign_enabled', 'boolean'],
-            'campaign_enabled' => ['required_without:push_enabled', 'boolean'],
+            'push_enabled' => ['required_without_all:campaign_enabled,appointment_reminder_enabled,appointment_reminder_minutes,appointment_start_alert_enabled,birthday_greeting_enabled', 'boolean'],
+            'campaign_enabled' => ['required_without_all:push_enabled,appointment_reminder_enabled,appointment_reminder_minutes,appointment_start_alert_enabled,birthday_greeting_enabled', 'boolean'],
+            'appointment_reminder_enabled' => ['required_without_all:push_enabled,campaign_enabled,appointment_reminder_minutes,appointment_start_alert_enabled,birthday_greeting_enabled', 'boolean'],
+            'appointment_reminder_minutes' => ['required_without_all:push_enabled,campaign_enabled,appointment_reminder_enabled,appointment_start_alert_enabled,birthday_greeting_enabled', 'integer', "min:{$minMinutes}", "max:{$maxMinutes}"],
+            'appointment_start_alert_enabled' => ['required_without_all:push_enabled,campaign_enabled,appointment_reminder_enabled,appointment_reminder_minutes,birthday_greeting_enabled', 'boolean'],
+            'birthday_greeting_enabled' => ['required_without_all:push_enabled,campaign_enabled,appointment_reminder_enabled,appointment_reminder_minutes,appointment_start_alert_enabled', 'boolean'],
         ]);
 
         $changes = [];
@@ -160,11 +161,24 @@ class PushNotificationController extends Controller
             }
         }
 
-        $pref = UserPushPreference::updateOrCreate(['user_id' => $request->user()->id], $changes)->fresh();
+        if (UserPushPreference::hasReminderColumns()) {
+            foreach (['appointment_reminder_enabled', 'appointment_start_alert_enabled'] as $key) {
+                if (array_key_exists($key, $validated)) {
+                    $changes[$key] = (bool) $validated[$key];
+                }
+            }
+            if (array_key_exists('appointment_reminder_minutes', $validated)) {
+                $changes['appointment_reminder_minutes'] = (int) $validated['appointment_reminder_minutes'];
+            }
+        }
 
-        return response()->json([
-            'push_enabled' => (bool) $pref->push_enabled,
-            'campaign_enabled' => (bool) $pref->campaign_enabled,
-        ]);
+        if (UserPushPreference::hasBirthdayColumn() && array_key_exists('birthday_greeting_enabled', $validated)) {
+            $changes['birthday_greeting_enabled'] = (bool) $validated['birthday_greeting_enabled'];
+        }
+
+        $userId = $request->user()->id;
+        UserPushPreference::updateOrCreate(['user_id' => $userId], $changes);
+
+        return response()->json(UserPushPreference::forUser($userId));
     }
 }

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ProviderPackage;
 use App\Models\ProviderProfile;
 use App\Models\Service;
+use App\Services\MessageContentPolicyService;
 use App\Services\ProviderOfferingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,7 +16,10 @@ class ProviderPackageController extends Controller
 {
     private const MAX_PACKAGES = 30;
 
-    public function __construct(protected ProviderOfferingService $offerings) {}
+    public function __construct(
+        protected ProviderOfferingService $offerings,
+        protected MessageContentPolicyService $contentPolicy,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -103,7 +107,7 @@ class ProviderPackageController extends Controller
     {
         $req = $creating ? 'required' : 'sometimes';
 
-        return $request->validate([
+        $validated = $request->validate([
             'title' => [$req, 'string', 'min:3', 'max:120'],
             'description' => ['nullable', 'string', 'max:1000'],
             'price' => [$req, 'numeric', 'min:1', 'max:50000'],
@@ -122,6 +126,13 @@ class ProviderPackageController extends Controller
             'service_ids.*.distinct' => 'Aynı hizmet pakete birden fazla kez eklenemez.',
             'service_ids.*.exists' => 'Seçilen hizmet katalogda bulunamadı.',
         ]);
+
+        $this->contentPolicy->validateFields([
+            'title' => $validated['title'] ?? null,
+            'description' => $validated['description'] ?? null,
+        ]);
+
+        return $validated;
     }
 
     private function syncItems(ProviderPackage $package, array $serviceIds): void

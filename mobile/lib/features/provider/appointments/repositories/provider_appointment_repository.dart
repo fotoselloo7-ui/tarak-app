@@ -169,21 +169,80 @@ class ProviderAppointmentRepository {
     await _client.delete('/provider/closed-dates/$id');
   }
 
-  /// Fetch availability for a date to propose alternative slots.
+  /// Fetch availability for a date to propose alternative slots or create manual appointments.
   Future<AppointmentAvailabilityModel> fetchAvailability({
     required int providerId,
     required String date,
     required List<int> serviceIds,
+    int? staffId,
+    bool manual = false,
   }) async {
     final response = await _client.get(
       '/customer/providers/$providerId/availability',
       queryParameters: {
         'date': date,
         'service_ids': serviceIds.join(','),
+        'staff_id': ?staffId,
+        if (manual) 'manual': 1,
       },
     );
 
     final rawData = response.data['data'] as Map<String, dynamic>;
     return AppointmentAvailabilityModel.fromJson(rawData);
+  }
+
+  Future<List<ProviderAppointmentCustomer>> fetchAuthorizedCustomers({
+    String? query,
+  }) async {
+    final response = await _client.get(
+      '/provider/customers',
+      queryParameters: (query != null && query.trim().isNotEmpty)
+          ? {'q': query.trim()}
+          : null,
+    );
+    final rawData = response.data['data'];
+    if (rawData is List) {
+      return rawData
+          .whereType<Map>()
+          .map((e) => ProviderAppointmentCustomer.fromJson(
+                Map<String, dynamic>.from(e),
+              ))
+          .toList();
+    }
+    return const [];
+  }
+
+  Future<ProviderAppointmentModel> createManualAppointment(
+    Map<String, dynamic> payload,
+  ) async {
+    final response = await _client.post('/provider/appointments', data: payload);
+    final rawData = response.data['data'] as Map<String, dynamic>;
+    return ProviderAppointmentModel.fromJson(rawData);
+  }
+
+  Future<ProviderAppointmentModel> changeAppointmentStaff(
+    int id,
+    int staffId,
+  ) async {
+    final response = await _client.post(
+      '/provider/appointments/$id/change-staff',
+      data: {'staff_id': staffId},
+    );
+    final rawData = response.data['data'] as Map<String, dynamic>;
+    return ProviderAppointmentModel.fromJson(rawData);
+  }
+
+  Future<ProviderAppointmentModel> cancelAppointment(
+    int id, {
+    String? reason,
+  }) async {
+    final response = await _client.post(
+      '/provider/appointments/$id/cancel',
+      data: reason != null && reason.trim().isNotEmpty
+          ? {'reason': reason.trim()}
+          : null,
+    );
+    final rawData = response.data['data'] as Map<String, dynamic>;
+    return ProviderAppointmentModel.fromJson(rawData);
   }
 }

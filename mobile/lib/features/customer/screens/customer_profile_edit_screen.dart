@@ -351,6 +351,11 @@ class _CustomerProfileEditScreenState extends ConsumerState<CustomerProfileEditS
                                       style: _text.copyWith(fontSize: 14, color: _birthDate == null ? AppTheme.slate400 : AppTheme.textPrimary)),
                                 ),
                               ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Doğum tarihiniz işletmelerle paylaşılmaz; yalnızca Ayarlar > Bildirimler bölümünden izin verirseniz özel gün kutlamaları için kullanılır.',
+                                style: _text.copyWith(fontSize: 11.5, color: AppTheme.textSecondary, height: 1.35),
+                              ),
                             ]),
                             _section('İletişim', [
                               _readOnly('E-posta', _email),

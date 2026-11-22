@@ -26,6 +26,9 @@ class PublicHomeBody extends ConsumerWidget {
   /// A provider card was tapped.
   final void Function(int id, String name) onProviderTap;
 
+  /// "Haritada Berberleri Gör".
+  final VoidCallback? onOpenMap;
+
   const PublicHomeBody({
     super.key,
     required this.onBook,
@@ -33,6 +36,7 @@ class PublicHomeBody extends ConsumerWidget {
     required this.onViewAllProviders,
     required this.onProviderTap,
     this.onProviderSignUp,
+    this.onOpenMap,
   });
 
   @override
@@ -83,8 +87,64 @@ class PublicHomeBody extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final key in homeProductSectionOrder)
+        for (final key in homeProductSectionOrder) ...[
           if (sectionOn(key) && sectionMap[key] != null) sectionMap[key]!,
+          if (key == 'hero' && onOpenMap != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: Material(
+                key: const Key('welcome_tarak_map_cta'),
+                color: const Color(0xFF0F172A),
+                borderRadius: BorderRadius.circular(18),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(18),
+                  onTap: onOpenMap,
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          backgroundColor: Color(0xFFFF5722),
+                          child: Icon(Icons.map_rounded, color: Colors.white),
+                        ),
+                        SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Haritada Berberleri Gör',
+                                style: TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Yakınındaki berber ve kuaför salonlarını haritada incele.',
+                                style: TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 12,
+                                  color: Color(0xFFCBD5E1),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          color: Colors.white70,
+                          size: 16,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ],
     );
   }

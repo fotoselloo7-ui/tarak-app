@@ -12,6 +12,17 @@ class NotificationAdSetting extends Model
         'price_service_area', 'price_location', 'price_all',
         'min_discount_percent', 'max_discount_percent', 'max_discount_days',
         'max_sends_per_provider_per_day', 'max_per_customer_per_day',
+        'birthday_unit_price',
+        'allow_promo_for_birthday',
+        'allow_promo_for_notification_ads',
+        'fallback_to_cash_when_promo_insufficient',
+        'default_daily_paid_notification_limit',
+        'default_daily_unique_recipient_limit',
+        'birthday_max_per_provider_per_day',
+        'duplicate_content_window_hours',
+        'rapid_campaign_window_minutes',
+        'rapid_campaign_threshold',
+        'auto_suspend_on_abuse',
     ];
 
     protected function casts(): array
@@ -26,6 +37,17 @@ class NotificationAdSetting extends Model
             'max_discount_days' => 'integer',
             'max_sends_per_provider_per_day' => 'integer',
             'max_per_customer_per_day' => 'integer',
+            'birthday_unit_price' => 'decimal:2',
+            'allow_promo_for_birthday' => 'boolean',
+            'allow_promo_for_notification_ads' => 'boolean',
+            'fallback_to_cash_when_promo_insufficient' => 'boolean',
+            'default_daily_paid_notification_limit' => 'integer',
+            'default_daily_unique_recipient_limit' => 'integer',
+            'birthday_max_per_provider_per_day' => 'integer',
+            'duplicate_content_window_hours' => 'integer',
+            'rapid_campaign_window_minutes' => 'integer',
+            'rapid_campaign_threshold' => 'integer',
+            'auto_suspend_on_abuse' => 'boolean',
         ];
     }
 
@@ -62,8 +84,17 @@ class NotificationAdSetting extends Model
                 'max_discount_percent' => $this->max_discount_percent,
                 'max_discount_days' => $this->max_discount_days,
                 'max_sends_per_provider_per_day' => $this->max_sends_per_provider_per_day,
+                'default_daily_paid_notification_limit' => (int) ($this->default_daily_paid_notification_limit ?? 100),
+                'default_daily_unique_recipient_limit' => (int) ($this->default_daily_unique_recipient_limit ?? 200),
+                'birthday_max_per_provider_per_day' => (int) ($this->birthday_max_per_provider_per_day ?? 100),
                 'title_max' => NotificationAd::TITLE_MAX,
                 'body_max' => NotificationAd::BODY_MAX,
+            ],
+            'pricing' => [
+                'birthday_unit_price' => (float) ($this->birthday_unit_price ?? 0),
+                'allow_promo_for_birthday' => (bool) ($this->allow_promo_for_birthday ?? true),
+                'allow_promo_for_notification_ads' => (bool) ($this->allow_promo_for_notification_ads ?? true),
+                'fallback_to_cash_when_promo_insufficient' => (bool) ($this->fallback_to_cash_when_promo_insufficient ?? true),
             ],
         ];
     }
@@ -80,6 +111,17 @@ class NotificationAdSetting extends Model
             'max_discount_days' => $this->max_discount_days,
             'max_sends_per_provider_per_day' => $this->max_sends_per_provider_per_day,
             'max_per_customer_per_day' => $this->max_per_customer_per_day,
+            'birthday_unit_price' => (float) ($this->birthday_unit_price ?? 0),
+            'allow_promo_for_birthday' => (bool) ($this->allow_promo_for_birthday ?? true),
+            'allow_promo_for_notification_ads' => (bool) ($this->allow_promo_for_notification_ads ?? true),
+            'fallback_to_cash_when_promo_insufficient' => (bool) ($this->fallback_to_cash_when_promo_insufficient ?? true),
+            'default_daily_paid_notification_limit' => (int) ($this->default_daily_paid_notification_limit ?? 100),
+            'default_daily_unique_recipient_limit' => (int) ($this->default_daily_unique_recipient_limit ?? 200),
+            'birthday_max_per_provider_per_day' => (int) ($this->birthday_max_per_provider_per_day ?? 100),
+            'duplicate_content_window_hours' => (int) ($this->duplicate_content_window_hours ?? 24),
+            'rapid_campaign_window_minutes' => (int) ($this->rapid_campaign_window_minutes ?? 30),
+            'rapid_campaign_threshold' => (int) ($this->rapid_campaign_threshold ?? 3),
+            'auto_suspend_on_abuse' => (bool) ($this->auto_suspend_on_abuse ?? true),
         ];
     }
 }

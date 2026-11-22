@@ -6,6 +6,7 @@ import '../../../shared/widgets/common_widgets.dart';
 import '../models/provider_appointment_model.dart';
 import '../providers/provider_appointment_providers.dart';
 import 'provider_appointment_detail_screen.dart';
+import 'provider_create_appointment_screen.dart';
 import 'provider_schedule_screen.dart';
 
 class ProviderAppointmentsTab extends ConsumerStatefulWidget {
@@ -55,6 +56,35 @@ class _ProviderAppointmentsTabState
         backgroundColor: Colors.white,
         foregroundColor: AppTheme.slate900,
         elevation: 0,
+        actions: [
+          TextButton.icon(
+            key: const Key('provider_create_manual_appt_btn'),
+            onPressed: () async {
+              final created = await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ProviderCreateAppointmentScreen(),
+                ),
+              );
+              if (created == true && mounted) {
+                await ref.read(providerAppointmentsProvider.notifier).refresh();
+              }
+            },
+            icon: const Icon(
+              Icons.add_circle_outline,
+              size: 18,
+              color: AppTheme.primary,
+            ),
+            label: const Text(
+              'Randevu Oluştur',
+              style: TextStyle(
+                color: AppTheme.primary,
+                fontWeight: FontWeight.w700,
+                fontSize: 12.5,
+              ),
+            ),
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           labelColor: AppTheme.primary,
@@ -251,7 +281,7 @@ class _ProviderAppointmentsTabState
                     radius: 16,
                     backgroundColor: const Color(0xFFE2E8F0),
                     imageUrl: appt.customer?.avatarUrl,
-                    name: appt.customer?.name ?? 'Müşteri',
+                    name: appt.customerDisplayName,
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -259,13 +289,33 @@ class _ProviderAppointmentsTabState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          appt.customer?.name ?? 'Müşteri',
+                          appt.customerDisplayName,
                           style: const TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
                             color: Color(0xFF0F172A),
                           ),
                         ),
+                        if (appt.staffName != null &&
+                            appt.staffName!.trim().isNotEmpty)
+                          Text(
+                            'Uzman: ${appt.staffName!.trim()}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.primary,
+                            ),
+                          ),
+                        if (appt.isManualBooking || appt.isGuestCustomer)
+                          Text(
+                            appt.isGuestCustomer
+                                ? 'Manuel • Misafir'
+                                : 'Manuel Randevu',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
                         if (appt.approxLocation != null &&
                             appt.approxLocation!.isNotEmpty)
                           Text(
