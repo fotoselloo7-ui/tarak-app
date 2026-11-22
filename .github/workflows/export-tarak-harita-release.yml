@@ -1,0 +1,98 @@
+name: Tarak Harita cPanel Release Preview
+
+on:
+  push:
+    branches:
+      - beta/tarak-harita-testflight-20261122
+    paths:
+      - '.github/workflows/export-tarak-harita-release.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Package changed runtime files and baseline rollback
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess, hashlib, zipfile, json
+          base='8392ca2082bd72f84435528e00528e704653e497'
+          head='928a10c661f4f72c0e1be8c431b2c96e663a801a'
+          dest=Path('release-preview'); dest.mkdir(exist_ok=True)
+          def run(*args):
+              return subprocess.check_output(args).decode().strip()
+          diff=run('git','diff','--name-status','--find-renames',base,head).splitlines()
+          files={'web':[],'backend':[]}
+          baseline=[]; added=[]; excluded=[]; changes=[]
+          for row in diff:
+              pieces=row.split('\t')
+              state=pieces[0]
+              path=pieces[-1]
+              if path.startswith('tarak.app/'): pack='web'
+              elif path.startswith('tarak-backend/'): pack='backend'
+              else: continue
+              if not (state.startswith('A') or state.startswith('M') or state.startswith('R')):
+                  excluded.append({'path':path,'reason':'deletion or unsupported change'})
+                  continue
+              if any(s in path for s in ['/.env','/storage/','/vendor/','/node_modules/','.sql','.sqlite','.zip','.p8','.p12','.pem','private-key','credentials.json','/tests/','.log']):
+                  excluded.append({'path':path,'reason':'runtime, secret, tests, dump or archive excluded'})
+                  continue
+              source=Path(path)
+              assert source.is_file(),path
+              files[pack].append(path)
+              changes.append({'path':path,'status':state,'sha256':hashlib.sha256(source.read_bytes()).hexdigest()})
+              if state.startswith('A'):added.append(path)
+              else:baseline.append(path)
+          def writezip(name, entries, from_base=False):
+              with zipfile.ZipFile(dest/name,'w',zipfile.ZIP_DEFLATED,compresslevel=8) as z:
+                  for path in sorted(entries):
+                      if from_base:
+                          raw=subprocess.check_output(['git','show',f'{base}:{path}'])
+                          z.writestr(path,raw)
+                      else:
+                          z.write(path,path)
+          writezip('01-TARAK-WEB-cpanel.zip',files['web'])
+          writezip('02-TARAK-BACKEND-cpanel.zip',files['backend'])
+          writezip('03-TARAK-ROLLBACK-previous-files.zip',baseline,True)
+          mig=[p for p in files['backend'] if '/database/migrations/' in p]
+          writezip('04-TARAK-MIGRATIONS-PHP-review.zip',mig)
+          manifest={'base':base,'source_feature_commit':head,'branch':'feat/tarak-harita-directory','target_layout':'extract ZIP contents into cPanel home so top-level tarak.app and tarak-backend paths align','files':changes,'new_files_to_remove_for_rollback':added,'excluded':excluded,'sql_status':'SQL DDL requires review against live schema; no production data dump included','migration_paths':mig}
+          (dest/'MANIFEST.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2))
+          (dest/'READ-ME-FIRST.txt').write_text(
+            'PREVIEW ONLY — DO NOT UPLOAD BEFORE AUTH TEST, BACKUPS, LIVE SCHEMA REVIEW.\n'
+            'Web ZIP includes tarak.app/ paths, backend ZIP includes tarak-backend/ paths.\n'
+            'Extract each ZIP from account HOME only, after complete file and SQL backups.\n'
+            'Rollback ZIP restores changed previous files, but newly added paths in MANIFEST must also be removed.\n'
+            'Migrations are ADDITIVE and require live schema compatibility review; never replace live SQL database.\n'
+            'DO NOT deploy the beta workflow or scripts/local-router.php.\n')
+          print('WEB FILES',len(files['web']),'BACKEND FILES',len(files['backend']),'MIGRATIONS',len(mig),'ADDED',len(added))
+          PY
+      - name: Check PHP syntax for changed deployment files
+        run: |
+          set -e
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,subprocess
+          x=json.loads(Path('release-preview/MANIFEST.json').read_text())
+          for f in x['files']:
+              p=f['path']
+              if p.endswith('.php'):
+                  subprocess.run(['php','-l',p],check=True,stdout=subprocess.DEVNULL)
+          print('Changed PHP files syntax OK')
+          PY
+      - name: Upload cPanel release preview ZIPs
+        uses: actions/upload-artifact@v4
+        with:
+          name: tarak-harita-cpanel-release-preview
+          path: release-preview/
+          retention-days: 14
+          if-no-files-found: error
