@@ -1,12 +1,17 @@
-name: Tarak iOS TestFlight
+name: Tarak iOS TestFlight — iOS MapLibre Crash Fix
 
 on:
+  push:
+    branches:
+      - fix/ios-maplibre-crash-build31-20261123
+    paths:
+      - '.github/workflows/ios-testflight.yml'
   workflow_dispatch:
     inputs:
       build_number:
         description: 'New Tarak.app iOS build number (higher than previous uploads)'
         required: true
-        default: '6'
+        default: '31'
         type: string
 
 permissions:
@@ -202,13 +207,28 @@ jobs:
       - name: Flutter analyze
         run: flutter analyze
 
+      - name: Run Tarak Harita and auth regression tests
+        run: |
+          flutter test --no-pub test/tarak_harita_test.dart test/appointment_reminder_settings_test.dart test/staff_and_birthday_ui_test.dart test/preauth_flow_test.dart test/registration_flow_test.dart
+
+      - name: Verify iOS MapLibre cluster icon crash guard
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path('lib/features/map_directory/screens/tarak_map_screen.dart').read_text()
+          assert "iconImage: [\n              'case'," not in source, "iOS crash-causing iconImage case expression reintroduced"
+          assert source.count('iconImage: TarakMarkerRenderer.spriteCluster') == 3, "three constant icon sprites required"
+          assert '_clusterLayerIds.contains(layerId)' in source
+          print('MapLibre iOS cluster icon expressions are constant and safe')
+          PY
+
       - name: Prepare Flutter iOS build
         env:
           GOOGLE_IOS_CLIENT_ID: ${{ vars.GOOGLE_IOS_CLIENT_ID || secrets.GOOGLE_IOS_CLIENT_ID }}
           GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID || secrets.GOOGLE_WEB_CLIENT_ID || '977885914941-lts9n172clgr8p6glbi3gv1k2qn2fkvn.apps.googleusercontent.com' }}
         run: |
           flutter build ios --release --no-codesign \
-            --build-name 1.1.1 --build-number "${{ inputs.build_number || '6' }}" \
+            --build-name 1.1.3 --build-number "${{ inputs.build_number || '31' }}" \
             --dart-define=API_BASE_URL=https://tarak.app/api \
             --dart-define=REVERB_HOST=tarak.app \
             --dart-define=REVERB_APP_KEY=hhyfpgfv2dgv95yd78kz \
@@ -322,7 +342,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: tarak-ios-testflight-${{ inputs.build_number || '6' }}
+          name: tarak-ios-maplibre-crash-fix-${{ inputs.build_number || '31' }}
           path: ${{ runner.temp }}/export/*.ipa
           if-no-files-found: ignore
           retention-days: 7
