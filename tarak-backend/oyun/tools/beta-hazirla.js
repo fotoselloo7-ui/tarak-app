@@ -14,7 +14,7 @@ fs.mkdirSync(path.join(cikti, 'assets', 'img'), { recursive: true });
 const govde = oku('index.html').split('<body>')[1].split('<script src=')[0];
 const ayar = "window.TARAK_AYAR = { api: '', platform: 'web', beta: true };";
 // index.html ile aynı sıra
-const betikler = [ayar, ...['core', 'render', 'audio', 'odul', 'vendor/three.bundle', 'iller', 'uc-core', 'uc-maskot', 'uc-modeller', 'uc-yerler', 'uc-cadde', 'uc-sahne', 'uc-oyun', 'main'].map(a => oku(`assets/js/${a}.js`))];
+const betikler = [ayar, ...['core', 'render', 'audio', 'odul', 'karakterler', 'vendor/three.bundle', 'iller', 'uc-core', 'uc-maskot', 'uc-insan', 'karakter-kare', 'uc-modeller', 'uc-yerler', 'uc-cadde', 'uc-sahne', 'uc-oyun', 'main'].map(a => oku(`assets/js/${a}.js`))];
 for (const b of betikler) {
   if (/<\/script/i.test(b)) throw new Error('Betik içinde </script> var');
   new Function(b); // sözdizimi kontrolü

@@ -904,8 +904,25 @@
       for (var k = 0; k < 32; k++) { var d = k * 6.25; b[k] = -(sapma(s + d) - y0 - egim * d); }
     }
 
-    var maskot = window.TarakMaskot3D.olustur(); sahne.add(maskot.kok);
-    maskot.kok.traverse(function (m) { if (m.isMesh) m.castShadow = true; });
+    // Oyuncunun karakteri: Tarak maskotu (Koko/Kiki) ya da tam vücutlu karakterler (uc-insan.js); hepsi aynı arayüz
+    var maskotKok = new T.Group(); sahne.add(maskotKok);
+    var anaMaskot = window.TarakMaskot3D.olustur();
+    anaMaskot.kok.traverse(function (m) { if (m.isMesh) m.castShadow = true; });
+    var aktifKarakter = anaMaskot, karakterOnbellek = {}, sonKiyafet = {};
+    maskotKok.add(anaMaskot.kok);
+    var maskot = {
+      kok: maskotKok,
+      canlandir: function (p, f, e) { aktifKarakter.canlandir(p, f, e); },
+      yuzOn: function (on) { aktifKarakter.yuzOn(on); },
+      kusan: function (secim) { sonKiyafet = secim || {}; aktifKarakter.kusan(sonKiyafet); },
+      kadin: function (k) { anaMaskot.kadin(k); }
+    };
+    function karakterSec(id) {
+      var KR = window.TarakKarakterler, t = KR ? KR.bul(id) : null, yeni = anaMaskot;
+      if (t && t.tur === 'insan' && window.TarakInsan3D) yeni = karakterOnbellek[t.id] || (karakterOnbellek[t.id] = window.TarakInsan3D.olustur(t));
+      if (yeni !== aktifKarakter) { maskotKok.remove(aktifKarakter.kok); aktifKarakter = yeni; maskotKok.add(yeni.kok); }
+      aktifKarakter.kusan(sonKiyafet);
+    }
     var golge = new T.Mesh(new T.CircleGeometry(0.55, 24), new T.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.18, depthWrite: false }));
     golge.rotation.x = -Math.PI / 2; golge.position.y = 0.03; sahne.add(golge);
     var kalkanKure = new T.Mesh(new T.SphereGeometry(1.15, 22, 16), new T.MeshBasicMaterial({ color: 0x7fd8ff, transparent: true, opacity: 0.22, depthWrite: false }));
@@ -1394,6 +1411,7 @@
       cadde: function () { return VERI ? { ad: VERI.cadde, uzunluk: VERI.uzunluk, dukkan: VERI.dukkan.length, sokak: VERI.sokak.length, simge: VERI.simge.length } : null; },
       sponsorlar: function (l) { SPONSOR = l || []; reklamC = {}; yuvalar.forEach(function (y) { y.userData.no = null; }); },
       gosterilen: function () { return Object.keys(gosterilen).map(Number); },
+      karakter: karakterSec,
       kadin: function (k) {
         KADIN = !!k; maskot.kadin(KADIN);
         canli.forEach(function (c) { birak(c.m); }); canli.clear();

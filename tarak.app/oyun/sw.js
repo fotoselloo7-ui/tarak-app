@@ -1,8 +1,8 @@
 /* Çevrimdışı oynanabilsin diye oyun dosyalarını önbelleğe alır. Önce ağ, olmazsa önbellek. */
-const AD = 'tarak-oyun-v8';
+const AD = 'tarak-oyun-v9';
 const DOSYALAR = ['./', 'index.html', 'assets/css/game.css', 'assets/js/ayar.js', 'assets/js/core.js', 'assets/js/render.js',
   'assets/js/audio.js', 'assets/js/main.js', 'assets/js/odul.js', 'assets/js/vendor/three.bundle.js',
-  'assets/js/uc-core.js', 'assets/js/uc-maskot.js', 'assets/js/uc-modeller.js', 'assets/js/uc-sahne.js', 'assets/js/uc-oyun.js', 'assets/img/k-govde.png', 'assets/img/k-eldiven.png', 'assets/img/k-ayakkabi.png',
+  'assets/js/iller.js', 'assets/js/karakterler.js', 'assets/js/uc-core.js', 'assets/js/uc-maskot.js', 'assets/js/uc-insan.js', 'assets/js/karakter-kare.js', 'assets/js/uc-yerler.js', 'assets/js/uc-cadde.js', 'assets/js/uc-modeller.js', 'assets/js/uc-sahne.js', 'assets/js/uc-oyun.js', 'assets/img/k-govde.png', 'assets/img/k-eldiven.png', 'assets/img/k-ayakkabi.png',
   'assets/img/logo-acik.svg', 'assets/img/foto-yuruyus.jpg', 'assets/img/ikon-192.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(AD).then(c => c.addAll(DOSYALAR))); self.skipWaiting(); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== AD).map(k => caches.delete(k))))); self.clients.claim(); });

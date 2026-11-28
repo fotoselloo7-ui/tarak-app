@@ -523,8 +523,23 @@
 
   /* x = karakter merkezi, ay = ayak tabanının ekran y'si
    * poz: 'kos' | 'zipla' | 'kay' | 'dur' */
+  // Tam vücutlu karakter seçiliyse 2D'de onun 3D'den üretilmiş kareleri çizilir (karakter-kare.js)
+  var insanK = null;
+  function insanKareleri(k) { insanK = k || null; }
+  function insanCiz(g, x, ay, poz, faz, ek) {
+    var o = ek.olcek || 1, l = insanK[poz] || insanK.kos, i = 0, TAM = Math.PI * 2;
+    if (poz === 'kos') i = Math.floor((((faz % TAM) + TAM) % TAM) / TAM * l.length) % l.length;
+    else if (poz === 'zipla') i = ek.vy > 0 ? 0 : l.length - 1;
+    else if (poz === 'dur' || poz === 'sevinc') i = Math.floor(Math.abs(faz) * 0.6) % l.length;
+    var im = l[i], H = 118 * o, k = H / insanK.boy;
+    g.save(); g.translate(x, ay);
+    if (ek.takla) { g.translate(0, -H * 0.45); g.rotate(ek.takla); g.translate(0, H * 0.45); }
+    g.drawImage(im, -im.width * k / 2, -insanK.taban * k, im.width * k, im.height * k);
+    g.restore();
+  }
   function maskot(g, x, ay, poz, faz, ek) {
     ek = ek || {};
+    if (insanK) { insanCiz(g, x, ay, poz, faz, ek); return; }
     var o = ek.olcek || 1;
     g.save(); g.translate(x, ay); g.scale(o, o);
 
@@ -645,7 +660,7 @@
     g.restore();
   }
 
-  window.TarakCiz = { kadin: kadin,
+  window.TarakCiz = { kadin: kadin, insanKareleri: insanKareleri,
     saatKatmani: saatKatmani,
     hazir: hazir, resim: resim, TEMA: TEMA, kusan: kusan,
     arkaPlan: arkaPlan, zemin: zemin, engelCiz: engelCiz, nesneCiz: nesneCiz,

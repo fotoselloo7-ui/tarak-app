@@ -15,6 +15,14 @@
 <link rel="stylesheet" href="assets/css/game.css">
 </head>
 <body>
+  <!-- Açılış ekranı: oyun yüklenirken logo, başlık ve karakter kadrosu -->
+  <div id="acilis" class="acilis" role="status" aria-label="Oyun yükleniyor">
+    <img class="acilis-logo" src="assets/img/logo-acik.svg" alt="tarak.app">
+    <h1>RANDEVUYA <span>KOŞ!</span></h1>
+    <div id="acilis-kadro" class="acilis-kadro"></div>
+    <p class="acilis-yazi">Berberler ve kuaförler randevuya koşuyor…</p>
+    <div class="acilis-cubuk"><i></i></div>
+  </div>
 <div id="yan-panel" aria-hidden="true">
   <img src="assets/img/logo-acik.svg" alt="">
   <p><b>Randevuya Koş!</b><br>Telefonundan da oynayabilirsin.</p>
@@ -50,7 +58,7 @@
     <button id="btn-ses" class="yuvarlak ses" aria-label="Ses">🔊</button>
     <div id="cuzdan-rozet" class="cuzdan"><span class="tarak-ikon"></span><b>0</b></div>
     <div id="seviye-rozet" class="seviye-rozet"><b></b><span><i></i></span></div>
-    <button id="btn-karakter" class="karakter-cip" aria-label="Karakter seç"><canvas width="44" height="44"></canvas><span>Koko</span></button>
+    <button id="btn-karakter" class="karakter-cip" aria-label="Karakter seç"><canvas width="88" height="88"></canvas><span>Koko</span></button>
     <div id="menu-tost" class="menu-tost gizli"></div>
     <div class="ana-ust">
       <img class="logo" src="assets/img/logo-acik.svg" alt="tarak.app">
@@ -112,11 +120,9 @@
   <section id="ekran-karakter" class="ekran perde gizli">
     <div class="kart karakter-kart">
       <h2>Kiminle koşmak istersin?</h2>
-      <p class="kucuk">Tarak'ta hem erkek bakım hem kadın kuaför hizmeti var. İstediğin zaman değiştirebilirsin.</p>
-      <div class="karakterler">
-        <button class="karakter-sec" data-k="e"><canvas width="150" height="170"></canvas><b>Koko</b><small>Berber · Saç & Sakal</small></button>
-        <button class="karakter-sec" data-k="k"><canvas width="150" height="170"></canvas><b>Kiki</b><small>Kuaför · Manikür, Fön, Makyaj</small></button>
-      </div>
+      <p class="kucuk">Berberler erkek bakım, kuaförler kadın kuaför randevularına koşar. Her karakterin kendi huyu ve küçük bir avantajı var; bütün kıyafetler hepsine giyer.</p>
+      <div id="karakter-liste" class="kaydir"></div>
+      <button class="dugme" type="button" id="btn-karakter-kapat">Kapat</button>
     </div>
   </section>
 
@@ -231,10 +237,13 @@
 <script src="assets/js/render.js"></script>
 <script src="assets/js/audio.js"></script>
 <script src="assets/js/odul.js"></script>
+<script src="assets/js/karakterler.js"></script>
 <script src="assets/js/vendor/three.bundle.js"></script>
 <script src="assets/js/iller.js"></script>
 <script src="assets/js/uc-core.js"></script>
 <script src="assets/js/uc-maskot.js"></script>
+<script src="assets/js/uc-insan.js"></script>
+<script src="assets/js/karakter-kare.js"></script>
 <script src="assets/js/uc-modeller.js"></script>
 <script src="assets/js/uc-yerler.js"></script>
 <script src="assets/js/uc-cadde.js"></script>

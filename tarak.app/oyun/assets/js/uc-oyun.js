@@ -7,6 +7,9 @@
 
   var sahne = null, denendi = false, birikim = 0, hudSon = '', yaziZaman = 0, kadinMod = false;
   function kadin(k) { kadinMod = !!k; if (sahne) sahne.kadin(kadinMod); }
+  var karakterId = 'koko';
+  function karakter(id) { karakterId = id || 'koko'; if (sahne && sahne.karakter) sahne.karakter(karakterId); }
+  function karakterTanim() { return window.TarakKarakterler ? window.TarakKarakterler.bul(karakterId) : null; }
 
   // WebGL yoksa oyun 2D olarak çalışmaya devam eder.
   function hazirla() {
@@ -15,6 +18,7 @@
     try {
       if (window.THREE && window.TarakSahne) sahne = window.TarakSahne.olustur($('#tuval3d'), $('#kap3d'), { ses: function (ad) { Ses.cal(ad); } });
       if (sahne && kadinMod) sahne.kadin(true);
+      if (sahne && sahne.karakter && karakterId !== 'koko') sahne.karakter(karakterId);
       if (sahne && sponsorListesi.length) sahne.sponsorlar(sponsorListesi);
     } catch (e) { sahne = null; if (window.console) console.warn('3D başlatılamadı: ' + e.message); }
     return !!sahne;
@@ -24,11 +28,17 @@
 
   function baslat(mod, gucler, hizCarpani, rota) {
     gucler = gucler || {}; gucler.rota = rota; gucler.kadin = kadinMod;
+    // Karakter özelliği: koşuya küçük bir başlangıç avantajı
+    var kt = karakterTanim(), ozl = kt && kt.ozellik;
+    if (ozl === 'kalkan') gucler.kalkan = true;
+    if (ozl === 'miknatis') gucler.miknatis = true;
     // İlçenin gerçek caddesi yüklendiyse rota baştan sona o caddede kurulur
     var rt = U.ROTALAR[U.rotaAl(rota) - 1], gv = rt && window.TarakCadde ? window.TarakCadde.hazir(rt.plaka, rt.sira) : null;
     if (gv && gv.uzunluk) gucler.gercek = { uzunluk: gv.uzunluk };
     var o = U.yeniOyun(mod, gucler);
     o.uc = true; o.hizCarpani = (hizCarpani || 1) * o.rotaT.hiz;
+    if (ozl === 'ikikat') o.ikiKat = 12;
+    if (ozl === 'can') { o.canMax += 1; o.can += 1; }
     o.bildirildi = false; o.islendi = false;
     setTimeout(function () {
       if (!o.rotaT) return;
@@ -156,5 +166,5 @@
   // Rota kartları için oyun sahnesinden çekilmiş küçük resim
   function onizleme(no, w, h) { return sahne ? sahne.onizleme(U.ROTALAR[no - 1], w || 320, h || 200) : null; }
 
-  window.TarakUcOyun = { sponsorlar: sponsorlar, gosterilenSponsorlar: gosterilenSponsorlar, kadin: kadin, onizleme: onizleme, hazirla: hazirla, goster: goster, baslat: baslat, kare: kare, vitrin: vitrin, aksiyon: aksiyon, kusan: kusan, sahneAl: function () { return sahne; } };
+  window.TarakUcOyun = { karakter: karakter, sponsorlar: sponsorlar, gosterilenSponsorlar: gosterilenSponsorlar, kadin: kadin, onizleme: onizleme, hazirla: hazirla, goster: goster, baslat: baslat, kare: kare, vitrin: vitrin, aksiyon: aksiyon, kusan: kusan, sahneAl: function () { return sahne; } };
 })();

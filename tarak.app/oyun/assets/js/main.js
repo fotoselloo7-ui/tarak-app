@@ -38,42 +38,98 @@
     Ses.cal('kazandi'); keseKaydet(); kusan(); magazaCiz();
     denemeYaz('🎄 Yılbaşı kostümün giyildi, iyi seneler!');
   }
-  function kusan() { Uc.kusan(kese.takili); Ciz.kusan(kese.takili); }
+  function kusan() { Uc.kusan(kese.takili); Ciz.kusan(kese.takili); kareleriYenile(); }
 
-  // ---------- Karakter: K (berber) ya da Kiki (kadın kuaför) ----------
-  var kadin = oku('tm_cinsiyet', '') === 'k';
+  // ---------- Karakterler: Koko/Kiki maskotları ve tam vücutlu karakterler (karakterler.js) ----------
+  var KR = window.TarakKarakterler;
+  var karakterId = oku('tm_karakter', '') || (oku('tm_cinsiyet', '') === 'k' ? 'kiki' : 'koko');
+  var sahipKarakter = oku('tm_karakterler', ['koko', 'kiki']);
+  if (sahipKarakter.indexOf(karakterId) < 0) karakterId = 'koko';
+  var kadin = KR.bul(karakterId).cins === 'k';
+  var kareSaati = null, portreC = {};
+  // 2D oyunda tam vücutlu karakterin kareleri (kıyafet değişince yeniden üretilir)
+  function kareleriYenile(hemen) {
+    clearTimeout(kareSaati);
+    var t = KR.bul(karakterId);
+    if (t.tur !== 'insan' || !window.TarakKare) { Ciz.insanKareleri(null); return; }
+    var yap = function () { Ciz.insanKareleri(window.TarakKare.kareler(t.id, kese.takili)); };
+    if (hemen) yap(); else kareSaati = setTimeout(yap, 60);
+  }
+  function portreAl(t, yakin) {
+    var a = t.id + (yakin ? '|y' : '');
+    if (portreC[a] === undefined) portreC[a] = window.TarakKare ? (yakin ? window.TarakKare.portre(t.id, {}, 160, 160, true) : window.TarakKare.portre(t.id, {}, 240, 300)) : null;
+    return portreC[a];
+  }
   function musteriAd(b) { return kadin && b.musteriK ? b.musteriK : b.musteri; }
   function fotoAd(f) { return kadin ? ({ 'foto-tiras.jpg': 'foto-yolda.jpg', 'foto-sonuc.jpg': 'foto-sofor.jpg' }[f] || f) : f; }
   function karakterUygula() {
+    var t = KR.bul(karakterId);
+    kadin = t.cins === 'k';
     if (Uc.kadin) Uc.kadin(kadin);
+    if (Uc.karakter) Uc.karakter(t.id);
     Ciz.kadin(kadin);
     document.body.classList.toggle('kadin', kadin);
-    kusan();
+    Uc.kusan(kese.takili); Ciz.kusan(kese.takili);
+    kareleriYenile(true);
     var cip = $('#btn-karakter');
-    cip.querySelector('span').textContent = kadin ? 'Kiki' : 'Koko';
-    karakterResmi(cip.querySelector('canvas'), kadin, 0.5, 40);
+    cip.querySelector('span').textContent = t.ad;
+    karakterResmi(cip.querySelector('canvas'), t);
   }
-  function karakterResmi(cv, k, o, ay) {
-    var c = cv.getContext('2d'), onceki = kadin;
+  // Karakter resmi: maskot 2D çiziminden, tam vücutlu karakter 3D portresinden. Her zaman tuvale sığar (kesilmez);
+  // küçük tuvalde (menü çipi) tam vücutlu karakterin yakın çekim yüzü kullanılır.
+  function karakterResmi(cv, t, o, ay) {
+    var c = cv.getContext('2d'), kucuk = cv.height < 120;
     c.clearRect(0, 0, cv.width, cv.height);
-    Ciz.kadin(k); Ciz.kusan({}); Ciz.maskot(c, cv.width / 2, ay, 'dur', 0, { olcek: o });
+    o = Math.min(o || 9, (cv.height - 6) / 132); ay = cv.height - 3;
+    if (t.tur === 'insan') {
+      var url = portreAl(t, kucuk); if (!url) return;
+      var im = new Image();
+      im.onload = function () { c.clearRect(0, 0, cv.width, cv.height); var k = Math.min(cv.width / im.width, cv.height / im.height); c.drawImage(im, (cv.width - im.width * k) / 2, cv.height - im.height * k, im.width * k, im.height * k); };
+      im.src = url;
+      return;
+    }
+    var onceki = kadin, insanSecili = KR.bul(karakterId).tur === 'insan';
+    Ciz.kadin(t.cins === 'k'); Ciz.kusan({});
+    if (insanSecili) Ciz.insanKareleri(null);
+    Ciz.maskot(c, cv.width / 2, ay, 'dur', 0, { olcek: o });
     Ciz.kadin(onceki); Ciz.kusan(kese.takili);
+    if (insanSecili) kareleriYenile(true);
+  }
+  function karakterSec(t) {
+    karakterId = t.id; yaz('tm_karakter', t.id); yaz('tm_cinsiyet', t.cins);
+    karakterUygula(); Ses.cal('kalp');
+    menuTost((t.cins === 'k' ? '💅 ' : '💈 ') + t.ad + ': “' + t.soz + '”');
   }
   function karakterEkrani() {
-    $$('.karakter-sec').forEach(function (b) {
-      b.classList.toggle('secili', (b.dataset.k === 'k') === kadin && oku('tm_cinsiyet', '') !== '');
-      karakterResmi(b.querySelector('canvas'), b.dataset.k === 'k', 1.25, 160);
+    var kap = $('#karakter-liste'); kap.innerHTML = '';
+    [['e', '💈 Berberler'], ['k', '💅 Kuaförler']].forEach(function (grup) {
+      var h = document.createElement('h3'); h.className = 'karakter-grup'; h.textContent = grup[1]; kap.appendChild(h);
+      var izgara = document.createElement('div'); izgara.className = 'karakterler'; kap.appendChild(izgara);
+      KR.LISTE.filter(function (t) { return t.cins === grup[0]; }).forEach(function (t) {
+        var sahip = sahipKarakter.indexOf(t.id) >= 0, secili = t.id === karakterId;
+        var b = document.createElement('button'); b.type = 'button';
+        b.className = 'karakter-sec' + (secili ? ' secili' : '') + (sahip ? '' : ' kilitli');
+        var cv = document.createElement('canvas'); cv.width = 150; cv.height = 170; b.appendChild(cv);
+        var ad = document.createElement('b'); ad.textContent = t.ad; b.appendChild(ad);
+        var kis = document.createElement('span'); kis.className = 'kisilik k-' + t.id; kis.textContent = t.kisilik; b.appendChild(kis);
+        var ozl = document.createElement('small'); ozl.textContent = t.ozellik ? KR.OZELLIK[t.ozellik] : t.unvan; b.appendChild(ozl);
+        var dur = document.createElement('em'); dur.textContent = secili ? '✓ Seçili' : sahip ? 'Seç' : '🔒 ' + t.fiyat + ' tarak'; b.appendChild(dur);
+        b.title = t.soz;
+        b.addEventListener('click', function () {
+          if (sahip) { karakterSec(t); karakterEkrani(); return; }
+          if (kese.cuzdan < t.fiyat) { menuTost('🔒 ' + t.ad + ' için ' + (t.fiyat - kese.cuzdan) + ' tarak daha gerekli. Koşarak tarak topla!'); return; }
+          if (!confirm(t.ad + ' ' + t.fiyat + ' tarağa açılsın mı?')) return;
+          kese.cuzdan -= t.fiyat; keseKaydet();
+          sahipKarakter.push(t.id); yaz('tm_karakterler', sahipKarakter);
+          karakterSec(t); karakterEkrani();
+        });
+        izgara.appendChild(b);
+        karakterResmi(cv, t, 1.25, 160);
+      });
     });
     ekran('karakter');
   }
-  $$('.karakter-sec').forEach(function (b) {
-    b.addEventListener('click', function () {
-      kadin = b.dataset.k === 'k'; yaz('tm_cinsiyet', kadin ? 'k' : 'e');
-      karakterUygula(); Ses.cal('kalp');
-      menuTost(kadin ? '💅 Kiki ile kuaför randevularına koşuyorsun!' : '💈 Koko ile berber randevularına koşuyorsun!');
-      ekran('ana');
-    });
-  });
+  tikla('#btn-karakter-kapat', function () { ekran('ana'); });
   var tostZaman = null;
   function menuTost(metin) {
     var t = $('#menu-tost'); t.textContent = metin; t.classList.remove('gizli');
@@ -460,6 +516,11 @@
     else {
       oyun = C.yeniOyun(secim, mod);
       oyun.hizCarpani = sunucuAyar.hizCarpani || 1;
+      // Karakter özelliği (2D'de karşılığı olanlar)
+      var kOz = KR.bul(karakterId).ozellik;
+      if (kOz === 'kalkan') oyun.kalkan = true;
+      if (kOz === 'miknatis') oyun.miknatis = 12;
+      if (kOz === 'can') oyun.can += 1;
     }
     parcaciklar = []; yazilar = []; sarsinti = 0; birikim = 0; onceki2D = null; bitisZamani = 0; taklaZ = 0;
     ekran('oyun'); hudBicimi(false);
@@ -1373,11 +1434,28 @@
 
   // ---------- Başlat ----------
   // Hangi sürümün oynandığını görmek için (her yayında artırılır)
-  var SURUM = 'Sürüm 16 · gerçek caddeli ilçede rota baştan sona gerçek cadde';
+  var SURUM = 'Sürüm 17 · 10 yeni tam vücutlu karakter, açılış ekranı';
   $('#surum').textContent = SURUM;
   boyutla(); sesYazisi(); isimYazisi(); cuzdanYaz();
   if (!ucVar) $('#btn-3d').classList.add('gizli');
+  // Açılış ekranı: seçili karakter ortada, yanında kadrodan karakterler; hazır olunca kaybolur (dokununca hemen)
+  function acilisKadro() {
+    var kap = $('#acilis-kadro'); if (!kap || !window.TarakKare) return;
+    var secili = KR.bul(karakterId), digerleri = KR.LISTE.filter(function (t) { return t.tur === 'insan' && t.id !== secili.id; });
+    var dizi = [digerleri[1], digerleri[6], digerleri[3], secili, digerleri[8], digerleri[0], digerleri[5]].filter(Boolean);
+    dizi.forEach(function (t, i) {
+      var u = t.tur === 'insan' ? portreAl(t) : null;
+      if (!u) { var cv = document.createElement('canvas'); cv.width = 240; cv.height = 300; karakterResmi(cv, t, 2, 296); u = cv.toDataURL(); }
+      var im = new Image(); im.src = u; im.alt = t.ad; im.style.animationDelay = (Math.abs(i - 3) * 0.08) + 's';
+      if (t === secili) im.className = 'orta';
+      kap.appendChild(im);
+    });
+  }
+  function acilisKapat() { var a = $('#acilis'); if (!a || a.classList.contains('kapan')) return; a.classList.add('kapan'); setTimeout(function () { a.remove(); }, 500); }
+  (function () { var a = $('#acilis'); if (a) a.addEventListener('click', acilisKapat); })();
   Ciz.hazir.then(function () {
+    try { acilisKadro(); } catch (e) { /* açılış resmi çizilemese de oyun açılır */ }
+    setTimeout(acilisKapat, 1700);
     karakterUygula(); requestAnimationFrame(dongu);
     if (oku('tm_cinsiyet', '') === '') setTimeout(karakterEkrani, 400);   // ilk açılışta karakter seçimi
     kartResmi($('#btn-bolumler'), ikiOnizleme('orman', 'aksam'));
