@@ -622,7 +622,7 @@
   // Fizik düz kalır; yalnız görüntü gerçek caddenin şeklini alır.
   var BUKUM = { value: new Float32Array(32) };
   (function () {
-    if (!T.ShaderChunk || T.ShaderChunk.common.indexOf('tkBuk') >= 0) return;
+    if (!T || !T.ShaderChunk || T.ShaderChunk.common.indexOf('tkBuk') >= 0) return;
     var buk = function (v) {
       return '{ float tkD = max(-' + v + '.z / 6.25, 0.0); int tkI = min(int(tkD), 30); float tkF = tkD - float(tkI); ' +
         'float tkA = tkBuk[max(tkI - 1, 0)], tkB0 = tkBuk[tkI], tkB1 = tkBuk[tkI + 1], tkC = tkBuk[min(tkI + 2, 31)]; float tkF2 = tkF * tkF; ' +

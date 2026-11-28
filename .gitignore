@@ -49,3 +49,4 @@
 /tarak-backend/oyun/android/cikti/
 /tarak-backend/oyun/dist/
 /tarak-backend/oyun/**/*.log
+!/tarak.app/oyun/assets/js/vendor/
