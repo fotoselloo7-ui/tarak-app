@@ -59,6 +59,15 @@ class GameIntegrationTest extends TestCase
         $this->postJson('/api/game/kod', ['kod' => $q['tarak_kod']], ['X-Oyun-Anahtar' => self::ANAHTAR])->assertStatus(404); // tekrar kullanılamaz
     }
 
+    public function test_tarak_oturumuyla_sifresiz_kod_alinir(): void
+    {
+        $m = $this->musteri();
+        $this->postJson('/api/game/kod-al')->assertStatus(401);
+        Sanctum::actingAs($m);
+        $kod = $this->postJson('/api/game/kod-al')->assertOk()->assertJsonPath('data.ad', 'Ayşe')->json('data.kod');
+        $this->postJson('/api/game/kod', ['kod' => $kod], ['X-Oyun-Anahtar' => self::ANAHTAR])->assertOk()->assertJsonPath('data.kullanici_id', $m->id);
+    }
+
     public function test_kupon_oyuncunun_ilcesindeki_sponsordan_gelir_ve_isletme_dogrular(): void
     {
         $m = $this->musteri();

@@ -113,7 +113,7 @@ try {
             $kaynak = (string) (parse_url(metin($v, 'kaynak', 200), PHP_URL_HOST) ?: '');
             tm_sorgu('INSERT INTO oturumlar (oyuncu_id, jeton, platform, ekran, kaynak, ip_ozet, baslangic, son_nabiz, gun) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
                 [$oyuncu['id'], $jeton, $platform, $ekran, mb_substr($kaynak, 0, 200), $ip, $simdi, $simdi, $gun]);
-            cevap(['jeton' => $jeton]);
+            cevap(['jeton' => $jeton, 'tarak' => tm_tarak_acik(), 'tarakBagli' => (int) ($oyuncu['tarak_id'] ?? 0) > 0, 'ad' => (string) $oyuncu['ad']]);
         }
 
         case 'nabiz': {
@@ -216,8 +216,18 @@ try {
             $p = tm_satir('SELECT il, ilce FROM oyuncular WHERE id = ?', [$o['oyuncu_id']]);
             $il = ($p['il'] ?? '') !== '' ? $p['il'] : mb_substr((string) ($d['il'] ?? ''), 0, 40);
             $ilce = ($p['il'] ?? '') !== '' ? $p['ilce'] : mb_substr((string) ($d['ilce'] ?? ''), 0, 40);
-            tm_sorgu('UPDATE oyuncular SET tarak_id = ?, il = ?, ilce = ? WHERE id = ?', [(int) $d['kullanici_id'], $il, $ilce, $o['oyuncu_id']]);
-            cevap(['tamam' => true, 'ad' => (string) ($d['ad'] ?? ''), 'il' => $il, 'ilce' => $ilce, 'sponsorlar' => tm_bolge_sponsorlari($il, $ilce)]);
+            // Oyuncunun adı yoksa Tarak'taki adı kullanılır (sıralamada görünür)
+            $ad = (string) (tm_satir('SELECT ad FROM oyuncular WHERE id = ?', [$o['oyuncu_id']])['ad'] ?? '');
+            if ($ad === '') $ad = tm_ad_temizle((string) ($d['ad'] ?? ''));
+            tm_sorgu('UPDATE oyuncular SET tarak_id = ?, il = ?, ilce = ?, ad = ? WHERE id = ?', [(int) $d['kullanici_id'], $il, $ilce, $ad, $o['oyuncu_id']]);
+            cevap(['tamam' => true, 'ad' => (string) ($d['ad'] ?? ''), 'oyuncuAd' => $ad, 'il' => $il, 'ilce' => $ilce, 'sponsorlar' => tm_bolge_sponsorlari($il, $ilce)]);
+        }
+
+        case 'tarakCikis': {
+            $v = govde();
+            $o = oturum(metin($v, 'jeton'));
+            tm_sorgu('UPDATE oyuncular SET tarak_id = 0 WHERE id = ?', [$o['oyuncu_id']]);
+            cevap(['tamam' => true]);
         }
 
         // Oyuncunun bölgesindeki sponsorlar (oyunda panolarda görünür)

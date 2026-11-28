@@ -21,7 +21,7 @@ function sorgu(il, ilce, yedek) {
   const alan = yedek
     ? `area["boundary"="administrative"]["admin_level"~"^[678]$"]["name"~"^${temiz}( İlçesi| Merkez)?$",i](area.il);`
     : adlar.map(a => `area["boundary"="administrative"]["admin_level"="6"]["name"="${a}"](area.il);`).join('');
-  return `[out:json][timeout:120];
+  return `[out:json][timeout:200];
 area["boundary"="administrative"]["admin_level"="4"]["name"="${il}"]->.il;
 (${alan})->.a;
 way["highway"~"^(trunk|primary|secondary|tertiary|pedestrian|living_street|unclassified|residential)$"]["name"](area.a);
@@ -42,11 +42,20 @@ out tags center qt;`;
 
 async function cek(il, ilce, deneme = 0, yedek = false) {
   const sunucu = SUNUCULAR[deneme % SUNUCULAR.length];
-  const r = await fetch(sunucu, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'tarak-oyun-harita/1.0 (oyun haritasi)' },
-    body: 'data=' + encodeURIComponent(sorgu(il, ilce, yedek))
-  });
+  let r;
+  try {
+    r = await fetch(sunucu, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'tarak-oyun-harita/1.0 (oyun haritasi)' },
+      body: 'data=' + encodeURIComponent(sorgu(il, ilce, yedek)),
+      signal: AbortSignal.timeout(240000)
+    });
+  } catch (e) {
+    // Bağlantı koptu / zaman aşımı: diğer sunucuyla, artan beklemeyle yeniden dene
+    if (deneme > 5) throw e;
+    await uyu(10000 * (deneme + 1));
+    return cek(il, ilce, deneme + 1, yedek);
+  }
   if (r.status === 429 || r.status === 502 || r.status === 504 || r.status === 503) {
     if (deneme > 6) throw new Error('Overpass ' + r.status);
     await uyu(15000 * (deneme + 1));

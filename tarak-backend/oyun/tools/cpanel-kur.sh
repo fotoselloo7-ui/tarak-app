@@ -30,7 +30,7 @@ CNF="$Y/.my.cnf"
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP" "$CNF"' EXIT
 # Yardımcı betik GitHub'dan (yerel kopya yoksa)
-curl -fsSL "https://raw.githubusercontent.com/fotoselloo7-ui/tarak-app/$DAL/tarak-backend/oyun/tools/cpanel-yardimci.php" -o "$TMP/yardimci.php"
+curl -fsSL "https://raw.githubusercontent.com/fotoselloo7-ui/tarak-app/$DAL/tarak-backend/oyun/tools/cpanel-yardimci.php?t=$(date +%s)" -o "$TMP/yardimci.php"
 DBADI=$(php "$TMP/yardimci.php" dbcnf "$B" "$CNF" | tail -1)
 if [ -f "$CNF" ] && [ "$DBADI" != "-" ]; then
   mysqldump --defaults-extra-file="$CNF" --single-transaction --no-tablespaces --routines "$DBADI" | gzip > "$Y/veritabani.sql.gz"
@@ -59,11 +59,9 @@ cp "$R/tarak-backend/database/migrations/2026_11_28_100000_create_game_tables.ph
 mkdir -p "$B/resources/views/game" && cp "$R/tarak-backend/resources/views/game/giris.blade.php" "$B/resources/views/game/"
 
 # ---- 3. canlı dosyalara ekleme (yalnız eksikse)
-if ! grep -q "GameController" "$B/routes/api.php"; then
-  awk '/^\| "Randevuya Koş" oyunu/{bas=1} bas' "$R/tarak-backend/routes/api.php" > "$TMP/oyun-rotalar.php"
-  { printf '\n/*\n|--------------------------------------------------------------------------\n'; cat "$TMP/oyun-rotalar.php"; } >> "$B/routes/api.php"
-  echo "routes/api.php: oyun rotaları eklendi"
-else echo "routes/api.php: oyun rotaları zaten var"; fi
+cp -a "$B/routes/api.php" "$TMP/api-onceki.php"
+echo "routes/api.php: oyun rotaları $(php "$TMP/yardimci.php" rota-guncelle "$B/routes/api.php" "$R/tarak-backend/routes/api.php")"
+if ! php -l "$B/routes/api.php" >/dev/null; then cp -a "$TMP/api-onceki.php" "$B/routes/api.php"; echo "HATA: routes/api.php geri alındı"; exit 1; fi
 echo "config/services.php: $(php "$TMP/yardimci.php" servis-ekle "$B/config/services.php")"
 php -l "$B/config/services.php" >/dev/null
 php -l "$B/routes/api.php" >/dev/null

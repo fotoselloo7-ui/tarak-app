@@ -33,7 +33,7 @@
       var ad = gc ? gc.ad.split(' ').map(function (s) { return s.charAt(0).toLocaleUpperCase('tr-TR') + s.slice(1); }).join(' ') : o.rotaT.cadde;
       buyukYazi('📍 ' + o.rotaT.il + ' · ' + o.rotaT.ilce + '\n' + ad, 2.4);
     }, 400);
-    birikim = 0; hudSon = ''; yaziZaman = 0;
+    birikim = 0; hudSon = ''; yaziZaman = 0; onceki = null;
     sahne.temizle();
     $('#uc-yazi').classList.add('gizli');
     return o;
@@ -90,7 +90,7 @@
     var alt = (hedef.son ? '🏁 ' : '📍 ') + hedef.ad + ' · ' + Math.max(0, Math.ceil((hedef.s - o.p.s) / 5) * 5) + ' m  |  👤 ' + Math.min(o.musteri + 1, o.hedefMusteri) + '/' + o.hedefMusteri;
     // İlk metrelerde kontrol anlatımı
     var ipucu = o.p.s < 24 ? '⬅️ ➡️ kaydır: şerit değiştir' : o.p.s < 60 ? '⬆️ zıpla · ⬇️ kay (2× turbo)' : '';
-    var imza = [o.can, o.tarak, U.skor(o), guc, alt, ipucu].join('|');
+    var imza = [o.can, o.tarak, U.skor(o), guc, alt, ipucu, yaziZaman > 0].join('|');
     if (imza === hudSon) return;
     hudSon = imza;
     var can = '';
@@ -101,19 +101,39 @@
     $('#hud-guc').innerHTML = guc;
     $('#hud-bolum').textContent = alt;
     $('#hud-ipucu').textContent = ipucu;
-    $('#hud-ipucu').classList.toggle('gizli', !ipucu);
+    // Büyük yazı (il · cadde, güç adı) görünürken ipucu gizlenir: ikisi aynı yerde üst üste biniyordu
+    $('#hud-ipucu').classList.toggle('gizli', !ipucu || yaziZaman > 0);
   }
 
   // Oyun sürerken her karede
+  // Fizik saniyede 120 adım; ekran 60/90/120/144 Hz olabilir. Çizim son iki adım arasında ara değerle yapılır
+  // (yoksa bir karede 0, ötekinde 2-3 adım düşer ve koşu kare kare kayar / takılır).
+  var onceki = null;
+  function anlik(o) {
+    var e = [], s0 = o.p.s;
+    for (var i = 0; i < o.engeller.length; i++) { var x = o.engeller[i]; if ((x.ileri || x.tetik) && x.s > s0 - 15 && x.s < s0 + 220) e.push(x, x.s); }
+    return { s: o.p.s, x: o.p.x, y: o.p.y, e: e };
+  }
   function kare(o, dt, zaman, calisiyor, bitince) {
+    var a = 0;
     if (calisiyor) {
       birikim += dt;
-      while (birikim >= DT) { U.adim(o, DT); birikim -= DT; }
+      while (birikim >= DT) { onceki = anlik(o); U.adim(o, DT); birikim -= DT; }
+      a = birikim / DT;
       olaylar(o, bitince);
       hud(o);
       if (yaziZaman > 0) { yaziZaman -= dt; if (yaziZaman <= 0) $('#uc-yazi').classList.add('gizli'); }
     }
-    sahne.ciz(o, calisiyor ? dt : 0, zaman);
+    var p = o.p, ara = calisiyor && onceki && !o.bitti && Math.abs(p.s - onceki.s) < 3 && Math.abs(p.x - onceki.x) < 2;
+    if (!ara) { sahne.ciz(o, calisiyor ? dt : 0, zaman); return; }
+    var gs = p.s, gx = p.x, gy = p.y, es = [], i;
+    p.s = onceki.s + (gs - onceki.s) * a; p.x = onceki.x + (gx - onceki.x) * a; p.y = onceki.y + (gy - onceki.y) * a;
+    for (i = 0; i < onceki.e.length; i += 2) { var e = onceki.e[i]; es.push(e.s); e.s = onceki.e[i + 1] + (e.s - onceki.e[i + 1]) * a; }
+    try { sahne.ciz(o, dt, zaman); }
+    finally {
+      p.s = gs; p.x = gx; p.y = gy;
+      for (i = 0; i < onceki.e.length; i += 2) onceki.e[i].s = es[i / 2];
+    }
   }
 
   function vitrin(dt, zaman, secenek) { sahne.ciz(null, dt, zaman, secenek); }

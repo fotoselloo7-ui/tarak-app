@@ -139,6 +139,22 @@ class GameController extends Controller
         return redirect()->away($donus . $ayirac . http_build_query(['tarak_kod' => $kod, 'durum' => $durum]));
     }
 
+    /**
+     * POST /api/game/kod-al (Tarak oturumuyla) — tarak.app'te zaten giriş yapmış kullanıcı için şifresiz bağlanma:
+     * oyun aynı sitede açıldığında kullanıcının kendi oturumuyla tek kullanımlık kod alınır (5 dk), oyun sunucusu değiştirir.
+     */
+    public function kodAl(Request $r): JsonResponse
+    {
+        $u = $r->user();
+        if ($u->status !== 'active') return response()->json(['success' => false, 'message' => 'Hesap aktif değil.'], 403);
+        $kod = Str::random(48);
+        DB::table('game_auth_codes')->insert([
+            'user_id' => $u->id, 'code_hash' => hash('sha256', $kod), 'expires_at' => now()->addMinutes(5),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        return response()->json(['success' => true, 'data' => ['kod' => $kod, 'ad' => $u->first_name ?: $u->name]]);
+    }
+
     /** POST /api/game/kod (sunucudan sunucuya) {kod} -> kullanıcı kimliği ve bölgesi. Kod tek kullanımlık. */
     public function kodDegistir(Request $r): JsonResponse
     {

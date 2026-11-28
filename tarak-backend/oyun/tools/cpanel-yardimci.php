@@ -39,5 +39,30 @@ PHP;
     exit(0);
 }
 
-fwrite(STDERR, "kullanım: dbcnf | servis-ekle\n");
+if ($islem === 'rota-guncelle') {
+    // Canlı routes/api.php içindeki oyun bloğunu depodakiyle değiştirir (yoksa sona ekler); bloğun dışına dokunmaz
+    [$canliYol, $depoYol] = [$argv[2], $argv[3]];
+    $blok = function (string $s) {
+        $i = strpos($s, '| "Randevuya Koş" oyunu');
+        if ($i === false) return null;
+        $bas = strrpos(substr($s, 0, $i), '/*');
+        $sonIsaret = '// --- Randevuya Koş oyunu: son ---';
+        $j = strpos($s, $sonIsaret, $i);
+        $son = $j === false ? strlen($s) : $j + strlen($sonIsaret);
+        return [$bas, $son];
+    };
+    $canli = file_get_contents($canliYol);
+    $depo = file_get_contents($depoYol);
+    $d = $blok($depo);
+    if (!$d) { fwrite(STDERR, "depoda oyun bloğu yok\n"); exit(1); }
+    $yeni = substr($depo, $d[0], $d[1] - $d[0]);
+    $c = $blok($canli);
+    if ($c && substr($canli, $c[0], $c[1] - $c[0]) === $yeni) { echo "güncel\n"; exit(0); }
+    $sonuc = $c ? substr($canli, 0, $c[0]) . $yeni . substr($canli, $c[1]) : rtrim($canli) . "\n\n" . $yeni . "\n";
+    file_put_contents($canliYol, $sonuc);
+    echo $c ? "güncellendi\n" : "eklendi\n";
+    exit(0);
+}
+
+fwrite(STDERR, "kullanım: dbcnf | servis-ekle | rota-guncelle\n");
 exit(1);

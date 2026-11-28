@@ -262,7 +262,10 @@
       cihaz: cihaz, platform: platform(), isim: isim,
       ekran: screen.width + 'x' + screen.height,
       kaynak: document.referrer ? document.referrer.slice(0, 200) : ''
-    }).then(function (c) { if (c && c.jeton) jeton = c.jeton; return jeton; });
+    }).then(function (c) {
+      if (c && c.jeton) { jeton = c.jeton; tarakDurumu = { acik: !!c.tarak, bagli: !!c.tarakBagli, ad: c.ad || '' }; setTimeout(tarakDugmesi, 0); }
+      return jeton;
+    });
     return oturumSozu;
   }
 
@@ -445,7 +448,7 @@
       oyun = C.yeniOyun(secim, mod);
       oyun.hizCarpani = sunucuAyar.hizCarpani || 1;
     }
-    parcaciklar = []; yazilar = []; sarsinti = 0; birikim = 0; bitisZamani = 0; taklaZ = 0;
+    parcaciklar = []; yazilar = []; sarsinti = 0; birikim = 0; onceki2D = null; bitisZamani = 0; taklaZ = 0;
     ekran('oyun'); hudBicimi(false);
     kusan();
     $('#hud-bolum').textContent = (oyun.sonsuz ? 'Sonsuz Mod' : 'Bölüm ' + oyun.bolum + ' · ' + oyun.tanim.ad) + ' · ' + oyun.ayar.simge + ' ' + oyun.ayar.ad;
@@ -749,7 +752,7 @@
       // Kupon Tarak hesabına (müşteri profili) yazılır: önce Tarak ile giriş
       alt.innerHTML = '';
       var tb = document.createElement('button'); tb.className = 'dugme sari tam'; tb.textContent = '🔑 Tarak ile giriş yap, hediyeni al';
-      tb.addEventListener('click', tarakGiris);
+      tb.addEventListener('click', function () { tarakGiris(false); });
       var not = document.createElement('small'); not.className = 'hediye-not'; not.textContent = 'Kuponun Tarak hesabındaki müşteri profiline kaydedilir; şifren oyuna değil yalnız Tarak’a gider.';
       alt.appendChild(tb); alt.appendChild(not);
     } else if (parca >= gerekli) {
@@ -767,12 +770,48 @@
       alt.textContent = 'Parçalar yalnızca zor yerlerde çıkar: otobüs tavanındaki arabanın ve kulelerin üstünde, 2D’de çift zıplama yüksekliğinde. ' + gerekli + ' parçada Tarak Mobil’de kullanabileceğin bir ' + ad + ' kazanırsın.';
     }
   }
-  // "Tarak ile giriş": Tarak'ın kendi sayfası açılır, tek kullanımlık kodla oyuna dönülür
-  function tarakGiris() {
+  // ---------- Tarak hesabıyla giriş ----------
+  // Oyun tarak.app/oyun'da açıldığında sitede zaten giriş yapılmışsa şifresiz bağlanır (aynı oturum);
+  // değilse Tarak'ın kendi giriş sayfası açılır, tek kullanımlık kodla oyuna dönülür. Şifre oyuna hiç gelmez.
+  var tarakDurumu = { acik: false, bagli: false, ad: '' };
+  function tarakJetonu() { try { return localStorage.getItem('berberim_auth_token'); } catch (e) { return null; } }
+  function tarakDugmesi() {
+    var b = $('#btn-tarak'); if (!b) return;
+    b.classList.toggle('gizli', !tarakDurumu.acik);
+    b.classList.toggle('bagli', tarakDurumu.bagli);
+    $('#tarak-yazi').textContent = tarakDurumu.bagli ? 'Tarak hesabın bağlı' + (tarakDurumu.ad ? ': ' + tarakDurumu.ad : '') + ' ✓' : 'Tarak hesabınla giriş yap';
+  }
+  function tarakBaglandi(c) {
+    tarakDurumu.bagli = true; tarakDurumu.ad = c.oyuncuAd || c.ad || tarakDurumu.ad;
+    if (!isim && c.oyuncuAd) { isim = c.oyuncuAd; yaz('tm_isim', isim); isimYazisi(); }
+    if (c.il && !(bolge && bolge.il)) { bolge = { il: c.il, ilce: c.ilce || '' }; yaz('tm_bolge', bolge); isimYazisi(); }
+    if (c.sponsorlar) sponsorlariAl(c.sponsorlar);
+    tarakDugmesi(); hediyeYenile();
+  }
+  function tarakGiris(sessiz) {
+    if (!AYAR.api || AYAR.beta) return;
     var donus = location.href.split('?')[0].split('#')[0];
     sunucuyaBildir('tarakGiris', { donus: donus }).then(function (c) {
-      if (c && c.url) location.href = c.url; else menuTost('Tarak bağlantısı şu an kullanılamıyor.');
+      if (!c || !c.url) { if (!sessiz) menuTost('Tarak bağlantısı şu an kullanılamıyor.'); return; }
+      var durum = (c.url.match(/[?&]durum=([a-f0-9]+)/) || [])[1] || '';
+      var tj = tarakJetonu();
+      var ayniSite = /^https?:\/\/(www\.)?tarak\.app\//i.test(c.url) && location.hostname.replace(/^www\./, '') === 'tarak.app';
+      if (tj && ayniSite) {
+        fetch('/api/game/kod-al', { method: 'POST', headers: { Accept: 'application/json', Authorization: 'Bearer ' + tj } })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (j) {
+            if (!j || !j.data || !j.data.kod) { if (!sessiz) location.href = c.url; return; }
+            return sunucuyaBildir('tarakBagla', { kod: j.data.kod, durum: durum }).then(function (b) {
+              if (b && b.tamam) { tarakBaglandi(b); menuTost('Tarak hesabınla giriş yapıldı' + (b.ad ? ', ' + b.ad : '') + ' ✂️'); }
+              else if (!sessiz) menuTost('Tarak ile giriş tamamlanamadı.');
+            });
+          })
+          .catch(function () { if (!sessiz) location.href = c.url; });
+      } else if (!sessiz) location.href = c.url;
     });
+  }
+  function tarakCikis() {
+    sunucuyaBildir('tarakCikis', {}).then(function () { tarakDurumu.bagli = false; tarakDugmesi(); hediyeYenile(); menuTost('Tarak hesabının oyunla bağlantısı kaldırıldı.'); });
   }
   function tarakDonusu() {
     var q = new URLSearchParams(location.search), kod = q.get('tarak_kod'), durum = q.get('durum');
@@ -781,8 +820,7 @@
     sunucuyaBildir('tarakBagla', { kod: kod, durum: durum || '' }).then(function (c) {
       if (c && c.tamam) {
         menuTost('Tarak hesabın bağlandı' + (c.ad ? ', ' + c.ad : '') + ' ✂️');
-        if (c.sponsorlar) sponsorlariAl(c.sponsorlar);
-        hediyeYenile();
+        tarakBaglandi(c);
       } else menuTost((c && c.hata) || 'Tarak ile giriş tamamlanamadı.');
     });
   }
@@ -1073,6 +1111,10 @@
   function sponsorlariAl(liste) { if (liste && Uc.sponsorlar) Uc.sponsorlar(liste); }
   tikla('#btn-isim', function () { $('#isim-girdi').value = isim; bolgeSecici(); ekran('isim'); });
   tikla('#btn-isim-kapat', function () { ekran('ana'); });
+  tikla('#btn-tarak', function () {
+    if (!tarakDurumu.bagli) { tarakGiris(false); return; }
+    if (confirm('Tarak hesabının oyunla bağlantısı kaldırılsın mı? Kazandığın kuponlar Tarak hesabında kalır.')) tarakCikis();
+  });
   $('#isim-form').addEventListener('submit', function (e) {
     e.preventDefault();
     isim = $('#isim-girdi').value.trim().slice(0, 16);
@@ -1088,7 +1130,15 @@
   function sac(x, y, adet, renk, guc) {
     for (var i = 0; i < adet; i++) parcaciklar.push({ x: x, y: y, vx: (Math.random() - 0.5) * guc, vy: Math.random() * guc * 0.7, t: 0.5 + Math.random() * 0.35, renk: renk, r: 2 + Math.random() * 3.5 });
   }
-  function yazi(metin, x, y, renk) { yazilar.push({ metin: metin, x: x, y: y, t: 0.9, renk: renk || '#fff' }); }
+  // Uçan yazılar aynı yere düşerse üst üste binmesin: yakındaki taze yazının üstüne kaydır
+  function yazi(metin, x, y, renk) {
+    for (var d = 0; d < 5; d++) {
+      var dolu = yazilar.some(function (z) { return z.t > 0.35 && Math.abs(z.x - x) < 130 && Math.abs(z.y - y) < 34; });
+      if (!dolu) break;
+      y += 36;
+    }
+    yazilar.push({ metin: metin, x: x, y: y, t: 0.9, renk: renk || '#fff' });
+  }
   function titret(ms) { if (navigator.vibrate && Ses.acikMi()) { try { navigator.vibrate(ms); } catch (e) {} } }
 
   function olaylariIsle() {
@@ -1290,6 +1340,7 @@
     if (oyun && aktifEkran === 'oyun') {
       birikim += dt;
       while (birikim >= DT) {
+        onceki2D = { x: oyun.p.x, y: oyun.p.y };
         C.adim(oyun, DT);
         birikim -= DT;
       }
@@ -1298,12 +1349,18 @@
       hudGuncelle();
       if (oyun.bitti && bitisZamani > 0) { bitisZamani -= dt; if (bitisZamani <= 0) sonucGoster(); }
     }
-    ciz(dt);
+    // 2D'de de çizim son iki fizik adımı arasında ara değerle (kare hızı farklarında takılma olmasın)
+    if (oyun && aktifEkran === 'oyun' && !oyun.bitti && onceki2D && Math.abs(oyun.p.x - onceki2D.x) < 40) {
+      var a2 = birikim / DT, gx = oyun.p.x, gy = oyun.p.y;
+      oyun.p.x = onceki2D.x + (gx - onceki2D.x) * a2; oyun.p.y = onceki2D.y + (gy - onceki2D.y) * a2;
+      try { ciz(dt); } finally { oyun.p.x = gx; oyun.p.y = gy; }
+    } else ciz(dt);
   }
+  var onceki2D = null;
 
   // ---------- Başlat ----------
   // Hangi sürümün oynandığını görmek için (her yayında artırılır)
-  var SURUM = 'Sürüm 14 · birebir cadde şekli, sokak eşyası, Tarak ile giriş';
+  var SURUM = 'Sürüm 15 · akıcı koşu (kare hızı), Tarak hesabıyla giriş';
   $('#surum').textContent = SURUM;
   boyutla(); sesYazisi(); isimYazisi(); cuzdanYaz();
   if (!ucVar) $('#btn-3d').classList.add('gizli');
@@ -1323,6 +1380,8 @@
   });
   oturumAc();
   tarakDonusu();   // "Tarak ile giriş" sayfasından dönüldüyse hesabı bağla
+  // tarak.app'te giriş yapılmışsa oyun aynı hesapla kendiliğinden bağlanır
+  (oturumSozu || oturumAc()).then(function () { if (tarakDurumu.acik && !tarakDurumu.bagli && tarakJetonu() && !/[?&]tarak_kod=/.test(location.search)) tarakGiris(true); });
   if (bolge.il) sunucuyaBildir('sponsorlar', {}).then(function (c) { sponsorlariAl(c && c.sponsorlar); });
   setInterval(function () { if (!document.hidden && jeton) istek('nabiz', { jeton: jeton }); }, 45000);
 
