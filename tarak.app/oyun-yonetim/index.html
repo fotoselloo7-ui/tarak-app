@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Oyun yönetimi · Tarak</title>
+<style>
+  :root { --zemin:#f8fafc; --kart:#fff; --cizgi:#e2e8f0; --yazi:#0f172a; --soluk:#64748b; --ana:#ff5722; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--zemin); color: var(--yazi); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { background: #0f172a; color: #fff; padding: 16px 24px; display: flex; align-items: center; gap: 12px; }
+  header h1 { font-size: 18px; margin: 0; }
+  header a { color: #cbd5e1; margin-left: auto; font-size: 14px; }
+  main { max-width: 1040px; margin: 0 auto; padding: 24px; display: grid; gap: 20px; }
+  section { background: var(--kart); border: 1px solid var(--cizgi); border-radius: 14px; padding: 20px; }
+  h2 { font-size: 16px; margin: 0 0 14px; }
+  .sayilar { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .sayi { border: 1px solid var(--cizgi); border-radius: 12px; padding: 14px; }
+  .sayi b { display: block; font-size: 26px; font-variant-numeric: tabular-nums; }
+  .sayi span { color: var(--soluk); font-size: 13px; }
+  label { display: block; font-size: 13px; color: var(--soluk); margin: 12px 0 4px; }
+  input[type=url], input[type=text] { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font: inherit; }
+  button { margin-top: 16px; padding: 10px 18px; border: 0; border-radius: 10px; background: var(--ana); color: #fff; font-weight: 700; cursor: pointer; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--cizgi); }
+  td.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .uyari { background: #fff7ed; border: 1px solid #ffccbc; padding: 12px 14px; border-radius: 10px; }
+  .gizli { display: none; }
+  #durum { font-size: 14px; color: var(--soluk); margin-left: 10px; }
+</style>
+</head>
+<body>
+<header><h1>Randevuya Koş · Oyun yönetimi</h1><a href="/">tarak.app’e dön</a></header>
+<main>
+  <div id="giris-uyari" class="uyari gizli">Bu sayfa için tarak.app’e <b>yönetici hesabıyla</b> giriş yapmış olmalısın. <a href="/">Giriş yap</a>, sonra bu sayfayı yenile.</div>
+
+  <section id="istatistik" class="gizli">
+    <h2>Oyun istatistikleri</h2>
+    <div class="sayilar">
+      <div class="sayi"><b id="s-oyuncu">–</b><span>Tarak hesabını bağlayan oyuncu</span></div>
+      <div class="sayi"><b id="s-kupon">–</b><span>Oyundan kazanılan kupon</span></div>
+      <div class="sayi"><b id="s-kullanilan">–</b><span>Kullanılan kupon</span></div>
+      <div class="sayi"><b id="s-aktif">–</b><span>Geçerli kupon</span></div>
+      <div class="sayi"><b id="s-dolan">–</b><span>Süresi dolan kupon</span></div>
+      <div class="sayi"><b id="s-sponsor">–</b><span>Aktif sponsorluk</span></div>
+      <div class="sayi"><b id="s-gosterim">–</b><span>Sponsor reklamı gösterimi (30 gün)</span></div>
+    </div>
+    <h2 style="margin-top:20px">Bölgelere göre kuponlar</h2>
+    <table><thead><tr><th>İl</th><th>İlçe</th><th style="text-align:right">Kupon</th></tr></thead><tbody id="bolgeler"></tbody></table>
+  </section>
+
+  <section id="ayarlar" class="gizli">
+    <h2>Oyun indirme bağlantıları</h2>
+    <form id="form">
+      <label for="link_ios">App Store (iPhone)</label><input id="link_ios" name="link_ios" type="url" placeholder="https://apps.apple.com/…">
+      <label for="link_android">Google Play (Android)</label><input id="link_android" name="link_android" type="url" placeholder="https://play.google.com/store/apps/details?id=…">
+      <label for="link_web">Web sürümü</label><input id="link_web" name="link_web" type="url" placeholder="https://tarak.app/oyun/">
+      <label for="oyun_baslik">Sitede görünen başlık</label><input id="oyun_baslik" name="oyun_baslik" type="text" maxlength="120" placeholder="Oyun oyna, bedava tıraş kazan">
+      <label><input id="oyun_acik" name="oyun_acik" type="checkbox"> Oyun bağlantıları sitede ve uygulamada görünsün</label>
+      <button type="submit">Kaydet</button><span id="durum" role="status"></span>
+    </form>
+  </section>
+</main>
+<script>
+(function () {
+  'use strict';
+  var jeton = null;
+  try { jeton = localStorage.getItem('berberim_auth_token'); } catch (e) {}
+  function istek(yol, secenek) {
+    secenek = secenek || {};
+    secenek.headers = Object.assign({ Accept: 'application/json', 'Content-Type': 'application/json', Authorization: 'Bearer ' + jeton }, secenek.headers || {});
+    return fetch('/api' + yol, secenek).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw j; return j; }); });
+  }
+  function yaz(id, v) { document.getElementById(id).textContent = (v == null ? '–' : Number(v).toLocaleString('tr-TR')); }
+  function goster() { document.getElementById('istatistik').classList.remove('gizli'); document.getElementById('ayarlar').classList.remove('gizli'); }
+  if (!jeton) { document.getElementById('giris-uyari').classList.remove('gizli'); return; }
+
+  istek('/admin/game/stats').then(function (j) {
+    var d = j.data; goster();
+    yaz('s-oyuncu', d.bagli_oyuncu); yaz('s-kupon', d.kupon.toplam); yaz('s-kullanilan', d.kupon.kullanilan);
+    yaz('s-aktif', d.kupon.aktif); yaz('s-dolan', d.kupon.suresi_dolan); yaz('s-sponsor', d.sponsor.aktif); yaz('s-gosterim', d.gosterim_30_gun);
+    var tb = document.getElementById('bolgeler');
+    (d.bolgeler || []).forEach(function (b) {
+      var tr = document.createElement('tr');
+      [b.province || '–', b.district || '–'].forEach(function (x) { var td = document.createElement('td'); td.textContent = x; tr.appendChild(td); });
+      var n = document.createElement('td'); n.className = 'n'; n.textContent = Number(b.kupon).toLocaleString('tr-TR'); tr.appendChild(n);
+      tb.appendChild(tr);
+    });
+    if (!(d.bolgeler || []).length) { var tr = document.createElement('tr'); var td = document.createElement('td'); td.colSpan = 3; td.textContent = 'Henüz kupon yok.'; tr.appendChild(td); tb.appendChild(tr); }
+  }).catch(function () { document.getElementById('giris-uyari').classList.remove('gizli'); });
+
+  istek('/admin/game/settings').then(function (j) {
+    var d = j.data || {};
+    ['link_ios', 'link_android', 'link_web', 'oyun_baslik'].forEach(function (k) { document.getElementById(k).value = d[k] || ''; });
+    document.getElementById('oyun_acik').checked = d.oyun_acik === '1' || d.oyun_acik === 1 || d.oyun_acik === true;
+  }).catch(function () {});
+
+  document.getElementById('form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var durum = document.getElementById('durum'); durum.textContent = 'Kaydediliyor…';
+    var govde = { oyun_acik: document.getElementById('oyun_acik').checked };
+    ['link_ios', 'link_android', 'link_web', 'oyun_baslik'].forEach(function (k) { var v = document.getElementById(k).value.trim(); govde[k] = v || null; });
+    istek('/admin/game/settings', { method: 'PUT', body: JSON.stringify(govde) })
+      .then(function () { durum.textContent = 'Kaydedildi.'; })
+      .catch(function (j) { durum.textContent = (j && j.message) || 'Kaydedilemedi.'; });
+  });
+})();
+</script>
+</body>
+</html>

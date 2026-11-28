@@ -11,6 +11,7 @@ import '../../shared/screens/support_screen.dart';
 import '../screens/payment_history_screen.dart';
 import '../screens/favorites_screen.dart';
 import '../screens/my_reviews_screen.dart';
+import '../../game/game_screens.dart';
 import '../screens/my_addresses_screen.dart';
 import '../providers/customer_profile_stats_provider.dart';
 import 'customer_profile_edit_screen.dart';
@@ -457,6 +458,19 @@ class _CustomerProfileTabState extends ConsumerState<CustomerProfileTab> {
                       context,
                       MaterialPageRoute(
                         builder: (_) => const MyReviewsScreen(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildGridModuleCard(
+                    icon: Icons.sports_esports_rounded,
+                    iconColor: AppTheme.primary,
+                    title: 'Oyun Hediyelerim',
+                    description: 'Randevuya Koş oyununda kazandığın kuponlar',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const GameCouponsScreen(),
                       ),
                     ),
                   ),

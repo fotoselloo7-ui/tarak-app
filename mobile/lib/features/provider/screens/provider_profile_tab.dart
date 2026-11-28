@@ -21,6 +21,7 @@ import '../../shared/widgets/social_account_link_sheet.dart';
 import '../../shared/widgets/avatar_picker.dart';
 import '../appointments/screens/provider_schedule_screen.dart';
 import 'provider_wallet_screen.dart';
+import '../../game/game_screens.dart';
 import 'provider_documents_screen.dart';
 import 'provider_location_sheet.dart';
 import '../instant/providers/provider_instant_providers.dart';
@@ -1072,6 +1073,21 @@ class _ProviderProfileTabState extends ConsumerState<ProviderProfileTab> {
                         context,
                         MaterialPageRoute(
                           builder: (_) => const ProviderOfferingsScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  _buildGridModuleCard(
+                    icon: Icons.sports_esports_rounded,
+                    iconColor: AppTheme.primary,
+                    title: 'Oyuna Sponsor Ol',
+                    description: 'Randevuya Koş oyununda reklamın, kuponların ve istatistiklerin',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ProviderGameSponsorScreen(),
                         ),
                       );
                     },
