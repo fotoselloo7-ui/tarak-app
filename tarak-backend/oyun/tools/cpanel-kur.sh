@@ -1,6 +1,6 @@
 #!/bin/bash
 # Randevuya Koş oyununu ve Tarak entegrasyonunu cPanel'de kurar / günceller (tekrar tekrar çalıştırılabilir).
-#   curl -fsSL https://raw.githubusercontent.com/fotoselloo7-ui/tarak-app/main/tarak-backend/oyun/tools/cpanel-kur.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/fotoselloo7-ui/tarak-app/main/tarak-backend/oyun/tools/cpanel-kur.sh -o ~/tarak-kur.sh && bash ~/tarak-kur.sh 2>&1 | tee ~/tarak-yedek/son-kur.log
 # Yaptıkları:
 #  1. Değişecek dosyaların ve veritabanının yedeği (~/tarak-yedek/oyun-<tarih>/)
 #  2. GitHub main'den oyun dosyaları (tarak.app/oyun) ve backend'in oyun dosyaları
@@ -17,7 +17,6 @@ DAL="${TARAK_DAL:-main}"
 Y="$H/tarak-yedek/oyun-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$Y"
 LOG="$Y/kur.log"
-exec > >(tee -a "$LOG") 2>&1
 echo "== Kurulum başladı: $(date)  dal: $DAL"
 
 # ---- 1. yedek
