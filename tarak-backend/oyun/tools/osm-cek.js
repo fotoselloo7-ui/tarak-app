@@ -10,7 +10,7 @@ const IL = require('../../../tarak.app/oyun/assets/js/iller.js');
 
 const HAM = path.join(__dirname, 'osm-ham');
 fs.mkdirSync(HAM, { recursive: true });
-const SUNUCULAR = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+const SUNUCULAR = ['https://overpass.private.coffee/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter', 'https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
 const uyu = ms => new Promise(r => setTimeout(r, ms));
 
 function sorgu(il, ilce, yedek) {
@@ -90,7 +90,7 @@ async function cek(il, ilce, deneme = 0, yedek = false) {
         console.log(`HATA ${r.il} / ${r.ilce}: ${e.message}`);
         await uyu(20000);
       }
-      await uyu(4000);   // Overpass'i yormamak için
+      await uyu(6000);   // Overpass'i yormamak için (genel sunucular)
     }
   }
   console.log(`Bitti: ${yeni} yeni, ${atlanan} zaten vardı, ${hata} hata`);

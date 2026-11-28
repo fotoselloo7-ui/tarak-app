@@ -12,7 +12,7 @@ const path = require('path');
 const HAM = path.join(__dirname, 'osm-ham');
 const ESYA = path.join(HAM, 'esya');
 fs.mkdirSync(ESYA, { recursive: true });
-const SUNUCULAR = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+const SUNUCULAR = ['https://overpass.private.coffee/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter', 'https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
 const uyu = ms => new Promise(r => setTimeout(r, ms));
 
 function sorgu(idler) {
