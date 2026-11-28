@@ -232,5 +232,7 @@
     try { x.send(); } catch (e) { x.onerror(); }
   }
 
-  window.TarakCadde = { dukkanTabelasi: dukkanTabelasi, yapiYuvasi: yapiYuvasi, sokakAgzi: sokakAgzi, esyaYap: esyaYap, yukle: yukle };
+  // Yüklenmiş ilçe verisi (yoksa undefined: henüz yüklenmedi, null: dosya yok)
+  function hazir(plaka, sira) { var v = veri[plaka]; return v === undefined ? undefined : (v && v[sira]) || null; }
+  window.TarakCadde = { dukkanTabelasi: dukkanTabelasi, yapiYuvasi: yapiYuvasi, sokakAgzi: sokakAgzi, esyaYap: esyaYap, yukle: yukle, hazir: hazir };
 })();

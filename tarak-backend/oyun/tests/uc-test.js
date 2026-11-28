@@ -145,5 +145,20 @@ for (const mod of Object.keys(U.MODLAR)) {
   }
   console.log('Rota sonu: ' + biten + '/4 rota tamamlandı (hedef müşteri: ' + [1, 100, 422, 973].map(U.rotaHedefi).join(', ') + ')');
 })();
+// Gerçek caddeli ilçe: rota baştan sona gerçek caddede (yalnız şehir), son durak caddenin sonunda, bot bitirebilmeli
+(function () {
+  [[423, 1291], [7, 617], [100, 2000]].forEach(([rota, L]) => {
+    const o = U.yeniOyun('orta', { tohum: 77 + rota, rota, gercek: { uzunluk: L } });
+    o.canMax = o.can = 99;
+    const d = { yapildi: new Set(), ikinci: false }, dunyalar = new Set();
+    let adimS = 0;
+    while (!o.bitti && adimS++ < 120 * 400) { botAdim(o, d); U.adim(o, DT); dunyalar.add(U.dunya(o)); o.olaylar.length = 0; }
+    const son = o.duraklar[o.duraklar.length - 1];
+    if (!o.kazandi) { hata++; console.log('HATA: gerçek cadde rotası bitmedi', rota); }
+    if ([...dunyalar].join() !== 'sehir') { hata++; console.log('HATA: gerçek caddede başka dünya', [...dunyalar]); }
+    if (!son || son.s > L || son.s < L - 80) { hata++; console.log('HATA: son durak caddenin sonunda değil', rota, son && son.s, L); }
+  });
+  console.log('Gerçek cadde rotaları: yalnız şehir, son durak cadde sonunda');
+})();
 console.log(hata ? `\nBAŞARISIZ: ${hata}` : '\nTÜM 3D TESTLERİ GEÇTİ');
 process.exit(hata ? 1 : 0);

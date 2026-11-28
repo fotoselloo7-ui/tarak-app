@@ -138,6 +138,8 @@
   }
   var onayBekleyen = null;
   function rotalarCiz() {
+    // Seçili ilin gerçek cadde verisi önceden yüklenir (Yola Çık'ta beklenmesin)
+    if (seciliIl && window.TarakCadde) window.TarakCadde.yukle(seciliIl, function () {});
     var l = $('#rota-liste'); l.innerHTML = '';
     rotaKuyruk = [];
     var h = haritaDurum(), hedef = null;
@@ -386,7 +388,18 @@
     $('#uc-yazi').classList.add('gizli');
   }
 
+  // Gerçek cadde verisi henüz yüklenmediyse önce yüklenir (rota baştan sona gerçek caddede kurulsun)
   function ucBaslat() {
+    var U3 = window.TarakUc, r = U3 && U3.ROTALAR[U3.rotaAl(rota) - 1], CD = window.TarakCadde;
+    if (r && CD && CD.hazir(r.plaka, r.sira) === undefined && !ucBaslat.bekliyor) {
+      ucBaslat.bekliyor = true;
+      var bitti = false, devam = function () { if (bitti) return; bitti = true; ucBaslat.bekliyor = false; ucBaslatGercek(); };
+      CD.yukle(r.plaka, devam); setTimeout(devam, 2500);
+      return;
+    }
+    ucBaslatGercek();
+  }
+  function ucBaslatGercek() {
     kosuKapat();
     var gucler = Odul.gucHarca(kese); keseKaydet();
     kusan();
@@ -1360,7 +1373,7 @@
 
   // ---------- Başlat ----------
   // Hangi sürümün oynandığını görmek için (her yayında artırılır)
-  var SURUM = 'Sürüm 15 · akıcı koşu (kare hızı), Tarak hesabıyla giriş';
+  var SURUM = 'Sürüm 16 · gerçek caddeli ilçede rota baştan sona gerçek cadde';
   $('#surum').textContent = SURUM;
   boyutla(); sesYazisi(); isimYazisi(); cuzdanYaz();
   if (!ucVar) $('#btn-3d').classList.add('gizli');

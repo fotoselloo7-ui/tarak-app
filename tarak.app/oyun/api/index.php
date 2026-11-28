@@ -48,7 +48,7 @@ function supheli_mi(int $bolum, string $zorluk, bool $devam, string $sonuc, int 
         // En yüksek hız: 24 m/sn × turbo/jet çarpanları
         if ($mesafe > ($gecen + 4) * 55 * max(1.0, $carpan) + 100) return true;
         if ($tarak > $mesafe * 1.2 + 80) return true;
-        $durak = intdiv($mesafe, 350) + 1;
+        $durak = intdiv($mesafe, 200) + 2;   // gerçek caddede duraklar daha sık olabilir (en az 200 m)
         $bonus = $durak * 150 + 25 * $durak * ($durak - 1) + (int) ($mesafe / 8) * 25;
         return $skor > ($mesafe * 2 + $tarak * 10 + $bonus + 100) * $puan;
     }
@@ -157,9 +157,9 @@ try {
             $k = tm_satir('SELECT * FROM kosular WHERE id = ? AND oturum_id = ?', [sayi($v, 'kosuId'), $o['id']]);
             if (!$k || $k['bitis'] !== null) hata('Koşu bulunamadı', 404);
             $sonuc = in_array(metin($v, 'sonuc', 12), ['kazandi', 'kaybetti', 'cikti'], true) ? metin($v, 'sonuc', 12) : 'cikti';
-            // Sonsuz modda kazanma yoktur; 3D rotası ancak son durağa (en az ~1 km) ulaşınca tamamlanır
+            // Sonsuz modda kazanma yoktur; 3D rotası ancak son durağa ulaşınca tamamlanır (gerçek caddede rota caddenin boyu kadar)
             if ((int) $k['bolum'] === 0 && $sonuc === 'kazandi') $sonuc = 'cikti';
-            if ((int) $k['bolum'] >= TM_UC && $sonuc === 'kazandi' && sayi($v, 'mesafe') < 1000) $sonuc = 'cikti';
+            if ((int) $k['bolum'] >= TM_UC && $sonuc === 'kazandi' && sayi($v, 'mesafe') < 300) $sonuc = 'cikti';
             $skor = sayi($v, 'skor'); $tarak = sayi($v, 'tarak', 100000); $can = sayi($v, 'can', 99);
             $sure = isset($v['sure']) && is_numeric($v['sure']) ? max(0.0, min(86400.0, (float) $v['sure'])) : 0.0;
             $mesafe = sayi($v, 'mesafe');

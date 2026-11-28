@@ -88,6 +88,16 @@
       hedefMusteri: secenek.sinirsiz ? Infinity : rotaHedefi(rotaAl(secenek.rota)),
       _r: rastgele(secenek.tohum || ((Date.now() & 0x7fffffff) || 1)), _uretim: 34, _sira: 0, _durakSira: m.durak, _id: 0, _guvenli: 0
     };
+    // Gerçek cadde (OpenStreetMap verisi olan ilçe): rotanın tamamı o caddede geçer (otoyol/orman/in kesimleri yok),
+    // duraklar caddenin boyuna yayılır; son durak caddenin sonundadır, cadde tekrar etmez.
+    var g = secenek.gercek;
+    if (g && g.uzunluk > 0 && !secenek.sinirsiz) {
+      o.rotaT = Object.assign({}, o.rotaT, { dunyalar: ['sehir'], gercek: true });
+      var L = Math.max(320, g.uzunluk - 30);
+      o.hedefMusteri = Math.max(2, Math.min(o.hedefMusteri, Math.floor(L / 200)));
+      o._gercekAralik = L / o.hedefMusteri;
+      o._durakSira = o._gercekAralik;
+    }
     uret(o);
     return o;
   }
@@ -249,7 +259,7 @@
         o.duraklar.push({ no: no, s: o._durakSira, ad: musteriAdi(o, no), hizmet: hizmetAdi(o, no), gecildi: false, son: no + 1 >= o.hedefMusteri });
         tarakDizisi(o, 0, o._durakSira - 14, 8, 0.7);
         o._uretim = o._durakSira + 24;
-        o._durakSira += o.ayar.durak + no * 40;
+        o._durakSira += o._gercekAralik || (o.ayar.durak + no * 40);
         continue;
       }
       var uz = satirUret(o, s);

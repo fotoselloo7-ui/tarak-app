@@ -24,6 +24,9 @@
 
   function baslat(mod, gucler, hizCarpani, rota) {
     gucler = gucler || {}; gucler.rota = rota; gucler.kadin = kadinMod;
+    // İlçenin gerçek caddesi yüklendiyse rota baştan sona o caddede kurulur
+    var rt = U.ROTALAR[U.rotaAl(rota) - 1], gv = rt && window.TarakCadde ? window.TarakCadde.hazir(rt.plaka, rt.sira) : null;
+    if (gv && gv.uzunluk) gucler.gercek = { uzunluk: gv.uzunluk };
     var o = U.yeniOyun(mod, gucler);
     o.uc = true; o.hizCarpani = (hizCarpani || 1) * o.rotaT.hiz;
     o.bildirildi = false; o.islendi = false;
