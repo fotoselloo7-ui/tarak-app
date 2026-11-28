@@ -1,0 +1,24 @@
+# Randevuya Koş oyunu (tarak.app/oyun/). Üst klasördeki site .htaccess'i gerçek dosyaları olduğu gibi sunar.
+DirectoryIndex index.html index.php
+Options -Indexes
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^(inc|data)(/|$) - [F,L]
+</IfModule>
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  # Oyun dosyalarının adları sürümle değişmez: her açılışta tarayıcı yeni sürümü sorsun (site 1 yıl önbellek veriyor)
+  <FilesMatch "\.(html|js|css|json|webmanifest)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
+<IfModule mod_expires.c>
+  ExpiresByType application/javascript "access plus 0 seconds"
+  ExpiresByType text/javascript "access plus 0 seconds"
+  ExpiresByType text/css "access plus 0 seconds"
+  ExpiresByType application/json "access plus 0 seconds"
+</IfModule>
+AddType application/manifest+json .webmanifest
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript image/svg+xml application/json
+</IfModule>

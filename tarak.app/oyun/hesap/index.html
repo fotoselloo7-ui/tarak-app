@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Oyun hesabım · Tarak</title>
+<link rel="icon" href="/favicon.ico">
+<style>
+  :root { --zemin:#f8fafc; --kart:#fff; --cizgi:#e2e8f0; --yazi:#0f172a; --soluk:#64748b; --ana:#ff5722; --sari:#ffc21a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--zemin); color: var(--yazi); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { background: #0f172a; color: #fff; padding: 14px 20px; display: flex; align-items: center; gap: 12px; }
+  header a.logo { color: #fff; font-weight: 800; text-decoration: none; font-size: 18px; }
+  header nav { margin-left: auto; display: flex; gap: 14px; font-size: 14px; }
+  header nav a { color: #cbd5e1; }
+  main { max-width: 860px; margin: 0 auto; padding: 20px; display: grid; gap: 18px; }
+  section { background: var(--kart); border: 1px solid var(--cizgi); border-radius: 14px; padding: 18px; }
+  h1 { font-size: 22px; margin: 0; } h2 { font-size: 16px; margin: 0 0 12px; }
+  .vitrin { background: #0f172a; color: #fff; border: 0; }
+  .vitrin p { color: #cbd5e1; margin: 6px 0 14px; }
+  .dugme { display: inline-block; padding: 11px 18px; border-radius: 11px; border: 0; background: var(--ana); color: #fff; font-weight: 700; font: inherit; font-weight: 700; cursor: pointer; text-decoration: none; }
+  .dugme.sari { background: var(--sari); color: #111; } .dugme.cizgili { background: #fff; color: var(--yazi); border: 1px solid #cbd5e1; }
+  .kupon { border: 1px solid var(--cizgi); border-radius: 12px; padding: 14px; margin-bottom: 10px; }
+  .kupon .ust { display: flex; justify-content: space-between; gap: 10px; font-weight: 700; }
+  .kod { font: 900 22px/1.3 ui-monospace, Consolas, monospace; letter-spacing: 1.5px; margin: 6px 0; user-select: all; }
+  .soluk { color: var(--soluk); font-size: 13px; }
+  .gecerli { color: #15803d; } .kullanildi { color: var(--soluk); } .dolan { color: #b91c1c; }
+  .sayilar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .sayi { border: 1px solid var(--cizgi); border-radius: 12px; padding: 12px; text-align: center; }
+  .sayi b { display: block; font-size: 24px; font-variant-numeric: tabular-nums; }
+  label { display: block; font-size: 13px; color: var(--soluk); margin: 12px 0 4px; }
+  select, input[type=text], input[type=number] { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font: inherit; background: #fff; }
+  .satir { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .secim { display: flex; gap: 6px; flex-wrap: wrap; }
+  .secim label { margin: 0; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 999px; color: var(--yazi); cursor: pointer; font-size: 14px; }
+  .secim input { margin-right: 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; } td, th { padding: 7px 4px; border-bottom: 1px solid var(--cizgi); text-align: left; } td.n { text-align: right; font-variant-numeric: tabular-nums; }
+  #mesaj { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: #0f172a; color: #fff; padding: 10px 16px; border-radius: 10px; display: none; max-width: 90vw; }
+  .gizli { display: none !important; }
+</style>
+</head>
+<body>
+<header><a class="logo" href="/">tarak</a><span>· Randevuya Koş</span><nav><a href="/oyun/">Oyunu aç</a><a href="/">tarak.app</a></nav></header>
+<main>
+  <section class="vitrin">
+    <h1>Oyun oyna, bedava tıraş kazan ✂️</h1>
+    <p>Randevuya Koş’ta zor yerlerdeki hediye parçalarını topla. Parçalar tamamlanınca bölgendeki sponsor işletmeden gerçek bir hizmet kuponu kazanırsın: yılda bir kez, 30 gün geçerli.</p>
+    <a class="dugme sari" href="/oyun/">🎮 Oyunu aç</a>
+  </section>
+
+  <section id="giris-yok" class="gizli">
+    <h2>Hediyelerini görmek için giriş yap</h2>
+    <p class="soluk">Oyunda kazandığın kuponlar Tarak hesabına kaydedilir. İşletme hesabıyla giriş yaparsan “Oyuna Sponsor Ol” bölümünü görürsün.</p>
+    <a class="dugme" href="/">tarak.app’te giriş yap</a>
+  </section>
+
+  <!-- Müşteri -->
+  <section id="musteri" class="gizli">
+    <h2>Oyun hediyelerim</h2>
+    <div id="kuponlar"><p class="soluk">Yükleniyor…</p></div>
+  </section>
+
+  <!-- İşletme -->
+  <section id="isletme" class="gizli">
+    <h2>Oyuna Sponsor Ol</h2>
+    <p class="soluk">Logon, bölgendeki oyunculara hangi haritayı oynarlarsa oynasınlar tabela ve pano olarak görünür. Oyuncular hediye parçalarını tamamlayınca senin hizmetinden kupon kazanır ve randevu alarak sana gelir.</p>
+    <div class="sayilar">
+      <div class="sayi"><b id="s-gosterim">–</b><span class="soluk">Reklam görüldü</span></div>
+      <div class="sayi"><b id="s-30">–</b><span class="soluk">Son 30 gün</span></div>
+      <div class="sayi"><b id="s-kupon">–</b><span class="soluk">Kupon (kullanılan / toplam)</span></div>
+    </div>
+    <table id="haritalar" class="gizli" style="margin-top:12px"><thead><tr><th>Reklamının göründüğü harita</th><th style="text-align:right">Gösterim</th><th style="text-align:right">Oyuncu</th></tr></thead><tbody></tbody></table>
+    <form id="sponsor-form">
+      <label for="hizmet">Hediye edeceğin hizmet</label>
+      <select id="hizmet" required></select>
+      <p id="hizmet-yok" class="soluk gizli">Önce tarak.app panelindeki “Hizmetlerim” bölümünden hizmet ekle.</p>
+      <label>Kimlere</label>
+      <div class="secim"><label><input type="radio" name="kitle" value="erkek" checked>Berber (erkek)</label><label><input type="radio" name="kitle" value="kadin">Kuaför (kadın)</label><label><input type="radio" name="kitle" value="hepsi">İkisi</label></div>
+      <label>Bölge</label>
+      <div class="secim"><label><input type="radio" name="kapsam" value="district" checked>İlçemdeki oyuncular</label><label><input type="radio" name="kapsam" value="city">İlimdeki oyuncular</label></div>
+      <label for="kota">Aylık en fazla hediye</label>
+      <input id="kota" type="number" min="1" max="500" value="10">
+      <label><input id="aktif" type="checkbox" checked> Sponsorluk açık</label>
+      <div class="satir"><button class="dugme" type="submit">Kaydet</button></div>
+    </form>
+  </section>
+
+  <section id="dogrula-bolum" class="gizli">
+    <h2>Kupon doğrula</h2>
+    <label for="kod">Müşterinin kodu</label>
+    <input id="kod" type="text" placeholder="TRK-XXXX-XXXX" autocomplete="off" style="text-transform:uppercase">
+    <div class="satir"><button class="dugme cizgili" id="kontrol" type="button">Kontrol et</button><button class="dugme" id="kullan" type="button">Kullanıldı işaretle</button></div>
+    <h2 style="margin-top:18px">Oyun kuponların</h2>
+    <div id="isletme-kuponlar"><p class="soluk">Yükleniyor…</p></div>
+  </section>
+</main>
+<div id="mesaj" role="status"></div>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var jeton = null; try { jeton = localStorage.getItem('berberim_auth_token'); } catch (e) {}
+  function istek(yol, secenek) {
+    secenek = secenek || {};
+    secenek.headers = Object.assign({ Accept: 'application/json', 'Content-Type': 'application/json', Authorization: 'Bearer ' + jeton }, secenek.headers || {});
+    return fetch('/api' + yol, secenek).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) throw j; return j; }); });
+  }
+  function mesaj(m) { var e = $('mesaj'); e.textContent = m; e.style.display = 'block'; clearTimeout(mesaj.t); mesaj.t = setTimeout(function () { e.style.display = 'none'; }, 3500); }
+  function tarih(s) { var d = s ? new Date(String(s).replace(' ', 'T')) : null; return d && !isNaN(d) ? d.toLocaleDateString('tr-TR') : ''; }
+  function el(etiket, sinif, metin) { var e = document.createElement(etiket); if (sinif) e.className = sinif; if (metin != null) e.textContent = metin; return e; }
+  var DURUM = { active: ['Geçerli', 'gecerli'], used: ['Kullanıldı', 'kullanildi'], expired: ['Süresi doldu', 'dolan'] };
+
+  function kuponKarti(k, musteri) {
+    var d = DURUM[k.durum] || DURUM.active, kart = el('div', 'kupon'), ust = el('div', 'ust');
+    ust.appendChild(el('span', '', k.hizmet)); ust.appendChild(el('span', d[1], d[0])); kart.appendChild(ust);
+    kart.appendChild(el('div', 'kod', k.kod));
+    if (k.sponsor) kart.appendChild(el('div', 'soluk', k.sponsor.ad + ' · ' + (k.sponsor.ilce || k.sponsor.il || '')));
+    if (musteri) kart.appendChild(el('div', 'soluk', 'Müşteri: ' + musteri));
+    kart.appendChild(el('div', 'soluk', k.durum === 'used' ? 'Kullanma: ' + tarih(k.kullanildi) : 'Son gün: ' + tarih(k.son_tarih)));
+    return kart;
+  }
+  function listele(kap, l, bos, musteriAlani) {
+    kap.innerHTML = '';
+    if (!l.length) { kap.appendChild(el('p', 'soluk', bos)); return; }
+    l.forEach(function (k) { kap.appendChild(kuponKarti(k, musteriAlani ? k.musteri : null)); });
+  }
+
+  function musteri() {
+    $('musteri').classList.remove('gizli');
+    istek('/customer/game-coupons').then(function (j) { listele($('kuponlar'), j.data || [], 'Henüz oyundan kazanılmış bir hediyen yok. Oyunu aç, parçaları topla!'); })
+      .catch(function () { $('kuponlar').textContent = 'Hediyeler yüklenemedi.'; });
+  }
+
+  var sponsorlukId = null;
+  function isletmeYukle() {
+    istek('/provider/game-sponsorship').then(function (j) {
+      var d = j.data || {}, s = (d.sponsorluklar || [])[0], hiz = d.hizmetler || [], sec = $('hizmet');
+      sec.innerHTML = '';
+      var tum = hiz.slice(); if (s && tum.indexOf(s.service_name) < 0) tum.push(s.service_name);
+      tum.forEach(function (h) { var o = el('option', '', h); o.value = h; sec.appendChild(o); });
+      $('hizmet-yok').classList.toggle('gizli', tum.length > 0);
+      if (s) {
+        sponsorlukId = s.id; sec.value = s.service_name; $('kota').value = s.monthly_quota; $('aktif').checked = !!Number(s.is_active);
+        document.querySelector('input[name=kitle][value="' + s.audience + '"]').checked = true;
+        document.querySelector('input[name=kapsam][value="' + s.scope + '"]').checked = true;
+      }
+    }).catch(function () {});
+    istek('/provider/game-stats').then(function (j) {
+      var d = j.data || {};
+      $('s-gosterim').textContent = Number(d.toplam_gosterim || 0).toLocaleString('tr-TR');
+      $('s-30').textContent = Number(d.son_30_gun || 0).toLocaleString('tr-TR');
+      $('s-kupon').textContent = (d.kuponlar ? d.kuponlar.kullanilan + ' / ' + d.kuponlar.toplam : '0 / 0');
+      var tb = document.querySelector('#haritalar tbody'); tb.innerHTML = '';
+      (d.haritalar || []).forEach(function (h) { var tr = el('tr'); tr.appendChild(el('td', '', h.route || '–')); tr.appendChild(el('td', 'n', Number(h.gosterim).toLocaleString('tr-TR'))); tr.appendChild(el('td', 'n', Number(h.oyuncu).toLocaleString('tr-TR'))); tb.appendChild(tr); });
+      $('haritalar').classList.toggle('gizli', !(d.haritalar || []).length);
+    }).catch(function () {});
+    istek('/provider/game-coupons').then(function (j) { listele($('isletme-kuponlar'), j.data || [], 'Henüz kupon yok.', true); }).catch(function () {});
+  }
+  function isletme() {
+    $('isletme').classList.remove('gizli'); $('dogrula-bolum').classList.remove('gizli');
+    isletmeYukle();
+    $('sponsor-form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var govde = { service_name: $('hizmet').value, audience: document.querySelector('input[name=kitle]:checked').value,
+        scope: document.querySelector('input[name=kapsam]:checked').value, monthly_quota: Number($('kota').value) || 10, is_active: $('aktif').checked };
+      if (sponsorlukId) govde.id = sponsorlukId;
+      istek('/provider/game-sponsorship', { method: 'POST', body: JSON.stringify(govde) })
+        .then(function () { mesaj(govde.is_active ? 'Sponsorluğun kaydedildi. Logon bölgendeki oyunculara görünecek.' : 'Sponsorluk duraklatıldı.'); isletmeYukle(); })
+        .catch(function (j) { mesaj((j && j.message) || 'Kaydedilemedi.'); });
+    });
+    function dogrula(kullan) {
+      var kod = $('kod').value.trim().toUpperCase(); if (!kod) return;
+      istek('/provider/game-coupons/verify', { method: 'POST', body: JSON.stringify({ kod: kod, kullan: kullan }) })
+        .then(function (j) { var k = j.data; mesaj(kullan ? k.hizmet + ' kuponu kullanıldı olarak işaretlendi.' : 'Geçerli kupon: ' + k.hizmet + ' · son gün ' + tarih(k.son_tarih)); if (kullan) { $('kod').value = ''; isletmeYukle(); } })
+        .catch(function (j) { mesaj((j && j.message) || 'Kupon doğrulanamadı.'); });
+    }
+    $('kontrol').addEventListener('click', function () { dogrula(false); });
+    $('kullan').addEventListener('click', function () { dogrula(true); });
+  }
+
+  if (!jeton) { $('giris-yok').classList.remove('gizli'); return; }
+  istek('/auth/me').then(function (j) {
+    var rol = j.data && j.data.user && j.data.user.role;
+    if (rol === 'ADMIN') { location.replace('/oyun/yonetim/'); return; }
+    if (rol === 'PROVIDER') isletme(); else if (rol === 'CUSTOMER') musteri(); else $('giris-yok').classList.remove('gizli');
+  }).catch(function () { $('giris-yok').classList.remove('gizli'); });
+})();
+</script>
+</body>
+</html>

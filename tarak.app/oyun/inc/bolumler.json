@@ -1,0 +1,872 @@
+[
+  {
+    "id": 1,
+    "ad": "İlk Randevu",
+    "musteri": "Mehmet Bey",
+    "dunya": "Şehir Sokakları",
+    "modlar": {
+      "kolay": {
+        "hiz": 207,
+        "uzunluk": 8784,
+        "kontrol": 2621,
+        "tarak": 85,
+        "koli": 0
+      },
+      "orta": {
+        "hiz": 233,
+        "uzunluk": 10217,
+        "kontrol": 3013,
+        "tarak": 100,
+        "koli": 0
+      },
+      "zor": {
+        "hiz": 254,
+        "uzunluk": 11187,
+        "kontrol": 3437,
+        "tarak": 115,
+        "koli": 0
+      }
+    }
+  },
+  {
+    "id": 2,
+    "ad": "Çifte Zıplama",
+    "musteri": "Hasan Usta",
+    "dunya": "Şehir Sokakları",
+    "modlar": {
+      "kolay": {
+        "hiz": 216,
+        "uzunluk": 8911,
+        "kontrol": 3071,
+        "tarak": 68,
+        "koli": 0
+      },
+      "orta": {
+        "hiz": 243,
+        "uzunluk": 10579,
+        "kontrol": 3684,
+        "tarak": 83,
+        "koli": 0
+      },
+      "zor": {
+        "hiz": 265,
+        "uzunluk": 11385,
+        "kontrol": 3516,
+        "tarak": 93,
+        "koli": 0
+      }
+    }
+  },
+  {
+    "id": 3,
+    "ad": "Tabela Altı",
+    "musteri": "Emre Abi",
+    "dunya": "Şehir Sokakları",
+    "modlar": {
+      "kolay": {
+        "hiz": 220,
+        "uzunluk": 9562,
+        "kontrol": 2815,
+        "tarak": 100,
+        "koli": 0
+      },
+      "orta": {
+        "hiz": 248,
+        "uzunluk": 11299,
+        "kontrol": 3224,
+        "tarak": 120,
+        "koli": 0
+      },
+      "zor": {
+        "hiz": 270,
+        "uzunluk": 11974,
+        "kontrol": 3480,
+        "tarak": 129,
+        "koli": 0
+      }
+    }
+  },
+  {
+    "id": 4,
+    "ad": "Yol Çalışması",
+    "musteri": "Burak Bey",
+    "dunya": "Otoyol",
+    "modlar": {
+      "kolay": {
+        "hiz": 233,
+        "uzunluk": 9985,
+        "kontrol": 3447,
+        "tarak": 84,
+        "koli": 0
+      },
+      "orta": {
+        "hiz": 262,
+        "uzunluk": 12109,
+        "kontrol": 3851,
+        "tarak": 103,
+        "koli": 0
+      },
+      "zor": {
+        "hiz": 286,
+        "uzunluk": 13171,
+        "kontrol": 4433,
+        "tarak": 113,
+        "koli": 0
+      }
+    }
+  },
+  {
+    "id": 5,
+    "ad": "Uzun Tünel",
+    "musteri": "Kemal Amca",
+    "dunya": "Otoyol",
+    "modlar": {
+      "kolay": {
+        "hiz": 238,
+        "uzunluk": 10766,
+        "kontrol": 3974,
+        "tarak": 96,
+        "koli": 0
+      },
+      "orta": {
+        "hiz": 267,
+        "uzunluk": 13388,
+        "kontrol": 4596,
+        "tarak": 120,
+        "koli": 0
+      },
+      "zor": {
+        "hiz": 292,
+        "uzunluk": 14286,
+        "kontrol": 5119,
+        "tarak": 132,
+        "koli": 0
+      }
+    }
+  },
+  {
+    "id": 6,
+    "ad": "Kaçak Lastik",
+    "musteri": "Onur Bey",
+    "dunya": "Otoyol",
+    "modlar": {
+      "kolay": {
+        "hiz": 246,
+        "uzunluk": 13191,
+        "kontrol": 3546,
+        "tarak": 123,
+        "koli": 6
+      },
+      "orta": {
+        "hiz": 277,
+        "uzunluk": 15539,
+        "kontrol": 4304,
+        "tarak": 152,
+        "koli": 6
+      },
+      "zor": {
+        "hiz": 302,
+        "uzunluk": 17172,
+        "kontrol": 4644,
+        "tarak": 174,
+        "koli": 6
+      }
+    }
+  },
+  {
+    "id": 7,
+    "ad": "Patikaya Giriş",
+    "musteri": "Orman Bekçisi",
+    "dunya": "Orman Patikası",
+    "modlar": {
+      "kolay": {
+        "hiz": 251,
+        "uzunluk": 12127,
+        "kontrol": 3550,
+        "tarak": 97,
+        "koli": 0
+      },
+      "orta": {
+        "hiz": 282,
+        "uzunluk": 14544,
+        "kontrol": 4347,
+        "tarak": 114,
+        "koli": 0
+      },
+      "zor": {
+        "hiz": 308,
+        "uzunluk": 16575,
+        "kontrol": 5162,
+        "tarak": 128,
+        "koli": 0
+      }
+    }
+  },
+  {
+    "id": 8,
+    "ad": "Sık Ağaçlar",
+    "musteri": "Kampçı Can",
+    "dunya": "Orman Patikası",
+    "modlar": {
+      "kolay": {
+        "hiz": 260,
+        "uzunluk": 17685,
+        "kontrol": 6845,
+        "tarak": 179,
+        "koli": 1
+      },
+      "orta": {
+        "hiz": 292,
+        "uzunluk": 23215,
+        "kontrol": 7933,
+        "tarak": 228,
+        "koli": 1
+      },
+      "zor": {
+        "hiz": 319,
+        "uzunluk": 26539,
+        "kontrol": 8422,
+        "tarak": 263,
+        "koli": 1
+      }
+    }
+  },
+  {
+    "id": 9,
+    "ad": "Dere Boyu",
+    "musteri": "Balıkçı Rıza",
+    "dunya": "Orman Patikası",
+    "modlar": {
+      "kolay": {
+        "hiz": 268,
+        "uzunluk": 15439,
+        "kontrol": 4668,
+        "tarak": 121,
+        "koli": 0
+      },
+      "orta": {
+        "hiz": 302,
+        "uzunluk": 19052,
+        "kontrol": 5793,
+        "tarak": 154,
+        "koli": 0
+      },
+      "zor": {
+        "hiz": 329,
+        "uzunluk": 21113,
+        "kontrol": 6883,
+        "tarak": 176,
+        "koli": 0
+      }
+    }
+  },
+  {
+    "id": 10,
+    "ad": "İz Peşinde",
+    "musteri": "Avcı Selim",
+    "dunya": "Aslanın İni",
+    "modlar": {
+      "kolay": {
+        "hiz": 277,
+        "uzunluk": 19130,
+        "kontrol": 7174,
+        "tarak": 172,
+        "koli": 2
+      },
+      "orta": {
+        "hiz": 312,
+        "uzunluk": 23283,
+        "kontrol": 8587,
+        "tarak": 210,
+        "koli": 4
+      },
+      "zor": {
+        "hiz": 340,
+        "uzunluk": 26157,
+        "kontrol": 8965,
+        "tarak": 246,
+        "koli": 4
+      }
+    }
+  },
+  {
+    "id": 11,
+    "ad": "Kükreme Vadisi",
+    "musteri": "Bakıcı Ayşe",
+    "dunya": "Aslanın İni",
+    "modlar": {
+      "kolay": {
+        "hiz": 286,
+        "uzunluk": 20543,
+        "kontrol": 6256,
+        "tarak": 171,
+        "koli": 0
+      },
+      "orta": {
+        "hiz": 322,
+        "uzunluk": 25783,
+        "kontrol": 8077,
+        "tarak": 217,
+        "koli": 0
+      },
+      "zor": {
+        "hiz": 351,
+        "uzunluk": 29902,
+        "kontrol": 9018,
+        "tarak": 245,
+        "koli": 0
+      }
+    }
+  },
+  {
+    "id": 12,
+    "ad": "Kralın Huzurunda",
+    "musteri": "Aslan Kral",
+    "dunya": "Aslanın İni",
+    "modlar": {
+      "kolay": {
+        "hiz": 295,
+        "uzunluk": 25715,
+        "kontrol": 7474,
+        "tarak": 220,
+        "koli": 5
+      },
+      "orta": {
+        "hiz": 332,
+        "uzunluk": 30754,
+        "kontrol": 9132,
+        "tarak": 258,
+        "koli": 5
+      },
+      "zor": {
+        "hiz": 362,
+        "uzunluk": 36329,
+        "kontrol": 10068,
+        "tarak": 305,
+        "koli": 5
+      }
+    }
+  },
+  {
+    "id": 13,
+    "ad": "Akşam Mesaisi",
+    "musteri": "Kuaför Selin",
+    "dunya": "Şehir Sokakları",
+    "modlar": {
+      "kolay": {
+        "hiz": 300,
+        "uzunluk": 18454,
+        "kontrol": 6586,
+        "tarak": 150,
+        "koli": 3
+      },
+      "orta": {
+        "hiz": 338,
+        "uzunluk": 22105,
+        "kontrol": 7868,
+        "tarak": 184,
+        "koli": 4
+      },
+      "zor": {
+        "hiz": 368,
+        "uzunluk": 24168,
+        "kontrol": 8667,
+        "tarak": 200,
+        "koli": 4
+      }
+    }
+  },
+  {
+    "id": 14,
+    "ad": "Gece Vardiyası",
+    "musteri": "Fırıncı Yusuf",
+    "dunya": "Şehir Sokakları",
+    "modlar": {
+      "kolay": {
+        "hiz": 303,
+        "uzunluk": 20163,
+        "kontrol": 7208,
+        "tarak": 176,
+        "koli": 1
+      },
+      "orta": {
+        "hiz": 341,
+        "uzunluk": 25363,
+        "kontrol": 8930,
+        "tarak": 215,
+        "koli": 1
+      },
+      "zor": {
+        "hiz": 372,
+        "uzunluk": 28426,
+        "kontrol": 9762,
+        "tarak": 249,
+        "koli": 1
+      }
+    }
+  },
+  {
+    "id": 15,
+    "ad": "Erken Kalkan",
+    "musteri": "Esnaf Cemil",
+    "dunya": "Şehir Sokakları",
+    "modlar": {
+      "kolay": {
+        "hiz": 305,
+        "uzunluk": 20794,
+        "kontrol": 6832,
+        "tarak": 182,
+        "koli": 3
+      },
+      "orta": {
+        "hiz": 344,
+        "uzunluk": 27015,
+        "kontrol": 9408,
+        "tarak": 231,
+        "koli": 4
+      },
+      "zor": {
+        "hiz": 375,
+        "uzunluk": 30045,
+        "kontrol": 10255,
+        "tarak": 259,
+        "koli": 5
+      }
+    }
+  },
+  {
+    "id": 16,
+    "ad": "Gün Batımı Otoyolu",
+    "musteri": "Kamyoncu Rıfat",
+    "dunya": "Otoyol",
+    "modlar": {
+      "kolay": {
+        "hiz": 308,
+        "uzunluk": 20598,
+        "kontrol": 6219,
+        "tarak": 166,
+        "koli": 1
+      },
+      "orta": {
+        "hiz": 347,
+        "uzunluk": 24732,
+        "kontrol": 7167,
+        "tarak": 192,
+        "koli": 2
+      },
+      "zor": {
+        "hiz": 378,
+        "uzunluk": 28841,
+        "kontrol": 8305,
+        "tarak": 223,
+        "koli": 2
+      }
+    }
+  },
+  {
+    "id": 17,
+    "ad": "Gece Otoyolu",
+    "musteri": "Taksici Murat",
+    "dunya": "Otoyol",
+    "modlar": {
+      "kolay": {
+        "hiz": 311,
+        "uzunluk": 23942,
+        "kontrol": 7945,
+        "tarak": 212,
+        "koli": 1
+      },
+      "orta": {
+        "hiz": 349,
+        "uzunluk": 29958,
+        "kontrol": 9388,
+        "tarak": 247,
+        "koli": 2
+      },
+      "zor": {
+        "hiz": 381,
+        "uzunluk": 32576,
+        "kontrol": 11010,
+        "tarak": 261,
+        "koli": 3
+      }
+    }
+  },
+  {
+    "id": 18,
+    "ad": "Sabah Trafiği",
+    "musteri": "Kurye Deniz",
+    "dunya": "Otoyol",
+    "modlar": {
+      "kolay": {
+        "hiz": 313,
+        "uzunluk": 23862,
+        "kontrol": 7581,
+        "tarak": 198,
+        "koli": 1
+      },
+      "orta": {
+        "hiz": 352,
+        "uzunluk": 30304,
+        "kontrol": 9830,
+        "tarak": 251,
+        "koli": 1
+      },
+      "zor": {
+        "hiz": 384,
+        "uzunluk": 34236,
+        "kontrol": 10887,
+        "tarak": 270,
+        "koli": 1
+      }
+    }
+  },
+  {
+    "id": 19,
+    "ad": "Çiğli Patika",
+    "musteri": "Kampçı Elif",
+    "dunya": "Orman Patikası",
+    "modlar": {
+      "kolay": {
+        "hiz": 316,
+        "uzunluk": 25489,
+        "kontrol": 7098,
+        "tarak": 212,
+        "koli": 2
+      },
+      "orta": {
+        "hiz": 355,
+        "uzunluk": 31679,
+        "kontrol": 9530,
+        "tarak": 257,
+        "koli": 3
+      },
+      "zor": {
+        "hiz": 388,
+        "uzunluk": 34597,
+        "kontrol": 10470,
+        "tarak": 275,
+        "koli": 3
+      }
+    }
+  },
+  {
+    "id": 20,
+    "ad": "Akşam Ormanı",
+    "musteri": "Oduncu Hüseyin",
+    "dunya": "Orman Patikası",
+    "modlar": {
+      "kolay": {
+        "hiz": 319,
+        "uzunluk": 22577,
+        "kontrol": 6985,
+        "tarak": 181,
+        "koli": 2
+      },
+      "orta": {
+        "hiz": 358,
+        "uzunluk": 27815,
+        "kontrol": 8532,
+        "tarak": 225,
+        "koli": 3
+      },
+      "zor": {
+        "hiz": 391,
+        "uzunluk": 31751,
+        "kontrol": 9590,
+        "tarak": 252,
+        "koli": 3
+      }
+    }
+  },
+  {
+    "id": 21,
+    "ad": "Gece Patikası",
+    "musteri": "Bekçi Ramazan",
+    "dunya": "Orman Patikası",
+    "modlar": {
+      "kolay": {
+        "hiz": 321,
+        "uzunluk": 24847,
+        "kontrol": 8949,
+        "tarak": 206,
+        "koli": 1
+      },
+      "orta": {
+        "hiz": 361,
+        "uzunluk": 30788,
+        "kontrol": 10751,
+        "tarak": 254,
+        "koli": 2
+      },
+      "zor": {
+        "hiz": 394,
+        "uzunluk": 35244,
+        "kontrol": 12516,
+        "tarak": 284,
+        "koli": 2
+      }
+    }
+  },
+  {
+    "id": 22,
+    "ad": "Şafak Vadisi",
+    "musteri": "Fotoğrafçı Arda",
+    "dunya": "Aslanın İni",
+    "modlar": {
+      "kolay": {
+        "hiz": 324,
+        "uzunluk": 25922,
+        "kontrol": 8608,
+        "tarak": 207,
+        "koli": 2
+      },
+      "orta": {
+        "hiz": 364,
+        "uzunluk": 33314,
+        "kontrol": 10067,
+        "tarak": 259,
+        "koli": 3
+      },
+      "zor": {
+        "hiz": 397,
+        "uzunluk": 37540,
+        "kontrol": 12115,
+        "tarak": 298,
+        "koli": 4
+      }
+    }
+  },
+  {
+    "id": 23,
+    "ad": "Ay Işığında",
+    "musteri": "Rehber Zeynep",
+    "dunya": "Aslanın İni",
+    "modlar": {
+      "kolay": {
+        "hiz": 326,
+        "uzunluk": 26389,
+        "kontrol": 8023,
+        "tarak": 208,
+        "koli": 3
+      },
+      "orta": {
+        "hiz": 367,
+        "uzunluk": 32255,
+        "kontrol": 9578,
+        "tarak": 252,
+        "koli": 3
+      },
+      "zor": {
+        "hiz": 401,
+        "uzunluk": 34928,
+        "kontrol": 10053,
+        "tarak": 275,
+        "koli": 5
+      }
+    }
+  },
+  {
+    "id": 24,
+    "ad": "Kızıl Savana",
+    "musteri": "Veteriner Ece",
+    "dunya": "Aslanın İni",
+    "modlar": {
+      "kolay": {
+        "hiz": 329,
+        "uzunluk": 28034,
+        "kontrol": 8439,
+        "tarak": 230,
+        "koli": 4
+      },
+      "orta": {
+        "hiz": 370,
+        "uzunluk": 34282,
+        "kontrol": 10961,
+        "tarak": 275,
+        "koli": 4
+      },
+      "zor": {
+        "hiz": 404,
+        "uzunluk": 39426,
+        "kontrol": 12173,
+        "tarak": 305,
+        "koli": 4
+      }
+    }
+  },
+  {
+    "id": 25,
+    "ad": "Neon Sokaklar",
+    "musteri": "Berber Kemal",
+    "dunya": "Şehir Sokakları",
+    "modlar": {
+      "kolay": {
+        "hiz": 332,
+        "uzunluk": 29018,
+        "kontrol": 8600,
+        "tarak": 250,
+        "koli": 3
+      },
+      "orta": {
+        "hiz": 373,
+        "uzunluk": 36179,
+        "kontrol": 10236,
+        "tarak": 302,
+        "koli": 3
+      },
+      "zor": {
+        "hiz": 407,
+        "uzunluk": 41303,
+        "kontrol": 11023,
+        "tarak": 347,
+        "koli": 4
+      }
+    }
+  },
+  {
+    "id": 26,
+    "ad": "Gece Yarısı Sürüşü",
+    "musteri": "Tır Şoförü Ali",
+    "dunya": "Otoyol",
+    "modlar": {
+      "kolay": {
+        "hiz": 334,
+        "uzunluk": 26955,
+        "kontrol": 9062,
+        "tarak": 219,
+        "koli": 1
+      },
+      "orta": {
+        "hiz": 376,
+        "uzunluk": 34190,
+        "kontrol": 11435,
+        "tarak": 277,
+        "koli": 2
+      },
+      "zor": {
+        "hiz": 410,
+        "uzunluk": 37787,
+        "kontrol": 12833,
+        "tarak": 312,
+        "koli": 4
+      }
+    }
+  },
+  {
+    "id": 27,
+    "ad": "Karanlık Orman",
+    "musteri": "Avcı Selim",
+    "dunya": "Orman Patikası",
+    "modlar": {
+      "kolay": {
+        "hiz": 337,
+        "uzunluk": 29339,
+        "kontrol": 9479,
+        "tarak": 243,
+        "koli": 4
+      },
+      "orta": {
+        "hiz": 379,
+        "uzunluk": 36769,
+        "kontrol": 12524,
+        "tarak": 297,
+        "koli": 5
+      },
+      "zor": {
+        "hiz": 414,
+        "uzunluk": 44092,
+        "kontrol": 13825,
+        "tarak": 344,
+        "koli": 5
+      }
+    }
+  },
+  {
+    "id": 28,
+    "ad": "Kükreyen Gece",
+    "musteri": "Bakıcı Ayşe",
+    "dunya": "Aslanın İni",
+    "modlar": {
+      "kolay": {
+        "hiz": 340,
+        "uzunluk": 30203,
+        "kontrol": 9684,
+        "tarak": 237,
+        "koli": 3
+      },
+      "orta": {
+        "hiz": 382,
+        "uzunluk": 36394,
+        "kontrol": 11103,
+        "tarak": 294,
+        "koli": 4
+      },
+      "zor": {
+        "hiz": 417,
+        "uzunluk": 42421,
+        "kontrol": 12593,
+        "tarak": 335,
+        "koli": 4
+      }
+    }
+  },
+  {
+    "id": 29,
+    "ad": "Kraliçenin Ormanı",
+    "musteri": "Kraliçe Aslan",
+    "dunya": "Orman Patikası",
+    "modlar": {
+      "kolay": {
+        "hiz": 342,
+        "uzunluk": 29119,
+        "kontrol": 9527,
+        "tarak": 227,
+        "koli": 4
+      },
+      "orta": {
+        "hiz": 385,
+        "uzunluk": 37156,
+        "kontrol": 11344,
+        "tarak": 286,
+        "koli": 6
+      },
+      "zor": {
+        "hiz": 420,
+        "uzunluk": 40626,
+        "kontrol": 12047,
+        "tarak": 320,
+        "koli": 7
+      }
+    }
+  },
+  {
+    "id": 30,
+    "ad": "Kralın Taç Töreni",
+    "musteri": "Aslan Kral",
+    "dunya": "Aslanın İni",
+    "modlar": {
+      "kolay": {
+        "hiz": 345,
+        "uzunluk": 30581,
+        "kontrol": 8373,
+        "tarak": 234,
+        "koli": 6
+      },
+      "orta": {
+        "hiz": 388,
+        "uzunluk": 39065,
+        "kontrol": 9973,
+        "tarak": 299,
+        "koli": 8
+      },
+      "zor": {
+        "hiz": 423,
+        "uzunluk": 44330,
+        "kontrol": 12507,
+        "tarak": 345,
+        "koli": 8
+      }
+    }
+  }
+]

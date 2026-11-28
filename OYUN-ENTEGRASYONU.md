@@ -1,7 +1,18 @@
 # "Randevuya Koş" oyunu entegrasyonu
 
-Oyun ayrı bir projedir (oyun sunucusu: PHP, kendi veritabanı). Tarak tek doğruluk kaynağıdır:
-hesap, sponsor işletmeler ve kuponlar Tarak'ta tutulur.
+Oyun tarak.app'in parçasıdır; mağazalarda ayrı bir oyun uygulaması olarak yayınlanır.
+
+| Yer | Ne |
+|---|---|
+| `tarak.app/oyun/` | yayındaki oyun: istemci (2D/3D), oyun API'si (`api/`), oyun yönetim paneli (`admin/`) |
+| `tarak.app/oyun/hesap/` | müşteri: Oyun hediyelerim · işletme: Oyuna Sponsor Ol (sitenin oturumuyla) |
+| `tarak.app/oyun/yonetim/` | Tarak yöneticisi: indirme linkleri, oyun istatistikleri |
+| `tarak.app/oyun/site-baglanti.js` | sitenin her sayfasında rolüne göre "🎮 Oyun" bağlantısı (index.html'e eklenir) |
+| `tarak-backend/` | Tarak ile giriş, sponsorluk, kupon uçları (`GameController`) |
+| `tarak-backend/oyun/` | oyun araçları (OSM harita verisi), testler, Android paketi, belgeler |
+
+Oyun sunucusu kendi küçük veritabanını (`tarak.app/oyun/data/`, web'e kapalı) skor ve hile denetimi için tutar.
+Tarak tek doğruluk kaynağıdır: hesap, sponsor işletmeler ve kuponlar Tarak'ta tutulur.
 
 ## Akış
 
@@ -52,9 +63,9 @@ ve aynı `GAME_SERVER_KEY`. Boş bırakılırsa oyun kendi kuponunu üretir (esk
 
 - Mobil (Flutter): `lib/features/game/game_screens.dart` — müşteri profili › **Oyun Hediyelerim**,
   işletme profili › **Oyuna Sponsor Ol**.
-- Web yönetici: `tarak.app/oyun-yonetim/` (yönetici oturumuyla; indirme linkleri ve istatistik).
-  Web sitesinin React kaynağı bu depoda olmadığı için müşteri/işletme web panellerine ekran eklenmedi;
-  kaynak eklendiğinde aynı uçlar kullanılır.
+- Web: `tarak.app/oyun/hesap/` (müşteri ve işletme), `tarak.app/oyun/yonetim/` (yönetici), sitenin her sayfasında
+  `site-baglanti.js` ile rol bazlı bağlantı. Sitenin React kaynağı bu depoda olmadığından bu sayfalar ayrı ama
+  aynı oturumu (`berberim_auth_token`) kullanır; kaynak eklendiğinde panellere taşınabilir.
 
 ## Testler
 
