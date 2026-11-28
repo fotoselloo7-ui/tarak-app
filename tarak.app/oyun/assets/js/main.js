@@ -195,7 +195,12 @@
   var onayBekleyen = null;
   function rotalarCiz() {
     // Seçili ilin gerçek cadde verisi önceden yüklenir (Yola Çık'ta beklenmesin)
-    if (seciliIl && window.TarakCadde) window.TarakCadde.yukle(seciliIl, function () {});
+    // Veri gelince liste bir kez yenilenir: gerçek caddesi olan ilçeler işaretlenir
+    var CDv = window.TarakCadde;
+    if (seciliIl && CDv && CDv.hazir(seciliIl, 0) === undefined) {
+      var bekIl = seciliIl;
+      CDv.yukle(bekIl, function () { if (aktifEkran === 'rotalar' && seciliIl === bekIl) rotalarCiz(); });
+    }
     var l = $('#rota-liste'); l.innerHTML = '';
     rotaKuyruk = [];
     var h = haritaDurum(), hedef = null;
@@ -257,6 +262,11 @@
         b.querySelector('.ilce-no').textContent = bitti ? '✓' : (r.sira + 1);
         b.querySelector('b').textContent = r.ilce;
         b.querySelector('small').textContent = rotaIkon(r) + ' · ' + U.rotaHedefi(no) + ' müşteri';
+        var gv = CDv && CDv.hazir(r.plaka, r.sira);
+        if (gv) {   // OpenStreetMap'ten gerçek caddesi, sokakları ve dükkânları olan ilçe
+          var gi = document.createElement('span'); gi.className = 'gercek-rozet'; gi.textContent = '📍 Gerçek cadde: ' + gv.cadde;
+          b.querySelector('.ilce-govde').appendChild(gi);
+        }
         b.querySelector('.ilce-durum').textContent = bitti ? 'Tamam' : acik ? (rk ? rk + '/' + U.rotaHedefi(no) : 'Koş →') : onayBekleyen === 'ilce' + no ? 'Dokun: ' + ILCE_FIYAT + ' 🪮' : '🔒 ' + ILCE_FIYAT;
         b.addEventListener('click', function () {
           Ses.cal('tik');
@@ -1434,7 +1444,7 @@
 
   // ---------- Başlat ----------
   // Hangi sürümün oynandığını görmek için (her yayında artırılır)
-  var SURUM = 'Sürüm 17 · 10 yeni tam vücutlu karakter, açılış ekranı';
+  var SURUM = 'Sürüm 17.1 · ilçe listesinde gerçek cadde işareti';
   $('#surum').textContent = SURUM;
   boyutla(); sesYazisi(); isimYazisi(); cuzdanYaz();
   if (!ucVar) $('#btn-3d').classList.add('gizli');

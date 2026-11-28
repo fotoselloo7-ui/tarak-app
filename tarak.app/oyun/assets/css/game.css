@@ -448,3 +448,4 @@ body.kadin .karakter-sec.secili{border-color:#ff7eb3}
 .acilis-kadro img{width:25%;margin:0 -5.2%}
 .acilis-kadro img:nth-child(odd){width:22%}
 .acilis-kadro img.orta{width:36%}
+.gercek-rozet{display:block;margin-top:3px;font-size:11px;font-weight:800;color:#7ee2a8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}

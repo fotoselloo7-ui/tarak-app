@@ -12,7 +12,7 @@ const path = require('path');
 const HAM = path.join(__dirname, 'osm-ham');
 const ESYA = path.join(HAM, 'esya');
 fs.mkdirSync(ESYA, { recursive: true });
-const SUNUCULAR = ['https://overpass.private.coffee/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter', 'https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+const SUNUCULAR = ['https://maps.mail.ru/osm/tools/overpass/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
 const uyu = ms => new Promise(r => setTimeout(r, ms));
 
 function sorgu(idler) {
@@ -37,11 +37,20 @@ out tags qt;`;
 }
 
 async function cek(idler, deneme = 0) {
-  const r = await fetch(SUNUCULAR[deneme % SUNUCULAR.length], {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'tarak-oyun-harita/1.0 (oyun haritasi)' },
-    body: 'data=' + encodeURIComponent(sorgu(idler))
-  });
+  let r;
+  try {
+    r = await fetch(SUNUCULAR[deneme % SUNUCULAR.length], {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'tarak-oyun-harita/1.0 (oyun haritasi)' },
+      body: 'data=' + encodeURIComponent(sorgu(idler)),
+      signal: AbortSignal.timeout(180000)
+    });
+  } catch (e) {
+    // Bağlantı koptu / zaman aşımı: sıradaki sunucuyla, artan beklemeyle yeniden dene
+    if (deneme > 5) throw e;
+    await uyu(8000 * (deneme + 1));
+    return cek(idler, deneme + 1);
+  }
   if ([429, 502, 503, 504].includes(r.status)) {
     if (deneme > 6) throw new Error('Overpass ' + r.status);
     await uyu(15000 * (deneme + 1));

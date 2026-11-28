@@ -10,7 +10,7 @@ const IL = require('../../../tarak.app/oyun/assets/js/iller.js');
 
 const HAM = path.join(__dirname, 'osm-ham');
 fs.mkdirSync(HAM, { recursive: true });
-const SUNUCULAR = ['https://overpass.private.coffee/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter', 'https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+const SUNUCULAR = ['https://maps.mail.ru/osm/tools/overpass/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
 const uyu = ms => new Promise(r => setTimeout(r, ms));
 
 function sorgu(il, ilce, yedek) {
@@ -48,7 +48,7 @@ async function cek(il, ilce, deneme = 0, yedek = false) {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'tarak-oyun-harita/1.0 (oyun haritasi)' },
       body: 'data=' + encodeURIComponent(sorgu(il, ilce, yedek)),
-      signal: AbortSignal.timeout(240000)
+      signal: AbortSignal.timeout(330000)
     });
   } catch (e) {
     // Bağlantı koptu / zaman aşımı: diğer sunucuyla, artan beklemeyle yeniden dene
