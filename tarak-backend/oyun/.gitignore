@@ -1,0 +1,6 @@
+# Oyun yayın dosyaları tarak.app/oyun altında; kök .gitignore yerel veriyi ve çıktıları dışarıda tutar
+android/cikti/
+dist/
+tools/osm-ham/
+*.log
+*.keystore

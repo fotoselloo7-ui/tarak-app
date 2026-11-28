@@ -70,6 +70,12 @@ return [
         'redirect_uri' => env('APPLE_REDIRECT_URI', ''),
     ],
 
+    // "Randevuya Koş" oyunu: oyun sunucusunun anahtarı ve "Tarak ile giriş" sonrası dönülebilecek adresler
+    'game' => [
+        'key' => env('GAME_SERVER_KEY', ''),
+        'return_urls' => array_values(array_filter(array_map('trim', explode(',', env('GAME_RETURN_URLS', 'https://tarak.app/oyun,https://mobil.tarak.app,tarakoyun://giris'))))),
+    ],
+
     'service_start' => [
         'ttl_minutes' => (int) env('SERVICE_START_CODE_TTL_MINUTES', 1440),
         'max_attempts' => (int) env('SERVICE_START_MAX_ATTEMPTS', 5),

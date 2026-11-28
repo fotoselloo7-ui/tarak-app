@@ -40,3 +40,12 @@
 /tarak-backend/storage/app/public/
 **/.phpunit*.cache
 **/*.sync-conflict-*
+# Randevuya Koş oyunu: yerel veri, yüklenen sponsor logoları, ham harita verisi, derleme çıktıları
+/tarak.app/oyun/data/*
+!/tarak.app/oyun/data/.htaccess
+/tarak.app/oyun/uploads/sponsor/*
+!/tarak.app/oyun/uploads/sponsor/.gitkeep
+/tarak-backend/oyun/tools/osm-ham/
+/tarak-backend/oyun/android/cikti/
+/tarak-backend/oyun/dist/
+/tarak-backend/oyun/**/*.log

@@ -477,3 +477,31 @@ Route::middleware(['auth:sanctum'])->prefix('push')->group(function () {
 Illuminate\Support\Facades\Broadcast::routes(['middleware' => ['auth:sanctum', 'throttle:60,1']]);
 
 
+
+/*
+|--------------------------------------------------------------------------
+| "Randevuya Koş" oyunu (Tarak ile giriş, sponsorlar, oyundan kazanılan kuponlar)
+|--------------------------------------------------------------------------
+*/
+Route::prefix('game')->group(function () {
+    Route::get('/giris', [App\Http\Controllers\Api\GameController::class, 'girisSayfasi'])->middleware('throttle:30,1');
+    Route::post('/giris', [App\Http\Controllers\Api\GameController::class, 'girisYap'])->middleware('throttle:8,1,game-login:');
+    Route::post('/kod', [App\Http\Controllers\Api\GameController::class, 'kodDegistir'])->middleware('throttle:60,1');
+    Route::get('/sponsorlar', [App\Http\Controllers\Api\GameController::class, 'sponsorlar'])->middleware('throttle:120,1');
+    Route::get('/linkler', [App\Http\Controllers\Api\GameController::class, 'linkler'])->middleware('throttle:120,1');
+    Route::post('/hediye', [App\Http\Controllers\Api\GameController::class, 'hediye'])->middleware('throttle:60,1');
+    Route::post('/gosterim', [App\Http\Controllers\Api\GameController::class, 'gosterim'])->middleware('throttle:120,1');
+});
+Route::middleware(['auth:sanctum', 'role:CUSTOMER'])->get('/customer/game-coupons', [App\Http\Controllers\Api\GameController::class, 'musteriKuponlari'])->middleware('throttle:60,1');
+Route::middleware(['auth:sanctum', 'role:PROVIDER'])->prefix('provider')->group(function () {
+    Route::get('/game-sponsorship', [App\Http\Controllers\Api\GameController::class, 'isletmeSponsorluk'])->middleware('throttle:60,1');
+    Route::post('/game-sponsorship', [App\Http\Controllers\Api\GameController::class, 'isletmeSponsorlukKaydet'])->middleware('throttle:20,1');
+    Route::get('/game-coupons', [App\Http\Controllers\Api\GameController::class, 'isletmeKuponlari'])->middleware('throttle:60,1');
+    Route::post('/game-coupons/verify', [App\Http\Controllers\Api\GameController::class, 'isletmeKuponDogrula'])->middleware('throttle:20,1');
+    Route::get('/game-stats', [App\Http\Controllers\Api\GameController::class, 'isletmeIstatistik'])->middleware('throttle:60,1');
+});
+Route::middleware(['auth:sanctum', 'role:ADMIN'])->prefix('admin/game')->group(function () {
+    Route::get('/settings', [App\Http\Controllers\Api\GameController::class, 'adminAyarlar']);
+    Route::put('/settings', [App\Http\Controllers\Api\GameController::class, 'adminAyarKaydet'])->middleware('throttle:20,1');
+    Route::get('/stats', [App\Http\Controllers\Api\GameController::class, 'adminIstatistik']);
+});
